@@ -3,7 +3,10 @@
  * Las apiKey de Firebase Web son identificadores públicos de la app.
  */
 
-export const API_URL = 'http://localhost:3001'
+/** Producción en Render; en `npm run dev` apunta al backend local. */
+export const API_URL = import.meta.env.DEV
+  ? 'http://localhost:3001'
+  : 'https://nodefex.onrender.com'
 
 export const nodefexFirebaseConfig = {
   apiKey: 'AIzaSyBXKcJQ-UJcEJWQBRazC2rk86clCaN8UGs',
