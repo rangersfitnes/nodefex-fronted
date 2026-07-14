@@ -1,3 +1,5 @@
+import { API_URL } from '../config'
+
 export type Proyecto = {
   id: string
   nombre: string
@@ -18,8 +20,6 @@ export type ProyectoUsuario = {
   activa: boolean
   timezone: string
 }
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 /** Proyectos con Firebase Auth externo gestionable desde el admin */
 export function proyectoSoportaUsuarios(proyectoId: string): boolean {

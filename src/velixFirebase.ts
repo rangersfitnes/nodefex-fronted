@@ -8,30 +8,16 @@ import {
   type Auth,
   type User,
 } from 'firebase/auth'
-
-const velixConfig = {
-  apiKey: import.meta.env.VITE_VELIX_FIREBASE_API_KEY,
-  authDomain:
-    import.meta.env.VITE_VELIX_FIREBASE_AUTH_DOMAIN || 'velix-b0ce3.firebaseapp.com',
-  projectId: import.meta.env.VITE_VELIX_FIREBASE_PROJECT_ID || 'velix-b0ce3',
-  storageBucket:
-    import.meta.env.VITE_VELIX_FIREBASE_STORAGE_BUCKET || 'velix-b0ce3.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_VELIX_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_VELIX_FIREBASE_APP_ID,
-}
+import { velixFirebaseConfig } from './config'
 
 let velixApp: FirebaseApp | null = null
 let velixAuth: Auth | null = null
 
 function getVelixAuth() {
-  if (!velixConfig.apiKey || !velixConfig.appId) {
-    throw new Error(
-      'Faltan VITE_VELIX_FIREBASE_API_KEY y VITE_VELIX_FIREBASE_APP_ID en nodefex-fronted/.env (Firebase Console → proyecto Velix → app Web). Guarda el .env y reinicia Vite.',
-    )
-  }
-
   if (!velixApp) {
-    velixApp = getApps().find((app) => app.name === 'velix') ?? initializeApp(velixConfig, 'velix')
+    velixApp =
+      getApps().find((app) => app.name === 'velix') ??
+      initializeApp(velixFirebaseConfig, 'velix')
     velixAuth = getAuth(velixApp)
   }
 
