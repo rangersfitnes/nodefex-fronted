@@ -1,0 +1,40 @@
+/**
+ * Pack de iconos del proyecto: Lucide (trazo limpio, estilo moderno).
+ * Uso: import { Mail, Lock } from '../icons'
+ * Catálogo completo: https://lucide.dev/icons
+ */
+export {
+  AlertCircle,
+  ArrowRight,
+  Bell,
+  Building2,
+  ChartColumn,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleHelp,
+  Cpu,
+  Eye,
+  EyeOff,
+  FileText,
+  Hexagon,
+  Home,
+  LayoutDashboard,
+  Link2,
+  LoaderCircle,
+  Lock,
+  LogIn,
+  LogOut,
+  Mail,
+  Menu,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  Settings,
+  Shield,
+  Trash2,
+  User,
+  Users,
+  X,
+} from 'lucide-react'
