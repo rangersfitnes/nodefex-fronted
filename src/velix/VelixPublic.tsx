@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { memo, useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   bootstrapVelixUser,
@@ -22,10 +22,8 @@ import {
   AlertCircle,
   Hexagon,
   LoaderCircle,
-  Lock,
   LogIn,
   LogOut,
-  Mail,
   Plus,
   Shield,
 } from '../icons'
@@ -96,6 +94,7 @@ type AuthPanelProps = {
   password: string
   authError: string
   authLoading: boolean
+  locked?: boolean
   onModeChange: (mode: 'login' | 'registro') => void
   onEmailChange: (value: string) => void
   onPasswordChange: (value: string) => void
@@ -132,27 +131,27 @@ function AuthPanel({
         </button>
       </div>
 
+      {/* Un solo hijo React por wrap: evita insertBefore con gestores de contraseña. */}
       <form className="modal-form" onSubmit={onSubmit} noValidate autoComplete="on">
         <label className="login-field" htmlFor="velix-email">
           Correo
           <span className="login-input-wrap">
-            <Mail className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
             <input
               id="velix-email"
               name="email"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
               required
               disabled={authLoading}
+              style={{ paddingLeft: '1rem' }}
             />
           </span>
         </label>
         <label className="login-field" htmlFor="velix-password">
           Contraseña
           <span className="login-input-wrap">
-            <Lock className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
             <input
               id="velix-password"
               name="password"
@@ -163,6 +162,7 @@ function AuthPanel({
               required
               minLength={6}
               disabled={authLoading}
+              style={{ paddingLeft: '1rem' }}
             />
           </span>
         </label>
@@ -196,6 +196,18 @@ function AuthPanel({
     </>
   )
 }
+
+const FrozenAuthPanel = memo(AuthPanel, (prev, next) => {
+  // Con sesión activa no reconciliar el form (extensiones mutan el DOM).
+  if (next.locked) return true
+  return (
+    prev.mode === next.mode &&
+    prev.email === next.email &&
+    prev.password === next.password &&
+    prev.authError === next.authError &&
+    prev.authLoading === next.authLoading
+  )
+})
 
 type AccountPanelProps = {
   session: StoredSession
@@ -249,8 +261,7 @@ export function VelixPublic() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [session, setSession] = useState<StoredSession | null>(() => readSession())
-  /** Evita swap inmediato del form (gestores de contraseña rompen insertBefore). */
-  const [showAccount, setShowAccount] = useState(() => Boolean(readSession()))
+  const [formLocked, setFormLocked] = useState(() => Boolean(readSession()))
   const [hasPendingPayment, setHasPendingPayment] = useState(() => Boolean(readPendingPayment()))
   const [licencias, setLicencias] = useState<VelixLicencia[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
@@ -260,24 +271,18 @@ export function VelixPublic() {
   const [statusMessage, setStatusMessage] = useState('')
   const [confirmingPayment, setConfirmingPayment] = useState(false)
 
+  // No desmontar el form: gestores de contraseña / extensiones inyectan nodos y
+  // React falla con insertBefore. Solo se oculta con CSS y se congela el render.
+  const showAccount = Boolean(session)
+  const lockAuthForm = showAccount || formLocked
+  const hideAuthForm = lockAuthForm
+
   useEffect(() => {
-    let cancelled = false
-    let timer: number | undefined
+    if (lockAuthForm) blurActiveElement()
+  }, [lockAuthForm])
 
-    if (session) {
-      blurActiveElement()
-      // Diferir un frame para que el DOM del form se estabilice antes del unmount.
-      timer = window.setTimeout(() => {
-        if (!cancelled) setShowAccount(true)
-      }, 50)
-    } else {
-      setShowAccount(false)
-    }
-
-    return () => {
-      cancelled = true
-      if (timer !== undefined) window.clearTimeout(timer)
-    }
+  useEffect(() => {
+    setFormLocked(Boolean(session))
   }, [session])
 
   useEffect(() => {
@@ -411,15 +416,18 @@ export function VelixPublic() {
     try {
       if (mode === 'registro') {
         await registroVelixClient(email.trim(), password)
-        setStatusMessage('Cuenta creada. Ya puedes comprar una licencia.')
       } else {
         await loginVelixClient(email.trim(), password)
-        setStatusMessage('Sesión iniciada.')
       }
-      setPassword('')
+      // Congelar YA el form antes de más setState (el gestor de contraseñas mutó el DOM).
+      setFormLocked(true)
+      setStatusMessage(
+        mode === 'registro'
+          ? 'Cuenta creada. Ya puedes comprar una licencia.'
+          : 'Sesión iniciada.',
+      )
     } catch (err) {
       setAuthError(mapVelixAuthError(err))
-    } finally {
       setAuthLoading(false)
     }
   }
@@ -432,7 +440,9 @@ export function VelixPublic() {
     }
     setSession(null)
     writeSession(null)
-    setShowAccount(false)
+    setFormLocked(false)
+    setAuthLoading(false)
+    setPassword('')
     setStatusMessage('')
   }
 
@@ -570,18 +580,12 @@ export function VelixPublic() {
 
         <div className="velix-grid">
           <section className="velix-panel">
-            {showAccount && session ? (
-              <AccountPanel
-                key="velix-account"
-                session={session}
-                hasPendingPayment={hasPendingPayment}
-                confirmingPayment={confirmingPayment}
-                onLogout={() => void handleLogout()}
-                onConfirmManual={() => void handleConfirmManual()}
-              />
-            ) : (
-              <AuthPanel
-                key="velix-auth"
+            <div
+              className={hideAuthForm ? 'velix-view is-hidden' : 'velix-view'}
+              aria-hidden={hideAuthForm}
+            >
+              <FrozenAuthPanel
+                locked={lockAuthForm}
                 mode={mode}
                 email={email}
                 password={password}
@@ -592,7 +596,27 @@ export function VelixPublic() {
                 onPasswordChange={setPassword}
                 onSubmit={(event) => void handleAuth(event)}
               />
-            )}
+            </div>
+
+            <div
+              className={hideAuthForm ? 'velix-view' : 'velix-view is-hidden'}
+              aria-hidden={!hideAuthForm}
+            >
+              {session ? (
+                <AccountPanel
+                  session={session}
+                  hasPendingPayment={hasPendingPayment}
+                  confirmingPayment={confirmingPayment}
+                  onLogout={() => void handleLogout()}
+                  onConfirmManual={() => void handleConfirmManual()}
+                />
+              ) : (
+                <div className="proyectos-status">
+                  <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                  Entrando...
+                </div>
+              )}
+            </div>
 
             {statusMessage ? <p className="velix-status">{statusMessage}</p> : null}
             {confirmingPayment ? (

@@ -725,6 +725,10 @@ a {
   box-shadow: var(--shadow);
 }
 
+.velix-view.is-hidden {
+  display: none;
+}
+
 .velix-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
