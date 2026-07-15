@@ -85,6 +85,162 @@ function formatCop(value: number) {
   }).format(value)
 }
 
+function blurActiveElement() {
+  const active = document.activeElement
+  if (active instanceof HTMLElement) active.blur()
+}
+
+type AuthPanelProps = {
+  mode: 'login' | 'registro'
+  email: string
+  password: string
+  authError: string
+  authLoading: boolean
+  onModeChange: (mode: 'login' | 'registro') => void
+  onEmailChange: (value: string) => void
+  onPasswordChange: (value: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}
+
+function AuthPanel({
+  mode,
+  email,
+  password,
+  authError,
+  authLoading,
+  onModeChange,
+  onEmailChange,
+  onPasswordChange,
+  onSubmit,
+}: AuthPanelProps) {
+  return (
+    <>
+      <div className="velix-tabs">
+        <button
+          type="button"
+          className={mode === 'registro' ? 'is-active' : ''}
+          onClick={() => onModeChange('registro')}
+        >
+          Crear cuenta
+        </button>
+        <button
+          type="button"
+          className={mode === 'login' ? 'is-active' : ''}
+          onClick={() => onModeChange('login')}
+        >
+          Iniciar sesión
+        </button>
+      </div>
+
+      <form className="modal-form" onSubmit={onSubmit} noValidate autoComplete="on">
+        <label className="login-field" htmlFor="velix-email">
+          Correo
+          <span className="login-input-wrap">
+            <Mail className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
+            <input
+              id="velix-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => onEmailChange(e.target.value)}
+              required
+              disabled={authLoading}
+            />
+          </span>
+        </label>
+        <label className="login-field" htmlFor="velix-password">
+          Contraseña
+          <span className="login-input-wrap">
+            <Lock className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
+            <input
+              id="velix-password"
+              name="password"
+              type="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              value={password}
+              onChange={(e) => onPasswordChange(e.target.value)}
+              required
+              minLength={6}
+              disabled={authLoading}
+            />
+          </span>
+        </label>
+
+        {authError ? (
+          <p className="login-error" role="alert">
+            <AlertCircle size={16} strokeWidth={2} aria-hidden />
+            {authError}
+          </p>
+        ) : null}
+
+        <button type="submit" className="btn-primary" disabled={authLoading}>
+          {authLoading ? (
+            <>
+              <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+              Procesando...
+            </>
+          ) : mode === 'registro' ? (
+            <>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Crear cuenta
+            </>
+          ) : (
+            <>
+              <LogIn size={16} strokeWidth={2} aria-hidden />
+              Entrar
+            </>
+          )}
+        </button>
+      </form>
+    </>
+  )
+}
+
+type AccountPanelProps = {
+  session: StoredSession
+  hasPendingPayment: boolean
+  confirmingPayment: boolean
+  onLogout: () => void
+  onConfirmManual: () => void
+}
+
+function AccountPanel({
+  session,
+  hasPendingPayment,
+  confirmingPayment,
+  onLogout,
+  onConfirmManual,
+}: AccountPanelProps) {
+  return (
+    <div className="velix-account">
+      <div className="section-heading">
+        <Shield size={18} strokeWidth={2} aria-hidden />
+        <h2>Tu licencia</h2>
+      </div>
+      <p className="velix-email">{session.usuario.email}</p>
+      <div className={`membership-badge ${session.usuario.activa ? 'is-active' : 'is-expired'}`}>
+        <strong>{session.usuario.diasRestantes}</strong>
+        <span>días</span>
+      </div>
+      <button type="button" className="btn-secondary" onClick={onLogout}>
+        <LogOut size={16} strokeWidth={2} aria-hidden />
+        Cerrar sesión
+      </button>
+      {hasPendingPayment ? (
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={onConfirmManual}
+          disabled={confirmingPayment}
+        >
+          {confirmingPayment ? 'Confirmando...' : 'Ya pagué'}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 export function VelixPublic() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [mode, setMode] = useState<'login' | 'registro'>('registro')
@@ -93,6 +249,9 @@ export function VelixPublic() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [session, setSession] = useState<StoredSession | null>(() => readSession())
+  /** Evita swap inmediato del form (gestores de contraseña rompen insertBefore). */
+  const [showAccount, setShowAccount] = useState(() => Boolean(readSession()))
+  const [hasPendingPayment, setHasPendingPayment] = useState(() => Boolean(readPendingPayment()))
   const [licencias, setLicencias] = useState<VelixLicencia[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
   const [plansError, setPlansError] = useState('')
@@ -100,6 +259,26 @@ export function VelixPublic() {
   const [payingId, setPayingId] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [confirmingPayment, setConfirmingPayment] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let timer: number | undefined
+
+    if (session) {
+      blurActiveElement()
+      // Diferir un frame para que el DOM del form se estabilice antes del unmount.
+      timer = window.setTimeout(() => {
+        if (!cancelled) setShowAccount(true)
+      }, 50)
+    } else {
+      setShowAccount(false)
+    }
+
+    return () => {
+      cancelled = true
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
+  }, [session])
 
   useEffect(() => {
     let cancelled = false
@@ -127,11 +306,13 @@ export function VelixPublic() {
 
   useEffect(() => {
     let unsubscribe = () => {}
+    let cancelled = false
 
     try {
       unsubscribe = subscribeVelixAuth((user) => {
         void (async () => {
           if (!user) {
+            if (cancelled) return
             setSession(null)
             writeSession(null)
             return
@@ -140,6 +321,7 @@ export function VelixPublic() {
           try {
             const idToken = await user.getIdToken()
             const usuario = await bootstrapVelixUser(idToken)
+            if (cancelled) return
             const next = { idToken, usuario }
             setSession(next)
             writeSession(next)
@@ -152,7 +334,10 @@ export function VelixPublic() {
       setAuthError(mapVelixAuthError(err))
     }
 
-    return () => unsubscribe()
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -202,6 +387,7 @@ export function VelixPublic() {
         }
 
         writePendingPayment(null)
+        setHasPendingPayment(false)
         setStatusMessage(
           confirmation.activated
             ? `Pago aprobado. Se activaron ${pending.dias} días de licencia.`
@@ -220,6 +406,7 @@ export function VelixPublic() {
     event.preventDefault()
     setAuthError('')
     setAuthLoading(true)
+    blurActiveElement()
 
     try {
       if (mode === 'registro') {
@@ -245,6 +432,7 @@ export function VelixPublic() {
     }
     setSession(null)
     writeSession(null)
+    setShowAccount(false)
     setStatusMessage('')
   }
 
@@ -289,6 +477,7 @@ export function VelixPublic() {
         reference: result.checkout.reference,
         dias: licencia.dias,
       })
+      setHasPendingPayment(true)
 
       openWompiWebCheckout({
         ...result.checkout,
@@ -339,6 +528,7 @@ export function VelixPublic() {
         writeSession(next)
       }
       writePendingPayment(null)
+      setHasPendingPayment(false)
       setStatusMessage(
         confirmation.activated
           ? `Pago aprobado. Se activaron ${pending.dias} días de licencia.`
@@ -380,111 +570,28 @@ export function VelixPublic() {
 
         <div className="velix-grid">
           <section className="velix-panel">
-            {session ? (
-              <div className="velix-account">
-                <div className="section-heading">
-                  <Shield size={18} strokeWidth={2} aria-hidden />
-                  <h2>Tu licencia</h2>
-                </div>
-                <p className="velix-email">{session.usuario.email}</p>
-                <div
-                  className={`membership-badge ${session.usuario.activa ? 'is-active' : 'is-expired'}`}
-                >
-                  <strong>{session.usuario.diasRestantes}</strong>
-                  <span>días</span>
-                </div>
-                <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
-                  <LogOut size={16} strokeWidth={2} aria-hidden />
-                  Cerrar sesión
-                </button>
-                {readPendingPayment() ? (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => void handleConfirmManual()}
-                    disabled={confirmingPayment}
-                  >
-                    {confirmingPayment ? 'Confirmando...' : 'Ya pagué'}
-                  </button>
-                ) : null}
-              </div>
+            {showAccount && session ? (
+              <AccountPanel
+                key="velix-account"
+                session={session}
+                hasPendingPayment={hasPendingPayment}
+                confirmingPayment={confirmingPayment}
+                onLogout={() => void handleLogout()}
+                onConfirmManual={() => void handleConfirmManual()}
+              />
             ) : (
-              <>
-                <div className="velix-tabs">
-                  <button
-                    type="button"
-                    className={mode === 'registro' ? 'is-active' : ''}
-                    onClick={() => setMode('registro')}
-                  >
-                    Crear cuenta
-                  </button>
-                  <button
-                    type="button"
-                    className={mode === 'login' ? 'is-active' : ''}
-                    onClick={() => setMode('login')}
-                  >
-                    Iniciar sesión
-                  </button>
-                </div>
-
-                <form className="modal-form" onSubmit={handleAuth} noValidate>
-                  <label className="login-field" htmlFor="velix-email">
-                    Correo
-                    <span className="login-input-wrap">
-                      <Mail className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
-                      <input
-                        id="velix-email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={authLoading}
-                      />
-                    </span>
-                  </label>
-                  <label className="login-field" htmlFor="velix-password">
-                    Contraseña
-                    <span className="login-input-wrap">
-                      <Lock className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
-                      <input
-                        id="velix-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        disabled={authLoading}
-                      />
-                    </span>
-                  </label>
-
-                  {authError ? (
-                    <p className="login-error" role="alert">
-                      <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                      {authError}
-                    </p>
-                  ) : null}
-
-                  <button type="submit" className="btn-primary" disabled={authLoading}>
-                    {authLoading ? (
-                      <>
-                        <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                        Procesando...
-                      </>
-                    ) : mode === 'registro' ? (
-                      <>
-                        <Plus size={16} strokeWidth={2} aria-hidden />
-                        Crear cuenta
-                      </>
-                    ) : (
-                      <>
-                        <LogIn size={16} strokeWidth={2} aria-hidden />
-                        Entrar
-                      </>
-                    )}
-                  </button>
-                </form>
-              </>
+              <AuthPanel
+                key="velix-auth"
+                mode={mode}
+                email={email}
+                password={password}
+                authError={authError}
+                authLoading={authLoading}
+                onModeChange={setMode}
+                onEmailChange={setEmail}
+                onPasswordChange={setPassword}
+                onSubmit={(event) => void handleAuth(event)}
+              />
             )}
 
             {statusMessage ? <p className="velix-status">{statusMessage}</p> : null}
