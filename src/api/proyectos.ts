@@ -191,6 +191,37 @@ export async function saveLinkLicenciaProyecto(
   return data.linkLicencia
 }
 
+export type PagoMembresia = {
+  id: string
+  reference: string
+  proyectoId: string | null
+  uid: string | null
+  email: string | null
+  licenciaId: string | null
+  dias: number
+  precio: number | null
+  amountInCents: number | null
+  currency: string
+  status: string
+  wompiStatus: string | null
+  licenseGranted: boolean
+  mock: boolean
+  createdAt: string | null
+  updatedAt: string | null
+  activatedAt: string | null
+}
+
+export async function listPagosProyecto(
+  token: string,
+  proyectoId: string,
+): Promise<PagoMembresia[]> {
+  const data = await apiFetch<{ pagos: PagoMembresia[] }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/pagos`,
+    token,
+  )
+  return data.pagos
+}
+
 export async function agregarMembresiaProyecto(
   token: string,
   proyectoId: string,

@@ -8,10 +8,12 @@ import {
   getLinkLicenciaProyecto,
   getProyecto,
   listLicenciasProyecto,
+  listPagosProyecto,
   listUsuariosProyecto,
   proyectoSoportaUsuarios,
   saveLinkLicenciaProyecto,
   type LicenciaPlan,
+  type PagoMembresia,
   type Proyecto,
   type ProyectoUsuario,
 } from '../api/proyectos'
@@ -28,6 +30,7 @@ import {
   Mail,
   Package,
   Plus,
+  Receipt,
   Search,
   Shield,
   Trash2,
@@ -51,6 +54,22 @@ function formatCop(value: number) {
     currency: 'COP',
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function formatPagoStatus(status: string) {
+  const key = status.toUpperCase()
+  if (key === 'APPROVED') return 'Aprobado'
+  if (key === 'PENDING') return 'Pendiente'
+  if (key === 'DECLINED' || key === 'REJECTED') return 'Rechazado'
+  if (key === 'VOIDED' || key === 'CANCELLED') return 'Anulado'
+  return status
+}
+
+function statusClass(status: string) {
+  const key = status.toUpperCase()
+  if (key === 'APPROVED') return 'is-approved'
+  if (key === 'PENDING') return 'is-pending'
+  return 'is-other'
 }
 
 export function ProjectDetail() {
@@ -94,6 +113,10 @@ export function ProjectDetail() {
   const [renewLinkError, setRenewLinkError] = useState('')
   const [renewLinkSuccess, setRenewLinkSuccess] = useState('')
   const [renewLinkSubmitting, setRenewLinkSubmitting] = useState(false)
+
+  const [pagos, setPagos] = useState<PagoMembresia[]>([])
+  const [pagosLoading, setPagosLoading] = useState(false)
+  const [pagosError, setPagosError] = useState('')
 
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
 
@@ -207,6 +230,32 @@ export function ProjectDetail() {
     }
 
     void loadRenewLink()
+    return () => {
+      cancelled = true
+    }
+  }, [user, decodedId, soportaUsuarios])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPagos() {
+      if (!user || !soportaUsuarios || !decodedId) return
+      setPagosLoading(true)
+      setPagosError('')
+      try {
+        const token = await user.getIdToken()
+        const data = await listPagosProyecto(token, decodedId)
+        if (!cancelled) setPagos(data)
+      } catch (err) {
+        if (!cancelled) {
+          setPagosError(err instanceof Error ? err.message : 'No se pudieron cargar los pagos')
+        }
+      } finally {
+        if (!cancelled) setPagosLoading(false)
+      }
+    }
+
+    void loadPagos()
     return () => {
       cancelled = true
     }
@@ -732,6 +781,82 @@ export function ProjectDetail() {
                           </div>
                         </article>
                       ))}
+                    </div>
+                  ) : null}
+                </section>
+
+                <section className="usuarios-section" aria-label="Pagos de membresías">
+                  <div className="section-heading">
+                    <Receipt size={18} strokeWidth={2} aria-hidden />
+                    <h2>Pagos de membresías</h2>
+                  </div>
+                  <p className="section-note">
+                    Registros en Firestore Nodefex: <code>pagos</code>. Incluye compras Wompi y
+                    activaciones simuladas.
+                  </p>
+
+                  {pagosLoading ? (
+                    <div className="proyectos-status">
+                      <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                      Cargando pagos...
+                    </div>
+                  ) : null}
+
+                  {!pagosLoading && pagosError ? (
+                    <div className="proyectos-status proyectos-status-error" role="alert">
+                      <AlertCircle size={18} strokeWidth={2} aria-hidden />
+                      {pagosError}
+                    </div>
+                  ) : null}
+
+                  {!pagosLoading && !pagosError && pagos.length === 0 ? (
+                    <div className="proyectos-empty">
+                      <Receipt size={28} strokeWidth={1.75} aria-hidden />
+                      <p>Aún no hay pagos registrados para este proyecto.</p>
+                    </div>
+                  ) : null}
+
+                  {!pagosLoading && !pagosError && pagos.length > 0 ? (
+                    <div className="pagos-table-wrap">
+                      <table className="pagos-table">
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Correo</th>
+                            <th>Referencia</th>
+                            <th>Días</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Licencia</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagos.map((pago) => {
+                            const monto =
+                              pago.precio != null
+                                ? formatCop(pago.precio)
+                                : pago.amountInCents != null
+                                  ? formatCop(pago.amountInCents / 100)
+                                  : '—'
+                            return (
+                              <tr key={pago.id}>
+                                <td>{formatExpiresAt(pago.createdAt)}</td>
+                                <td>{pago.email || '—'}</td>
+                                <td className="pagos-ref">{pago.reference}</td>
+                                <td>{pago.dias}</td>
+                                <td>{monto}</td>
+                                <td>
+                                  <span className={`pago-status ${statusClass(pago.status)}`}>
+                                    {formatPagoStatus(pago.status)}
+                                    {pago.mock ? ' · mock' : ''}
+                                  </span>
+                                </td>
+                                <td>{pago.licenseGranted ? 'Activada' : '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   ) : null}
                 </section>

@@ -31,6 +31,7 @@ export {
   Package,
   Pencil,
   Plus,
+  Receipt,
   Search,
   Settings,
   Shield,
