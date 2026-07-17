@@ -10,6 +10,7 @@ import {
   type VelixLicencia,
   type VelixUsuario,
 } from '../api/velix'
+import { VELIX_WINDOWS_DOWNLOAD_URL } from '../config'
 import {
   getVelixIdToken,
   loginVelixClient,
@@ -19,6 +20,7 @@ import {
 } from '../velixFirebase'
 import {
   AlertCircle,
+  Download,
   Hexagon,
   LoaderCircle,
   LogOut,
@@ -111,6 +113,19 @@ function VelixShell({ children }: { children: ReactNode }) {
           </p>
         </section>
         {children}
+
+        <section className="velix-download" aria-label="Descargar Velix">
+          <p>Instala Velix en tu PC con Windows para usar tu licencia.</p>
+          <a
+            className="btn-primary velix-download-btn"
+            href={VELIX_WINDOWS_DOWNLOAD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Download size={16} strokeWidth={2} aria-hidden />
+            Descargar Velix para Windows
+          </a>
+        </section>
       </main>
     </div>
   )

@@ -14,6 +14,7 @@ export {
   ChevronRight,
   CircleHelp,
   Cpu,
+  Download,
   Eye,
   EyeOff,
   FileText,

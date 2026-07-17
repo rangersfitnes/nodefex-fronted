@@ -3,10 +3,19 @@
  * Las apiKey de Firebase Web son identificadores públicos de la app.
  */
 
-/** Producción en Render; en `npm run dev` apunta al backend local. */
+/** Sitio web en producción. */
+export const SITE_URL = import.meta.env.DEV
+  ? 'http://localhost:5173'
+  : 'https://www.nodefex.com'
+
+/** API en Render; en `npm run dev` apunta al backend local. */
 export const API_URL = import.meta.env.DEV
   ? 'http://localhost:3001'
   : 'https://nodefex.onrender.com'
+
+/** Instalador de Velix para Windows. */
+export const VELIX_WINDOWS_DOWNLOAD_URL =
+  'https://www.mediafire.com/file/ymphx8mwjtxk94e/velixsetup2.0.exe/file'
 
 export const nodefexFirebaseConfig = {
   apiKey: 'AIzaSyBXKcJQ-UJcEJWQBRazC2rk86clCaN8UGs',
