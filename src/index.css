@@ -80,7 +80,7 @@ a {
   }
 }
 
-/* Login */
+/* Login / Landing Nodefex */
 .login-page {
   position: relative;
   min-height: 100vh;
@@ -88,6 +88,16 @@ a {
   place-items: center;
   padding: 1.5rem;
   overflow: hidden;
+}
+
+.login-page.landing-page {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  place-items: unset;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .login-backdrop {
@@ -99,6 +109,251 @@ a {
     linear-gradient(145deg, #f7fafc 0%, #e8eef6 45%, #d9e4f4 100%);
 }
 
+.landing-backdrop {
+  position: fixed;
+  background:
+    radial-gradient(ellipse 90% 70% at 0% 0%, rgba(43, 111, 212, 0.22), transparent 52%),
+    radial-gradient(ellipse 60% 50% at 100% 10%, rgba(11, 31, 58, 0.12), transparent 48%),
+    radial-gradient(ellipse 50% 40% at 70% 100%, rgba(59, 130, 246, 0.14), transparent 50%),
+    linear-gradient(165deg, #f8fbff 0%, #eef3f9 42%, #e4ebf5 100%);
+}
+
+.landing-grid-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(18, 50, 92, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 50, 92, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 20%, transparent 75%);
+}
+
+.landing-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1120px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 1.25rem 0;
+  animation: rise 0.55s ease-out both;
+}
+
+.landing-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.landing-nav-name {
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--blue-950);
+}
+
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.landing-nav-link {
+  color: var(--gray-700);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.landing-nav-link:hover {
+  color: var(--blue-900);
+}
+
+.landing-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  background: var(--blue-950);
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.landing-nav-cta:hover {
+  background: var(--blue-900);
+  transform: translateY(-1px);
+}
+
+.landing-main {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  display: grid;
+  gap: 4.5rem;
+  padding-bottom: 3rem;
+}
+
+.landing-hero {
+  min-height: min(72vh, 640px);
+  display: grid;
+  align-content: center;
+  gap: 1.1rem;
+  padding: 2.5rem 0 1rem;
+  animation: rise 0.7s ease-out 0.08s both;
+}
+
+.landing-kicker {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue-700);
+}
+
+.landing-brand-title {
+  margin: 0;
+  max-width: 14ch;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: clamp(2.8rem, 7vw, 5.2rem);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  color: var(--blue-950);
+}
+
+.landing-hero-copy {
+  margin: 0;
+  max-width: 36rem;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  color: var(--gray-700);
+  line-height: 1.55;
+}
+
+.landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.landing-btn {
+  text-decoration: none;
+}
+
+.landing-services {
+  display: grid;
+  gap: 1.75rem;
+  animation: rise 0.65s ease-out 0.12s both;
+}
+
+.landing-section-head {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 36rem;
+}
+
+.landing-section-head h2 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--blue-950);
+}
+
+.landing-section-head p {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: 1.02rem;
+}
+
+.landing-service-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid rgba(18, 50, 92, 0.12);
+}
+
+.landing-service-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.15rem;
+  align-items: start;
+  padding: 1.35rem 0;
+  border-bottom: 1px solid rgba(18, 50, 92, 0.12);
+  animation: rise 0.55s ease-out both;
+}
+
+.landing-service-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  color: var(--blue-700);
+}
+
+.landing-service-item h3 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--blue-950);
+}
+
+.landing-service-item p {
+  margin: 0.35rem 0 0;
+  color: var(--gray-500);
+  font-size: 0.96rem;
+  max-width: 42rem;
+}
+
+.landing-access {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 2rem;
+  align-items: center;
+  padding: 1rem 0 2rem;
+  animation: rise 0.6s ease-out 0.15s both;
+}
+
+.landing-access-copy {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.landing-access-copy h2 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--blue-950);
+}
+
+.landing-access-copy p {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: 1.02rem;
+  max-width: 28rem;
+}
+
 .login-panel {
   position: relative;
   z-index: 1;
@@ -106,6 +361,11 @@ a {
   display: grid;
   gap: 1.5rem;
   animation: rise 0.55s ease-out both;
+}
+
+.landing-login-panel {
+  width: 100%;
+  justify-self: end;
 }
 
 @keyframes rise {
@@ -116,6 +376,50 @@ a {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.landing-footer {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 1.25rem 0 2rem;
+  border-top: 1px solid rgba(18, 50, 92, 0.1);
+  color: var(--gray-500);
+  font-size: 0.88rem;
+}
+
+.landing-footer p {
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .landing-access {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-login-panel {
+    justify-self: stretch;
+  }
+
+  .landing-hero {
+    min-height: auto;
+    padding-top: 1.5rem;
+  }
+
+  .landing-main {
+    gap: 3.25rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-nav-name {
+    font-size: 0.95rem;
+  }
+
+  .landing-nav-link {
+    display: none;
   }
 }
 
@@ -177,7 +481,8 @@ a {
   backdrop-filter: blur(10px);
 }
 
-.login-form h1 {
+.login-form h1,
+.login-form h3 {
   margin: 0;
   font-family: Outfit, 'DM Sans', sans-serif;
   font-size: 1.55rem;
