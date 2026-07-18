@@ -82,6 +82,16 @@ export async function getLinkDescargaPublico(): Promise<{ url: string; updatedAt
   return data.linkDescarga
 }
 
+export async function getSoporteWhatsappPublico(): Promise<{
+  numero: string
+  updatedAt: string | null
+}> {
+  const data = await publicFetch<{
+    soporteWhatsapp: { numero: string; updatedAt: string | null }
+  }>('/api/velix/soporte-whatsapp')
+  return data.soporteWhatsapp
+}
+
 export async function getVelixMe(token: string): Promise<VelixUsuario> {
   const data = await authFetch<{ usuario: VelixUsuario }>('/api/velix/me', token)
   return data.usuario

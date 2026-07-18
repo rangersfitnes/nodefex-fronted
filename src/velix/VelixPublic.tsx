@@ -4,6 +4,7 @@ import {
   bootstrapVelixUser,
   confirmarPagoVelix,
   getLinkDescargaPublico,
+  getSoporteWhatsappPublico,
   getVelixMe,
   iniciarPagoVelix,
   listLicenciasPublicas,
@@ -24,6 +25,7 @@ import {
   Hexagon,
   LoaderCircle,
   LogOut,
+  MessageCircle,
   Shield,
 } from '../icons'
 
@@ -89,15 +91,25 @@ function reloadVelix() {
 function VelixShell({ children }: { children: ReactNode }) {
   const [downloadUrl, setDownloadUrl] = useState('')
   const [downloadLoading, setDownloadLoading] = useState(true)
+  const [whatsappNumero, setWhatsappNumero] = useState('')
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
-        const data = await getLinkDescargaPublico()
-        if (!cancelled) setDownloadUrl((data.url || '').trim())
+        const [descarga, soporte] = await Promise.all([
+          getLinkDescargaPublico(),
+          getSoporteWhatsappPublico(),
+        ])
+        if (!cancelled) {
+          setDownloadUrl((descarga.url || '').trim())
+          setWhatsappNumero((soporte.numero || '').replace(/\D/g, ''))
+        }
       } catch {
-        if (!cancelled) setDownloadUrl('')
+        if (!cancelled) {
+          setDownloadUrl('')
+          setWhatsappNumero('')
+        }
       } finally {
         if (!cancelled) setDownloadLoading(false)
       }
@@ -106,6 +118,10 @@ function VelixShell({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
+
+  const whatsappHref = whatsappNumero
+    ? `https://wa.me/${whatsappNumero}?text=${encodeURIComponent('Hola, necesito soporte de Velix.')}`
+    : ''
 
   return (
     <div className="velix-page">
@@ -155,6 +171,21 @@ function VelixShell({ children }: { children: ReactNode }) {
             <p className="velix-status">El instalador aún no está publicado. Vuelve pronto.</p>
           )}
         </section>
+
+        {whatsappHref ? (
+          <section className="velix-support" aria-label="Soporte WhatsApp">
+            <p>¿Necesitas ayuda con tu licencia o instalación?</p>
+            <a
+              className="btn-secondary velix-whatsapp-btn"
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircle size={16} strokeWidth={2} aria-hidden />
+              Soporte por WhatsApp
+            </a>
+          </section>
+        ) : null}
       </main>
     </div>
   )

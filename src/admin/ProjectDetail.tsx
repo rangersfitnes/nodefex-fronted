@@ -8,12 +8,14 @@ import {
   getLinkDescargaProyecto,
   getLinkLicenciaProyecto,
   getProyecto,
+  getSoporteWhatsappProyecto,
   listLicenciasProyecto,
   listPagosProyecto,
   listUsuariosProyecto,
   proyectoSoportaUsuarios,
   saveLinkDescargaProyecto,
   saveLinkLicenciaProyecto,
+  saveSoporteWhatsappProyecto,
   type LicenciaPlan,
   type PagoMembresia,
   type Proyecto,
@@ -31,6 +33,7 @@ import {
   LoaderCircle,
   LogOut,
   Mail,
+  MessageCircle,
   Package,
   Plus,
   Receipt,
@@ -122,6 +125,12 @@ export function ProjectDetail() {
   const [downloadLinkError, setDownloadLinkError] = useState('')
   const [downloadLinkSuccess, setDownloadLinkSuccess] = useState('')
   const [downloadLinkSubmitting, setDownloadLinkSubmitting] = useState(false)
+
+  const [whatsappNumero, setWhatsappNumero] = useState('')
+  const [whatsappLoading, setWhatsappLoading] = useState(false)
+  const [whatsappError, setWhatsappError] = useState('')
+  const [whatsappSuccess, setWhatsappSuccess] = useState('')
+  const [whatsappSubmitting, setWhatsappSubmitting] = useState(false)
 
   const [pagos, setPagos] = useState<PagoMembresia[]>([])
   const [pagosLoading, setPagosLoading] = useState(false)
@@ -267,6 +276,34 @@ export function ProjectDetail() {
     }
 
     void loadDownloadLink()
+    return () => {
+      cancelled = true
+    }
+  }, [user, decodedId, soportaUsuarios])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadWhatsapp() {
+      if (!user || !soportaUsuarios || !decodedId) return
+      setWhatsappLoading(true)
+      setWhatsappError('')
+      try {
+        const token = await user.getIdToken()
+        const data = await getSoporteWhatsappProyecto(token, decodedId)
+        if (!cancelled) setWhatsappNumero(data.numero || '')
+      } catch (err) {
+        if (!cancelled) {
+          setWhatsappError(
+            err instanceof Error ? err.message : 'No se pudo cargar el número de WhatsApp',
+          )
+        }
+      } finally {
+        if (!cancelled) setWhatsappLoading(false)
+      }
+    }
+
+    void loadWhatsapp()
     return () => {
       cancelled = true
     }
@@ -514,6 +551,35 @@ export function ProjectDetail() {
     }
   }
 
+  async function handleSaveWhatsapp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user) return
+
+    const numero = whatsappNumero.trim()
+    if (!numero) {
+      setWhatsappError('El número de WhatsApp es obligatorio')
+      setWhatsappSuccess('')
+      return
+    }
+
+    setWhatsappError('')
+    setWhatsappSuccess('')
+    setWhatsappSubmitting(true)
+
+    try {
+      const token = await user.getIdToken()
+      const saved = await saveSoporteWhatsappProyecto(token, decodedId, numero)
+      setWhatsappNumero(saved.numero)
+      setWhatsappSuccess('Número de WhatsApp guardado en Firestore Velix.')
+    } catch (err) {
+      setWhatsappError(
+        err instanceof Error ? err.message : 'No se pudo guardar el número de WhatsApp',
+      )
+    } finally {
+      setWhatsappSubmitting(false)
+    }
+  }
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
@@ -732,6 +798,76 @@ export function ProjectDetail() {
                             <>
                               <Check size={16} strokeWidth={2} aria-hidden />
                               Guardar link de descarga
+                            </>
+                          )}
+                        </button>
+                      </form>
+                    )}
+                  </section>
+
+                  <section className="usuarios-section" aria-label="Soporte WhatsApp">
+                    <div className="section-heading">
+                      <MessageCircle size={18} strokeWidth={2} aria-hidden />
+                      <h2>WhatsApp de soporte</h2>
+                    </div>
+                    <p className="section-note">
+                      Se guarda en Firestore Velix: <code>soporte-whatsapp/actual</code>. Incluye
+                      código de país (ej. <code>573001234567</code>). Aparece en <code>/velix</code>.
+                    </p>
+
+                    {whatsappLoading ? (
+                      <div className="proyectos-status">
+                        <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                        Cargando número...
+                      </div>
+                    ) : (
+                      <form className="plan-admin-form" onSubmit={handleSaveWhatsapp} noValidate>
+                        <label className="login-field" htmlFor="whatsapp-numero">
+                          Número (con código de país)
+                          <input
+                            id="whatsapp-numero"
+                            type="tel"
+                            inputMode="tel"
+                            value={whatsappNumero}
+                            onChange={(e) => {
+                              setWhatsappNumero(e.target.value)
+                              setWhatsappSuccess('')
+                            }}
+                            placeholder="573001234567"
+                            required
+                            disabled={whatsappSubmitting}
+                          />
+                        </label>
+
+                        {whatsappError ? (
+                          <p className="login-error" role="alert">
+                            <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                            {whatsappError}
+                          </p>
+                        ) : null}
+
+                        {whatsappSuccess ? (
+                          <p className="renew-link-success" role="status">
+                            <Check size={16} strokeWidth={2} aria-hidden />
+                            {whatsappSuccess}
+                          </p>
+                        ) : null}
+
+                        <button type="submit" className="btn-primary" disabled={whatsappSubmitting}>
+                          {whatsappSubmitting ? (
+                            <>
+                              <LoaderCircle
+                                className="spin"
+                                size={16}
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                              Guardando...
+                            </>
+                          ) : (
+                            <>
+                              <Check size={16} strokeWidth={2} aria-hidden />
+                              Guardar WhatsApp
                             </>
                           )}
                         </button>

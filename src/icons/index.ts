@@ -32,6 +32,7 @@ export {
   LogOut,
   Mail,
   Menu,
+  MessageCircle,
   Package,
   Pencil,
   Plus,

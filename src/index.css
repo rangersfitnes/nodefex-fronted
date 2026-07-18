@@ -1166,6 +1166,28 @@ a.velix-download-btn {
   text-decoration: none;
 }
 
+.velix-support {
+  margin-top: 1rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+}
+
+.velix-support p {
+  margin: 0;
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+a.velix-whatsapp-btn {
+  text-decoration: none;
+}
+
 a.btn-secondary {
   text-decoration: none;
 }

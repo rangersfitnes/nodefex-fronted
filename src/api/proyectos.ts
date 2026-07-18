@@ -224,6 +224,39 @@ export async function saveLinkDescargaProyecto(
   return data.linkDescarga
 }
 
+export type SoporteWhatsapp = {
+  id: string
+  numero: string
+  updatedAt: string | null
+}
+
+export async function getSoporteWhatsappProyecto(
+  token: string,
+  proyectoId: string,
+): Promise<SoporteWhatsapp> {
+  const data = await apiFetch<{ soporteWhatsapp: SoporteWhatsapp }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/soporte-whatsapp`,
+    token,
+  )
+  return data.soporteWhatsapp
+}
+
+export async function saveSoporteWhatsappProyecto(
+  token: string,
+  proyectoId: string,
+  numero: string,
+): Promise<SoporteWhatsapp> {
+  const data = await apiFetch<{ soporteWhatsapp: SoporteWhatsapp }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/soporte-whatsapp`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ numero }),
+    },
+  )
+  return data.soporteWhatsapp
+}
+
 export type PagoMembresia = {
   id: string
   reference: string
