@@ -5,12 +5,14 @@ import {
   createLicenciaProyecto,
   createUsuarioProyecto,
   deleteLicenciaProyecto,
+  getLinkDescargaProyecto,
   getLinkLicenciaProyecto,
   getProyecto,
   listLicenciasProyecto,
   listPagosProyecto,
   listUsuariosProyecto,
   proyectoSoportaUsuarios,
+  saveLinkDescargaProyecto,
   saveLinkLicenciaProyecto,
   type LicenciaPlan,
   type PagoMembresia,
@@ -22,6 +24,7 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
+  Download,
   Hexagon,
   LayoutDashboard,
   Link2,
@@ -113,6 +116,12 @@ export function ProjectDetail() {
   const [renewLinkError, setRenewLinkError] = useState('')
   const [renewLinkSuccess, setRenewLinkSuccess] = useState('')
   const [renewLinkSubmitting, setRenewLinkSubmitting] = useState(false)
+
+  const [downloadLink, setDownloadLink] = useState('')
+  const [downloadLinkLoading, setDownloadLinkLoading] = useState(false)
+  const [downloadLinkError, setDownloadLinkError] = useState('')
+  const [downloadLinkSuccess, setDownloadLinkSuccess] = useState('')
+  const [downloadLinkSubmitting, setDownloadLinkSubmitting] = useState(false)
 
   const [pagos, setPagos] = useState<PagoMembresia[]>([])
   const [pagosLoading, setPagosLoading] = useState(false)
@@ -230,6 +239,34 @@ export function ProjectDetail() {
     }
 
     void loadRenewLink()
+    return () => {
+      cancelled = true
+    }
+  }, [user, decodedId, soportaUsuarios])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadDownloadLink() {
+      if (!user || !soportaUsuarios || !decodedId) return
+      setDownloadLinkLoading(true)
+      setDownloadLinkError('')
+      try {
+        const token = await user.getIdToken()
+        const data = await getLinkDescargaProyecto(token, decodedId)
+        if (!cancelled) setDownloadLink(data.url || '')
+      } catch (err) {
+        if (!cancelled) {
+          setDownloadLinkError(
+            err instanceof Error ? err.message : 'No se pudo cargar el link de descarga',
+          )
+        }
+      } finally {
+        if (!cancelled) setDownloadLinkLoading(false)
+      }
+    }
+
+    void loadDownloadLink()
     return () => {
       cancelled = true
     }
@@ -448,6 +485,35 @@ export function ProjectDetail() {
     }
   }
 
+  async function handleSaveDownloadLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user) return
+
+    const url = downloadLink.trim()
+    if (!url) {
+      setDownloadLinkError('El link de descarga es obligatorio')
+      setDownloadLinkSuccess('')
+      return
+    }
+
+    setDownloadLinkError('')
+    setDownloadLinkSuccess('')
+    setDownloadLinkSubmitting(true)
+
+    try {
+      const token = await user.getIdToken()
+      const saved = await saveLinkDescargaProyecto(token, decodedId, url)
+      setDownloadLink(saved.url)
+      setDownloadLinkSuccess('Link de descarga guardado en Firestore Velix.')
+    } catch (err) {
+      setDownloadLinkError(
+        err instanceof Error ? err.message : 'No se pudo guardar el link de descarga',
+      )
+    } finally {
+      setDownloadLinkSubmitting(false)
+    }
+  }
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
@@ -589,6 +655,83 @@ export function ProjectDetail() {
                             <>
                               <Check size={16} strokeWidth={2} aria-hidden />
                               Guardar link
+                            </>
+                          )}
+                        </button>
+                      </form>
+                    )}
+                  </section>
+
+                  <section className="usuarios-section" aria-label="Link de descarga">
+                    <div className="section-heading">
+                      <Download size={18} strokeWidth={2} aria-hidden />
+                      <h2>Link de descarga (Windows)</h2>
+                    </div>
+                    <p className="section-note">
+                      Se guarda en Firestore Velix: <code>link-descarga/actual</code>. Aparece en
+                      la página pública <code>/velix</code>.
+                    </p>
+
+                    {downloadLinkLoading ? (
+                      <div className="proyectos-status">
+                        <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                        Cargando link...
+                      </div>
+                    ) : (
+                      <form
+                        className="plan-admin-form"
+                        onSubmit={handleSaveDownloadLink}
+                        noValidate
+                      >
+                        <label className="login-field" htmlFor="download-link">
+                          URL del instalador
+                          <input
+                            id="download-link"
+                            type="url"
+                            value={downloadLink}
+                            onChange={(e) => {
+                              setDownloadLink(e.target.value)
+                              setDownloadLinkSuccess('')
+                            }}
+                            placeholder="https://www.mediafire.com/file/.../velixsetup.exe/file"
+                            required
+                            disabled={downloadLinkSubmitting}
+                          />
+                        </label>
+
+                        {downloadLinkError ? (
+                          <p className="login-error" role="alert">
+                            <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                            {downloadLinkError}
+                          </p>
+                        ) : null}
+
+                        {downloadLinkSuccess ? (
+                          <p className="renew-link-success" role="status">
+                            <Check size={16} strokeWidth={2} aria-hidden />
+                            {downloadLinkSuccess}
+                          </p>
+                        ) : null}
+
+                        <button
+                          type="submit"
+                          className="btn-primary"
+                          disabled={downloadLinkSubmitting}
+                        >
+                          {downloadLinkSubmitting ? (
+                            <>
+                              <LoaderCircle
+                                className="spin"
+                                size={16}
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                              Guardando...
+                            </>
+                          ) : (
+                            <>
+                              <Check size={16} strokeWidth={2} aria-hidden />
+                              Guardar link de descarga
                             </>
                           )}
                         </button>

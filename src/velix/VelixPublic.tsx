@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   bootstrapVelixUser,
   confirmarPagoVelix,
+  getLinkDescargaPublico,
   getVelixMe,
   iniciarPagoVelix,
   listLicenciasPublicas,
@@ -10,7 +11,6 @@ import {
   type VelixLicencia,
   type VelixUsuario,
 } from '../api/velix'
-import { VELIX_WINDOWS_DOWNLOAD_URL } from '../config'
 import {
   getVelixIdToken,
   loginVelixClient,
@@ -87,6 +87,26 @@ function reloadVelix() {
 }
 
 function VelixShell({ children }: { children: ReactNode }) {
+  const [downloadUrl, setDownloadUrl] = useState('')
+  const [downloadLoading, setDownloadLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const data = await getLinkDescargaPublico()
+        if (!cancelled) setDownloadUrl((data.url || '').trim())
+      } catch {
+        if (!cancelled) setDownloadUrl('')
+      } finally {
+        if (!cancelled) setDownloadLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="velix-page">
       <div className="velix-backdrop" aria-hidden />
@@ -116,15 +136,24 @@ function VelixShell({ children }: { children: ReactNode }) {
 
         <section className="velix-download" aria-label="Descargar Velix">
           <p>Instala Velix en tu PC con Windows para usar tu licencia.</p>
-          <a
-            className="btn-primary velix-download-btn"
-            href={VELIX_WINDOWS_DOWNLOAD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Download size={16} strokeWidth={2} aria-hidden />
-            Descargar Velix para Windows
-          </a>
+          {downloadLoading ? (
+            <div className="proyectos-status">
+              <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
+              Cargando descarga...
+            </div>
+          ) : downloadUrl ? (
+            <a
+              className="btn-primary velix-download-btn"
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Download size={16} strokeWidth={2} aria-hidden />
+              Descargar Velix para Windows
+            </a>
+          ) : (
+            <p className="velix-status">El instalador aún no está publicado. Vuelve pronto.</p>
+          )}
         </section>
       </main>
     </div>

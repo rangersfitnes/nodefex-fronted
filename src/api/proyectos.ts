@@ -191,6 +191,39 @@ export async function saveLinkLicenciaProyecto(
   return data.linkLicencia
 }
 
+export type LinkDescarga = {
+  id: string
+  url: string
+  updatedAt: string | null
+}
+
+export async function getLinkDescargaProyecto(
+  token: string,
+  proyectoId: string,
+): Promise<LinkDescarga> {
+  const data = await apiFetch<{ linkDescarga: LinkDescarga }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/link-descarga`,
+    token,
+  )
+  return data.linkDescarga
+}
+
+export async function saveLinkDescargaProyecto(
+  token: string,
+  proyectoId: string,
+  url: string,
+): Promise<LinkDescarga> {
+  const data = await apiFetch<{ linkDescarga: LinkDescarga }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/link-descarga`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ url }),
+    },
+  )
+  return data.linkDescarga
+}
+
 export type PagoMembresia = {
   id: string
   reference: string

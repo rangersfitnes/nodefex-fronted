@@ -75,6 +75,13 @@ export async function getLinkLicenciaPublico(): Promise<{ url: string; updatedAt
   return data.linkLicencia
 }
 
+export async function getLinkDescargaPublico(): Promise<{ url: string; updatedAt: string | null }> {
+  const data = await publicFetch<{ linkDescarga: { url: string; updatedAt: string | null } }>(
+    '/api/velix/link-descarga',
+  )
+  return data.linkDescarga
+}
+
 export async function getVelixMe(token: string): Promise<VelixUsuario> {
   const data = await authFetch<{ usuario: VelixUsuario }>('/api/velix/me', token)
   return data.usuario

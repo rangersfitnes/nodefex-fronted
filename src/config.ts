@@ -13,10 +13,6 @@ export const API_URL = import.meta.env.DEV
   ? 'http://localhost:3001'
   : 'https://nodefex.onrender.com'
 
-/** Instalador de Velix para Windows. */
-export const VELIX_WINDOWS_DOWNLOAD_URL =
-  'https://www.mediafire.com/file/ymphx8mwjtxk94e/velixsetup2.0.exe/file'
-
 export const nodefexFirebaseConfig = {
   apiKey: 'AIzaSyBXKcJQ-UJcEJWQBRazC2rk86clCaN8UGs',
   authDomain: 'nodefex-41d50.firebaseapp.com',
