@@ -108,6 +108,18 @@ export async function createUsuarioProyecto(
   return data.usuario
 }
 
+export async function deleteUsuarioProyecto(
+  token: string,
+  proyectoId: string,
+  uid: string,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/usuarios/${encodeURIComponent(uid)}`,
+    token,
+    { method: 'DELETE' },
+  )
+}
+
 export type LicenciaPlan = {
   id: string
   nombre: string

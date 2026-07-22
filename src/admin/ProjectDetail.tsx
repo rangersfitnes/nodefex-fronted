@@ -5,6 +5,7 @@ import {
   createLicenciaProyecto,
   createUsuarioProyecto,
   deleteLicenciaProyecto,
+  deleteUsuarioProyecto,
   getLinkDescargaProyecto,
   getLinkLicenciaProyecto,
   getProyecto,
@@ -135,6 +136,12 @@ export function ProjectDetail() {
   const [pagos, setPagos] = useState<PagoMembresia[]>([])
   const [pagosLoading, setPagosLoading] = useState(false)
   const [pagosError, setPagosError] = useState('')
+  const [pagoQuery, setPagoQuery] = useState('')
+  const [pagoStatusFilter, setPagoStatusFilter] = useState('all')
+  const [pagoLicenciaFilter, setPagoLicenciaFilter] = useState('all')
+  const [pagoTipoFilter, setPagoTipoFilter] = useState('all')
+  const [pagoFechaDesde, setPagoFechaDesde] = useState('')
+  const [pagoFechaHasta, setPagoFechaHasta] = useState('')
 
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
 
@@ -146,6 +153,64 @@ export function ProjectDetail() {
         item.email?.toLowerCase().includes(q) || item.uid.toLowerCase().includes(q),
     )
   }, [usuarios, membershipQuery])
+
+  const filteredPagos = useMemo(() => {
+    const q = pagoQuery.trim().toLowerCase()
+    const desdeMs = pagoFechaDesde ? Date.parse(`${pagoFechaDesde}T00:00:00`) : null
+    const hastaMs = pagoFechaHasta ? Date.parse(`${pagoFechaHasta}T23:59:59.999`) : null
+
+    return pagos.filter((pago) => {
+      if (q) {
+        const haystack = [pago.email, pago.reference, pago.uid, pago.licenciaId]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+
+      if (pagoStatusFilter !== 'all') {
+        if (pago.status.toUpperCase() !== pagoStatusFilter.toUpperCase()) return false
+      }
+
+      if (pagoLicenciaFilter === 'activated' && !pago.licenseGranted) return false
+      if (pagoLicenciaFilter === 'pending' && pago.licenseGranted) return false
+
+      if (pagoTipoFilter === 'mock' && !pago.mock) return false
+      if (pagoTipoFilter === 'real' && pago.mock) return false
+
+      if (desdeMs != null || hastaMs != null) {
+        if (!pago.createdAt) return false
+        const createdMs = Date.parse(pago.createdAt)
+        if (Number.isNaN(createdMs)) return false
+        if (desdeMs != null && createdMs < desdeMs) return false
+        if (hastaMs != null && createdMs > hastaMs) return false
+      }
+
+      return true
+    })
+  }, [
+    pagos,
+    pagoQuery,
+    pagoStatusFilter,
+    pagoLicenciaFilter,
+    pagoTipoFilter,
+    pagoFechaDesde,
+    pagoFechaHasta,
+  ])
+
+  const pagoStatusOptions = useMemo(() => {
+    const set = new Set(pagos.map((p) => p.status.toUpperCase()).filter(Boolean))
+    return Array.from(set).sort()
+  }, [pagos])
+
+  function clearPagoFilters() {
+    setPagoQuery('')
+    setPagoStatusFilter('all')
+    setPagoLicenciaFilter('all')
+    setPagoTipoFilter('all')
+    setPagoFechaDesde('')
+    setPagoFechaHasta('')
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -490,6 +555,24 @@ export function ProjectDetail() {
       setPlanes((current) => current.filter((item) => item.id !== plan.id))
     } catch (err) {
       setPlanesError(err instanceof Error ? err.message : 'No se pudo eliminar el plan')
+    }
+  }
+
+  async function handleDeleteUsuario(item: ProyectoUsuario) {
+    if (!user) return
+    const label = item.email || item.uid
+    const ok = window.confirm(
+      `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth Velix y su membresía en Firestore.`,
+    )
+    if (!ok) return
+
+    try {
+      const token = await user.getIdToken()
+      await deleteUsuarioProyecto(token, decodedId, item.uid)
+      setUsuarios((current) => current.filter((u) => u.uid !== item.uid))
+      setSelectedUid((current) => (current === item.uid ? '' : current))
+    } catch (err) {
+      setUsersError(err instanceof Error ? err.message : 'No se pudo eliminar el usuario')
     }
   }
 
@@ -1058,6 +1141,14 @@ export function ProjectDetail() {
                             <strong>{item.diasRestantes}</strong>
                             <span>días</span>
                           </div>
+                          <button
+                            type="button"
+                            className="proyecto-delete"
+                            onClick={() => void handleDeleteUsuario(item)}
+                            aria-label={`Eliminar usuario ${item.email || item.uid}`}
+                          >
+                            <Trash2 size={16} strokeWidth={2} />
+                          </button>
                         </article>
                       ))}
                     </div>
@@ -1096,47 +1187,151 @@ export function ProjectDetail() {
                   ) : null}
 
                   {!pagosLoading && !pagosError && pagos.length > 0 ? (
-                    <div className="pagos-table-wrap">
-                      <table className="pagos-table">
-                        <thead>
-                          <tr>
-                            <th>Fecha</th>
-                            <th>Correo</th>
-                            <th>Referencia</th>
-                            <th>Días</th>
-                            <th>Monto</th>
-                            <th>Estado</th>
-                            <th>Licencia</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pagos.map((pago) => {
-                            const monto =
-                              pago.precio != null
-                                ? formatCop(pago.precio)
-                                : pago.amountInCents != null
-                                  ? formatCop(pago.amountInCents / 100)
-                                  : '—'
-                            return (
-                              <tr key={pago.id}>
-                                <td>{formatExpiresAt(pago.createdAt)}</td>
-                                <td>{pago.email || '—'}</td>
-                                <td className="pagos-ref">{pago.reference}</td>
-                                <td>{pago.dias}</td>
-                                <td>{monto}</td>
-                                <td>
-                                  <span className={`pago-status ${statusClass(pago.status)}`}>
-                                    {formatPagoStatus(pago.status)}
-                                    {pago.mock ? ' · mock' : ''}
-                                  </span>
-                                </td>
-                                <td>{pago.licenseGranted ? 'Activada' : '—'}</td>
+                    <>
+                      <div className="pagos-filters" role="search" aria-label="Filtrar pagos">
+                        <label className="login-field" htmlFor="pago-query">
+                          Buscar
+                          <span className="login-input-wrap">
+                            <Search
+                              className="login-input-icon"
+                              size={16}
+                              strokeWidth={1.75}
+                              aria-hidden
+                            />
+                            <input
+                              id="pago-query"
+                              type="search"
+                              value={pagoQuery}
+                              onChange={(e) => setPagoQuery(e.target.value)}
+                              placeholder="Correo, referencia o UID"
+                            />
+                          </span>
+                        </label>
+
+                        <label className="login-field" htmlFor="pago-status">
+                          Estado
+                          <select
+                            id="pago-status"
+                            value={pagoStatusFilter}
+                            onChange={(e) => setPagoStatusFilter(e.target.value)}
+                          >
+                            <option value="all">Todos</option>
+                            {pagoStatusOptions.map((status) => (
+                              <option key={status} value={status}>
+                                {formatPagoStatus(status)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="login-field" htmlFor="pago-licencia">
+                          Licencia
+                          <select
+                            id="pago-licencia"
+                            value={pagoLicenciaFilter}
+                            onChange={(e) => setPagoLicenciaFilter(e.target.value)}
+                          >
+                            <option value="all">Todas</option>
+                            <option value="activated">Activada</option>
+                            <option value="pending">Sin activar</option>
+                          </select>
+                        </label>
+
+                        <label className="login-field" htmlFor="pago-tipo">
+                          Tipo
+                          <select
+                            id="pago-tipo"
+                            value={pagoTipoFilter}
+                            onChange={(e) => setPagoTipoFilter(e.target.value)}
+                          >
+                            <option value="all">Todos</option>
+                            <option value="real">Wompi real</option>
+                            <option value="mock">Simulado</option>
+                          </select>
+                        </label>
+
+                        <label className="login-field" htmlFor="pago-desde">
+                          Desde
+                          <input
+                            id="pago-desde"
+                            type="date"
+                            value={pagoFechaDesde}
+                            onChange={(e) => setPagoFechaDesde(e.target.value)}
+                          />
+                        </label>
+
+                        <label className="login-field" htmlFor="pago-hasta">
+                          Hasta
+                          <input
+                            id="pago-hasta"
+                            type="date"
+                            value={pagoFechaHasta}
+                            onChange={(e) => setPagoFechaHasta(e.target.value)}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          className="btn-secondary pagos-filters-clear"
+                          onClick={clearPagoFilters}
+                        >
+                          Limpiar filtros
+                        </button>
+                      </div>
+
+                      <p className="pagos-filter-meta">
+                        Mostrando {filteredPagos.length} de {pagos.length} pagos
+                      </p>
+
+                      {filteredPagos.length === 0 ? (
+                        <div className="proyectos-empty">
+                          <Search size={28} strokeWidth={1.75} aria-hidden />
+                          <p>No hay pagos que coincidan con los filtros.</p>
+                        </div>
+                      ) : (
+                        <div className="pagos-table-wrap">
+                          <table className="pagos-table">
+                            <thead>
+                              <tr>
+                                <th>Fecha</th>
+                                <th>Correo</th>
+                                <th>Referencia</th>
+                                <th>Días</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Licencia</th>
                               </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            </thead>
+                            <tbody>
+                              {filteredPagos.map((pago) => {
+                                const monto =
+                                  pago.precio != null
+                                    ? formatCop(pago.precio)
+                                    : pago.amountInCents != null
+                                      ? formatCop(pago.amountInCents / 100)
+                                      : '—'
+                                return (
+                                  <tr key={pago.id}>
+                                    <td>{formatExpiresAt(pago.createdAt)}</td>
+                                    <td>{pago.email || '—'}</td>
+                                    <td className="pagos-ref">{pago.reference}</td>
+                                    <td>{pago.dias}</td>
+                                    <td>{monto}</td>
+                                    <td>
+                                      <span className={`pago-status ${statusClass(pago.status)}`}>
+                                        {formatPagoStatus(pago.status)}
+                                        {pago.mock ? ' · mock' : ''}
+                                      </span>
+                                    </td>
+                                    <td>{pago.licenseGranted ? 'Activada' : '—'}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
                   ) : null}
                 </section>
                 </>

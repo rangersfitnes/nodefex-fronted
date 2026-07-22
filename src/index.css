@@ -876,6 +876,11 @@ a {
   box-shadow: 0 8px 20px rgba(11, 31, 58, 0.06);
 }
 
+.usuario-row .proyecto-delete {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .usuario-avatar {
   display: grid;
   place-items: center;
@@ -924,6 +929,57 @@ a {
   border-radius: 12px;
   border: 1px solid rgba(209, 213, 219, 0.9);
   background: rgba(255, 255, 255, 0.95);
+}
+
+.pagos-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.pagos-filters .login-field select,
+.pagos-filters .login-field input[type='date'] {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--gray-900);
+  outline: none;
+}
+
+.pagos-filters .login-field select:focus,
+.pagos-filters .login-field input[type='date']:focus {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.pagos-filters-clear {
+  align-self: end;
+  justify-self: start;
+}
+
+.pagos-filter-meta {
+  margin: 0 0 0.75rem;
+  color: var(--gray-500);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 900px) {
+  .pagos-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .pagos-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pagos-table {
