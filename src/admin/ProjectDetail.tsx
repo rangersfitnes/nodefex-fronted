@@ -104,6 +104,7 @@ export function ProjectDetail() {
   const [dias, setDias] = useState('30')
   const [membershipError, setMembershipError] = useState('')
   const [membershipSubmitting, setMembershipSubmitting] = useState(false)
+  const [membershipSuccess, setMembershipSuccess] = useState('')
 
   const [planes, setPlanes] = useState<LicenciaPlan[]>([])
   const [planesLoading, setPlanesLoading] = useState(false)
@@ -422,6 +423,16 @@ export function ProjectDetail() {
     setSelectedUid(usuarios[0]?.uid ?? '')
     setDias('30')
     setMembershipError('')
+    setMembershipSuccess('')
+    setMembershipOpen(true)
+  }
+
+  function openMembershipModalForUser(item: ProyectoUsuario) {
+    setMembershipQuery(item.email || item.uid)
+    setSelectedUid(item.uid)
+    setDias('30')
+    setMembershipError('')
+    setMembershipSuccess('')
     setMembershipOpen(true)
   }
 
@@ -480,6 +491,7 @@ export function ProjectDetail() {
         dias: diasNumber,
       })
 
+      const target = usuarios.find((item) => item.uid === selectedUid)
       setUsuarios((current) =>
         current.map((item) =>
           item.uid === selectedUid
@@ -492,6 +504,9 @@ export function ProjectDetail() {
               }
             : item,
         ),
+      )
+      setMembershipSuccess(
+        `Se activaron ${diasNumber} días para ${target?.email || selectedUid}. Quedan ${membresia.diasRestantes} días.`,
       )
       setMembershipOpen(false)
     } catch (err) {
@@ -721,7 +736,7 @@ export function ProjectDetail() {
                       </Link>
                       <button type="button" className="btn-secondary" onClick={openMembershipModal}>
                         <Shield size={18} strokeWidth={2} aria-hidden />
-                        Activar membresía
+                        Activar licencia
                       </button>
                       <button type="button" className="btn-primary" onClick={openModal}>
                         <Plus size={18} strokeWidth={2} aria-hidden />
@@ -1094,8 +1109,16 @@ export function ProjectDetail() {
                   </div>
                   <p className="section-note">
                     Vigencias calculadas en zona horaria America/Bogota. Se guarda la fecha exacta
-                    de vencimiento en Firestore.
+                    de vencimiento en Firestore. Usa «Activar días» en cada usuario para sumar
+                    licencia manualmente.
                   </p>
+
+                  {membershipSuccess ? (
+                    <p className="renew-link-success" role="status">
+                      <Check size={16} strokeWidth={2} aria-hidden />
+                      {membershipSuccess}
+                    </p>
+                  ) : null}
 
                   {loadingUsers ? (
                     <div className="proyectos-status">
@@ -1141,14 +1164,25 @@ export function ProjectDetail() {
                             <strong>{item.diasRestantes}</strong>
                             <span>días</span>
                           </div>
-                          <button
-                            type="button"
-                            className="proyecto-delete"
-                            onClick={() => void handleDeleteUsuario(item)}
-                            aria-label={`Eliminar usuario ${item.email || item.uid}`}
-                          >
-                            <Trash2 size={16} strokeWidth={2} />
-                          </button>
+                          <div className="usuario-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary usuario-activate"
+                              onClick={() => openMembershipModalForUser(item)}
+                              aria-label={`Activar días para ${item.email || item.uid}`}
+                            >
+                              <Shield size={15} strokeWidth={2} aria-hidden />
+                              Activar días
+                            </button>
+                            <button
+                              type="button"
+                              className="proyecto-delete"
+                              onClick={() => void handleDeleteUsuario(item)}
+                              aria-label={`Eliminar usuario ${item.email || item.uid}`}
+                            >
+                              <Trash2 size={16} strokeWidth={2} />
+                            </button>
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -1446,7 +1480,7 @@ export function ProjectDetail() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="membresia-title">Activar membresía</h2>
+              <h2 id="membresia-title">Activar licencia por días</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1459,6 +1493,20 @@ export function ProjectDetail() {
             </div>
 
             <form className="modal-form" onSubmit={handleAddMembership} noValidate>
+              <p className="section-note" style={{ marginTop: 0 }}>
+                Suma días de licencia al usuario seleccionado en Firestore Velix
+                (<code> usuarios/{'{uid}'}</code>.
+              </p>
+
+              {selectedUid ? (
+                <p className="membership-selected">
+                  Usuario:{' '}
+                  <strong>
+                    {usuarios.find((u) => u.uid === selectedUid)?.email || selectedUid}
+                  </strong>
+                </p>
+              ) : null}
+
               <label className="login-field" htmlFor="buscar-usuario">
                 Buscar usuario
                 <span className="login-input-wrap">
@@ -1537,7 +1585,7 @@ export function ProjectDetail() {
                   ) : (
                     <>
                       <Shield size={16} strokeWidth={2} aria-hidden />
-                      Activar
+                      Activar días
                     </>
                   )}
                 </button>

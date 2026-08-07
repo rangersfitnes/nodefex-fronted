@@ -877,8 +877,31 @@ a {
 }
 
 .usuario-row .proyecto-delete {
-  margin-left: auto;
+  margin-left: 0;
   flex-shrink: 0;
+}
+
+.usuario-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.usuario-activate {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.membership-selected {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: var(--blue-50);
+  color: var(--blue-900);
+  font-size: 0.92rem;
 }
 
 .usuario-avatar {
@@ -1369,6 +1392,12 @@ a.btn-secondary {
 
   .membership-badge {
     margin-left: 0;
+  }
+
+  .usuario-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .hero-actions {
