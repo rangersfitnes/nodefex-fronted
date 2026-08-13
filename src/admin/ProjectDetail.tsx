@@ -14,6 +14,9 @@ import {
   listPagosProyecto,
   listUsuariosProyecto,
   proyectoSoportaUsuarios,
+  esProyectoVelix,
+  esProyectoSistecontact,
+  setUsuarioAccessProyecto,
   saveLinkDescargaProyecto,
   saveLinkLicenciaProyecto,
   saveSoporteWhatsappProyecto,
@@ -105,6 +108,8 @@ export function ProjectDetail() {
   const [membershipError, setMembershipError] = useState('')
   const [membershipSubmitting, setMembershipSubmitting] = useState(false)
   const [membershipSuccess, setMembershipSuccess] = useState('')
+  const [accessSavingUid, setAccessSavingUid] = useState('')
+  const [accessError, setAccessError] = useState('')
 
   const [planes, setPlanes] = useState<LicenciaPlan[]>([])
   const [planesLoading, setPlanesLoading] = useState(false)
@@ -145,6 +150,8 @@ export function ProjectDetail() {
   const [pagoFechaHasta, setPagoFechaHasta] = useState('')
 
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
+  const esVelix = esProyectoVelix(decodedId)
+  const esSistecontact = esProyectoSistecontact(decodedId)
 
   const filteredUsers = useMemo(() => {
     const q = membershipQuery.trim().toLowerCase()
@@ -269,7 +276,7 @@ export function ProjectDetail() {
     let cancelled = false
 
     async function loadPlanes() {
-      if (!user || !soportaUsuarios || !decodedId) return
+      if (!user || !esVelix || !decodedId) return
       setPlanesLoading(true)
       setPlanesError('')
       try {
@@ -289,13 +296,13 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, soportaUsuarios])
+  }, [user, decodedId, esVelix])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadRenewLink() {
-      if (!user || !soportaUsuarios || !decodedId) return
+      if (!user || !esVelix || !decodedId) return
       setRenewLinkLoading(true)
       setRenewLinkError('')
       try {
@@ -317,13 +324,13 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, soportaUsuarios])
+  }, [user, decodedId, esVelix])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadDownloadLink() {
-      if (!user || !soportaUsuarios || !decodedId) return
+      if (!user || !esVelix || !decodedId) return
       setDownloadLinkLoading(true)
       setDownloadLinkError('')
       try {
@@ -345,13 +352,13 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, soportaUsuarios])
+  }, [user, decodedId, esVelix])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadWhatsapp() {
-      if (!user || !soportaUsuarios || !decodedId) return
+      if (!user || !esVelix || !decodedId) return
       setWhatsappLoading(true)
       setWhatsappError('')
       try {
@@ -373,13 +380,13 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, soportaUsuarios])
+  }, [user, decodedId, esVelix])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadPagos() {
-      if (!user || !soportaUsuarios || !decodedId) return
+      if (!user || !esVelix || !decodedId) return
       setPagosLoading(true)
       setPagosError('')
       try {
@@ -399,7 +406,7 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, soportaUsuarios])
+  }, [user, decodedId, esVelix])
 
   async function handleLogout() {
     await logout()
@@ -577,7 +584,9 @@ export function ProjectDetail() {
     if (!user) return
     const label = item.email || item.uid
     const ok = window.confirm(
-      `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth Velix y su membresía en Firestore.`,
+      esSistecontact
+        ? `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth de Sistecontact.`
+        : `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth Velix y su membresía en Firestore.`,
     )
     if (!ok) return
 
@@ -588,6 +597,32 @@ export function ProjectDetail() {
       setSelectedUid((current) => (current === item.uid ? '' : current))
     } catch (err) {
       setUsersError(err instanceof Error ? err.message : 'No se pudo eliminar el usuario')
+    }
+  }
+
+  async function handleToggleAccess(item: ProyectoUsuario, nextAccess: boolean) {
+    if (!user || !esSistecontact) return
+
+    setAccessError('')
+    setAccessSavingUid(item.uid)
+    const previous = Boolean(item.access)
+    setUsuarios((current) =>
+      current.map((u) => (u.uid === item.uid ? { ...u, access: nextAccess } : u)),
+    )
+
+    try {
+      const token = await user.getIdToken()
+      const result = await setUsuarioAccessProyecto(token, decodedId, item.uid, nextAccess)
+      setUsuarios((current) =>
+        current.map((u) => (u.uid === item.uid ? { ...u, access: result.access } : u)),
+      )
+    } catch (err) {
+      setUsuarios((current) =>
+        current.map((u) => (u.uid === item.uid ? { ...u, access: previous } : u)),
+      )
+      setAccessError(err instanceof Error ? err.message : 'No se pudo actualizar el acceso')
+    } finally {
+      setAccessSavingUid('')
     }
   }
 
@@ -731,13 +766,26 @@ export function ProjectDetail() {
                   </div>
                   {soportaUsuarios ? (
                     <div className="hero-actions">
-                      <Link to="/velix" className="btn-secondary" target="_blank" rel="noreferrer">
-                        Abrir /velix
-                      </Link>
-                      <button type="button" className="btn-secondary" onClick={openMembershipModal}>
-                        <Shield size={18} strokeWidth={2} aria-hidden />
-                        Activar licencia
-                      </button>
+                      {esVelix ? (
+                        <>
+                          <Link
+                            to="/velix"
+                            className="btn-secondary"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Abrir /velix
+                          </Link>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={openMembershipModal}
+                          >
+                            <Shield size={18} strokeWidth={2} aria-hidden />
+                            Activar licencia
+                          </button>
+                        </>
+                      ) : null}
                       <button type="button" className="btn-primary" onClick={openModal}>
                         <Plus size={18} strokeWidth={2} aria-hidden />
                         Crear usuario
@@ -749,6 +797,8 @@ export function ProjectDetail() {
 
               {soportaUsuarios ? (
                 <>
+                  {esVelix ? (
+                  <>
                   <section className="usuarios-section" aria-label="Link de renovación">
                     <div className="section-heading">
                       <Link2 size={18} strokeWidth={2} aria-hidden />
@@ -1101,23 +1151,34 @@ export function ProjectDetail() {
                       </div>
                     ) : null}
                   </section>
+                  </>
+                  ) : null}
 
                 <section className="usuarios-section" aria-label="Usuarios del proyecto">
                   <div className="section-heading">
                     <Users size={18} strokeWidth={2} aria-hidden />
-                    <h2>Usuarios y membresías (Velix)</h2>
+                    <h2>
+                      {esVelix ? 'Usuarios y membresías (Velix)' : 'Usuarios (Firebase Auth)'}
+                    </h2>
                   </div>
                   <p className="section-note">
-                    Vigencias calculadas en zona horaria America/Bogota. Se guarda la fecha exacta
-                    de vencimiento en Firestore. Usa «Activar días» en cada usuario para sumar
-                    licencia manualmente.
+                    {esVelix
+                      ? 'Vigencias calculadas en zona horaria America/Bogota. Se guarda la fecha exacta de vencimiento en Firestore. Usa «Activar días» en cada usuario para sumar licencia manualmente.'
+                      : 'Lista de cuentas en Firebase Auth de Sistecontact. El switch de membresía escribe users/{uid}/settings/access (access: true/false).'}
                   </p>
 
-                  {membershipSuccess ? (
+                  {esVelix && membershipSuccess ? (
                     <p className="renew-link-success" role="status">
                       <Check size={16} strokeWidth={2} aria-hidden />
                       {membershipSuccess}
                     </p>
+                  ) : null}
+
+                  {esSistecontact && accessError ? (
+                    <div className="proyectos-status proyectos-status-error" role="alert">
+                      <AlertCircle size={18} strokeWidth={2} aria-hidden />
+                      {accessError}
+                    </div>
                   ) : null}
 
                   {loadingUsers ? (
@@ -1154,26 +1215,69 @@ export function ProjectDetail() {
                               UID: {item.uid}
                               {item.disabled ? ' · Deshabilitado' : ''}
                             </p>
-                            <p className="usuario-license">
-                              Vence: {formatExpiresAt(item.licenseExpiresAt)}
-                            </p>
+                            {esVelix ? (
+                              <p className="usuario-license">
+                                Vence: {formatExpiresAt(item.licenseExpiresAt)}
+                              </p>
+                            ) : (
+                              <p className="usuario-license">
+                                Creado: {item.createdAt || '—'}
+                                {item.lastSignInAt
+                                  ? ` · Último acceso: ${item.lastSignInAt}`
+                                  : ''}
+                              </p>
+                            )}
                           </div>
-                          <div
-                            className={`membership-badge ${item.activa ? 'is-active' : 'is-expired'}`}
-                          >
-                            <strong>{item.diasRestantes}</strong>
-                            <span>días</span>
-                          </div>
-                          <div className="usuario-actions">
-                            <button
-                              type="button"
-                              className="btn-secondary usuario-activate"
-                              onClick={() => openMembershipModalForUser(item)}
-                              aria-label={`Activar días para ${item.email || item.uid}`}
+                          {esVelix ? (
+                            <div
+                              className={`membership-badge ${item.activa ? 'is-active' : 'is-expired'}`}
                             >
-                              <Shield size={15} strokeWidth={2} aria-hidden />
-                              Activar días
-                            </button>
+                              <strong>{item.diasRestantes}</strong>
+                              <span>días</span>
+                            </div>
+                          ) : null}
+                          <div className="usuario-actions">
+                            {esSistecontact ? (
+                              <label
+                                className={`access-switch ${item.access ? 'is-on' : 'is-off'}`}
+                                title={
+                                  item.access
+                                    ? 'Membresía activa (puede usar la web)'
+                                    : 'Membresía inactiva (sin acceso a la web)'
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(item.access)}
+                                  disabled={accessSavingUid === item.uid}
+                                  onChange={(e) =>
+                                    void handleToggleAccess(item, e.target.checked)
+                                  }
+                                  aria-label={`Membresía de ${item.email || item.uid}`}
+                                />
+                                <span className="access-switch-track" aria-hidden>
+                                  <span className="access-switch-thumb" />
+                                </span>
+                                <span className="access-switch-label">
+                                  {accessSavingUid === item.uid
+                                    ? 'Guardando...'
+                                    : item.access
+                                      ? 'Activo'
+                                      : 'Inactivo'}
+                                </span>
+                              </label>
+                            ) : null}
+                            {esVelix ? (
+                              <button
+                                type="button"
+                                className="btn-secondary usuario-activate"
+                                onClick={() => openMembershipModalForUser(item)}
+                                aria-label={`Activar días para ${item.email || item.uid}`}
+                              >
+                                <Shield size={15} strokeWidth={2} aria-hidden />
+                                Activar días
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className="proyecto-delete"
@@ -1189,6 +1293,7 @@ export function ProjectDetail() {
                   ) : null}
                 </section>
 
+                {esVelix ? (
                 <section className="usuarios-section" aria-label="Pagos de membresías">
                   <div className="section-heading">
                     <Receipt size={18} strokeWidth={2} aria-hidden />
@@ -1368,6 +1473,7 @@ export function ProjectDetail() {
                     </>
                   ) : null}
                 </section>
+                ) : null}
                 </>
               ) : (
                 <div className="proyectos-empty">
@@ -1470,7 +1576,7 @@ export function ProjectDetail() {
         </div>
       ) : null}
 
-      {membershipOpen ? (
+      {esVelix && membershipOpen ? (
         <div className="modal-overlay" role="presentation" onClick={closeMembershipModal}>
           <div
             className="modal-panel modal-panel-wide"

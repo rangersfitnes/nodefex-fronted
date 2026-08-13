@@ -895,6 +895,73 @@ a {
   white-space: nowrap;
 }
 
+.access-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.access-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.access-switch-track {
+  position: relative;
+  width: 2.6rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: #d1d5db;
+  transition: background 0.18s ease;
+  flex-shrink: 0;
+}
+
+.access-switch-thumb {
+  position: absolute;
+  top: 0.18rem;
+  left: 0.18rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.18s ease;
+}
+
+.access-switch.is-on .access-switch-track {
+  background: #16a34a;
+}
+
+.access-switch.is-on .access-switch-thumb {
+  transform: translateX(1.15rem);
+}
+
+.access-switch-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  min-width: 4.5rem;
+}
+
+.access-switch.is-on .access-switch-label {
+  color: #15803d;
+}
+
+.access-switch.is-off .access-switch-label {
+  color: var(--gray-500);
+}
+
+.access-switch:has(input:disabled) {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .membership-selected {
   margin: 0;
   padding: 0.7rem 0.85rem;

@@ -19,11 +19,27 @@ export type ProyectoUsuario = {
   licenseExpiresAt: string | null
   activa: boolean
   timezone: string
+  /** Sistecontact: users/{uid}/settings/access.access */
+  access?: boolean
+}
+
+function normalizeProyectoId(proyectoId: string): string {
+  return decodeURIComponent(proyectoId).trim().toLowerCase()
 }
 
 /** Proyectos con Firebase Auth externo gestionable desde el admin */
 export function proyectoSoportaUsuarios(proyectoId: string): boolean {
-  return decodeURIComponent(proyectoId).trim().toLowerCase() === 'velix'
+  const id = normalizeProyectoId(proyectoId)
+  return id === 'velix' || id === 'sistecontact'
+}
+
+/** Funciones exclusivas de Velix (licencias, pagos, links públicos) */
+export function esProyectoVelix(proyectoId: string): boolean {
+  return normalizeProyectoId(proyectoId) === 'velix'
+}
+
+export function esProyectoSistecontact(proyectoId: string): boolean {
+  return normalizeProyectoId(proyectoId) === 'sistecontact'
 }
 
 async function apiFetch<T>(
@@ -117,6 +133,22 @@ export async function deleteUsuarioProyecto(
     `/api/proyectos/${encodeURIComponent(proyectoId)}/usuarios/${encodeURIComponent(uid)}`,
     token,
     { method: 'DELETE' },
+  )
+}
+
+export async function setUsuarioAccessProyecto(
+  token: string,
+  proyectoId: string,
+  uid: string,
+  access: boolean,
+): Promise<{ uid: string; access: boolean }> {
+  return apiFetch<{ uid: string; access: boolean }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/usuarios/${encodeURIComponent(uid)}/access`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ access }),
+    },
   )
 }
 
