@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -20,8 +19,6 @@ import { getSistecontactAuth } from '../sistecontactFirebase'
 
 const STORAGE_KEY = 'sistecontact_session'
 const PENDING_PAYMENT_KEY = 'sistecontact_pending_payment'
-
-type AuthMode = 'login' | 'registro'
 
 type Session = {
   token: string
@@ -58,7 +55,6 @@ export function SistecontactPublic() {
   const [authUser, setAuthUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState('')
@@ -195,23 +191,17 @@ export function SistecontactPublic() {
 
     try {
       const auth = getSistecontactAuth()
-      if (authMode === 'registro') {
-        await createUserWithEmailAndPassword(auth, email.trim(), password)
-      } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password)
-      }
+      await signInWithEmailAndPassword(auth, email.trim(), password)
       setPassword('')
     } catch (err) {
       const message =
         err instanceof Error
-          ? err.message.includes('email-already-in-use')
-            ? 'Ese correo ya está registrado'
-            : err.message.includes('invalid-credential') || err.message.includes('wrong-password')
-              ? 'Correo o contraseña incorrectos'
-              : err.message.includes('weak-password')
-                ? 'La contraseña debe tener al menos 6 caracteres'
-                : err.message
-          : 'No se pudo completar la autenticación'
+          ? err.message.includes('invalid-credential') ||
+              err.message.includes('wrong-password') ||
+              err.message.includes('user-not-found')
+            ? 'Correo o contraseña incorrectos'
+            : err.message
+          : 'No se pudo iniciar sesión'
       setFormError(message)
     } finally {
       setFormBusy(false)
@@ -332,29 +322,18 @@ export function SistecontactPublic() {
       <main className="sc-main">
         <section className="sc-hero">
           <h1>Sistecontact</h1>
-          <p>Regístrate, elige un plan y activa tu membresía para usar la plataforma.</p>
+          <p>Inicia sesión con tu cuenta, elige un plan y activa tu membresía.</p>
         </section>
 
         {!authReady ? (
           <p className="sc-status">Cargando...</p>
         ) : !session ? (
           <section className="sc-panel">
-            <div className="sc-tabs">
-              <button
-                type="button"
-                className={authMode === 'login' ? 'is-active' : ''}
-                onClick={() => setAuthMode('login')}
-              >
-                Iniciar sesión
-              </button>
-              <button
-                type="button"
-                className={authMode === 'registro' ? 'is-active' : ''}
-                onClick={() => setAuthMode('registro')}
-              >
-                Registrarse
-              </button>
-            </div>
+            <h2>Iniciar sesión</h2>
+            <p className="sc-panel-copy">
+              Las cuentas las crea el administrador. Si aún no tienes acceso, solicítalo al
+              equipo.
+            </p>
 
             <form className="modal-form" onSubmit={handleAuthSubmit} noValidate>
               <label className="login-field" htmlFor="sc-email">
@@ -379,7 +358,7 @@ export function SistecontactPublic() {
                   required
                   minLength={6}
                   disabled={formBusy}
-                  autoComplete={authMode === 'registro' ? 'new-password' : 'current-password'}
+                  autoComplete="current-password"
                 />
               </label>
 
@@ -390,11 +369,7 @@ export function SistecontactPublic() {
               ) : null}
 
               <button type="submit" className="btn-primary" disabled={formBusy}>
-                {formBusy
-                  ? 'Espera...'
-                  : authMode === 'registro'
-                    ? 'Crear cuenta'
-                    : 'Entrar'}
+                {formBusy ? 'Espera...' : 'Entrar'}
               </button>
             </form>
           </section>
@@ -491,7 +466,7 @@ export function SistecontactPublic() {
                 </article>
               ))}
             </div>
-            <p className="sc-status">Inicia sesión o regístrate para pagar un plan.</p>
+            <p className="sc-status">Inicia sesión para pagar un plan.</p>
           </section>
         ) : null}
       </main>
