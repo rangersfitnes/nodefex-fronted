@@ -30,3 +30,12 @@ export const velixFirebaseConfig = {
   messagingSenderId: '315553847152',
   appId: '1:315553847152:web:f815138ac293f87e8061b5',
 } as const
+
+export const sistecontactFirebaseConfig = {
+  apiKey: 'AIzaSyDquHbSqh-s2GWEwwEBUlfdGOCbBI-d4a4',
+  authDomain: 'sistecontact.firebaseapp.com',
+  projectId: 'sistecontact',
+  storageBucket: 'sistecontact.firebasestorage.app',
+  messagingSenderId: '811424258609',
+  appId: '1:811424258609:web:15b7440eb658db96029310',
+} as const

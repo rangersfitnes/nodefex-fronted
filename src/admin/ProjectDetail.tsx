@@ -152,6 +152,7 @@ export function ProjectDetail() {
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
   const esVelix = esProyectoVelix(decodedId)
   const esSistecontact = esProyectoSistecontact(decodedId)
+  const soportaPlanes = esVelix || esSistecontact
 
   const filteredUsers = useMemo(() => {
     const q = membershipQuery.trim().toLowerCase()
@@ -276,7 +277,7 @@ export function ProjectDetail() {
     let cancelled = false
 
     async function loadPlanes() {
-      if (!user || !esVelix || !decodedId) return
+      if (!user || !soportaPlanes || !decodedId) return
       setPlanesLoading(true)
       setPlanesError('')
       try {
@@ -296,7 +297,7 @@ export function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [user, decodedId, esVelix])
+  }, [user, decodedId, soportaPlanes])
 
   useEffect(() => {
     let cancelled = false
@@ -786,6 +787,16 @@ export function ProjectDetail() {
                           </button>
                         </>
                       ) : null}
+                      {esSistecontact ? (
+                        <Link
+                          to="/sistecontact"
+                          className="btn-secondary"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir /sistecontact
+                        </Link>
+                      ) : null}
                       <button type="button" className="btn-primary" onClick={openModal}>
                         <Plus size={18} strokeWidth={2} aria-hidden />
                         Crear usuario
@@ -1022,15 +1033,20 @@ export function ProjectDetail() {
                       </form>
                     )}
                   </section>
+                  </>
+                  ) : null}
 
+                  {soportaPlanes ? (
                   <section className="usuarios-section" aria-label="Planes de licencia">
                     <div className="section-heading">
                       <Package size={18} strokeWidth={2} aria-hidden />
-                      <h2>Planes / licencias (tarifas)</h2>
+                      <h2>Planes / membresías (tarifas)</h2>
                     </div>
                     <p className="section-note">
                       Se guardan en Firestore Nodefex: <code>proyectos/{'{id}'}/licencias</code>.
-                      Estos planes aparecen en la tienda pública <code>/velix</code>.
+                      {esSistecontact
+                        ? ' Estos planes aparecen en la tienda pública /sistecontact.'
+                        : ' Estos planes aparecen en la tienda pública /velix.'}
                     </p>
 
                     <form className="plan-admin-form" onSubmit={handleCreatePlan} noValidate>
@@ -1040,7 +1056,9 @@ export function ProjectDetail() {
                           id="plan-nombre"
                           value={planNombre}
                           onChange={(e) => setPlanNombre(e.target.value)}
-                          placeholder="Licencia 30 días"
+                          placeholder={
+                            esSistecontact ? 'Membresía 30 días' : 'Licencia 30 días'
+                          }
                           required
                           disabled={planSubmitting}
                         />
@@ -1123,7 +1141,10 @@ export function ProjectDetail() {
 
                     {!planesLoading && !planesError && planes.length === 0 ? (
                       <div className="proyectos-empty">
-                        <p>No hay planes. Crea uno (por ejemplo 30 días) para venderlo en /velix.</p>
+                        <p>
+                          No hay planes. Crea uno (por ejemplo 30 días) para venderlo en /
+                          {esSistecontact ? 'sistecontact' : 'velix'}.
+                        </p>
                       </div>
                     ) : null}
 
@@ -1151,20 +1172,21 @@ export function ProjectDetail() {
                       </div>
                     ) : null}
                   </section>
-                  </>
                   ) : null}
 
                 <section className="usuarios-section" aria-label="Usuarios del proyecto">
                   <div className="section-heading">
                     <Users size={18} strokeWidth={2} aria-hidden />
                     <h2>
-                      {esVelix ? 'Usuarios y membresías (Velix)' : 'Usuarios (Firebase Auth)'}
+                      {esVelix
+                        ? 'Usuarios y membresías (Velix)'
+                        : 'Usuarios y membresías (Sistecontact)'}
                     </h2>
                   </div>
                   <p className="section-note">
                     {esVelix
                       ? 'Vigencias calculadas en zona horaria America/Bogota. Se guarda la fecha exacta de vencimiento en Firestore. Usa «Activar días» en cada usuario para sumar licencia manualmente.'
-                      : 'Lista de cuentas en Firebase Auth de Sistecontact. El switch de membresía escribe users/{uid}/settings/access (access: true/false).'}
+                      : 'El switch activa users/{uid}/settings/access. Los pagos de /sistecontact suman días de vigencia automáticamente.'}
                   </p>
 
                   {esVelix && membershipSuccess ? (
@@ -1221,9 +1243,12 @@ export function ProjectDetail() {
                               </p>
                             ) : (
                               <p className="usuario-license">
-                                Creado: {item.createdAt || '—'}
-                                {item.lastSignInAt
-                                  ? ` · Último acceso: ${item.lastSignInAt}`
+                                Acceso: {item.access ? 'Activo' : 'Inactivo'}
+                                {item.licenseExpiresAt
+                                  ? ` · Vence: ${formatExpiresAt(item.licenseExpiresAt)}`
+                                  : ''}
+                                {item.diasRestantes > 0
+                                  ? ` · ${item.diasRestantes} días`
                                   : ''}
                               </p>
                             )}

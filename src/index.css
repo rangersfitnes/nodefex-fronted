@@ -1648,3 +1648,247 @@ a.btn-secondary {
     width: 100%;
   }
 }
+
+/* —— Sistecontact público —— */
+.sc-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  color: #e8f4f2;
+  background: #062a32;
+}
+
+.sc-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(34, 197, 160, 0.28), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 20%, rgba(14, 116, 144, 0.35), transparent 50%),
+    linear-gradient(165deg, #041f24 0%, #0a3a42 45%, #062a32 100%);
+  pointer-events: none;
+}
+
+.sc-header,
+.sc-main {
+  position: relative;
+  z-index: 1;
+  width: min(1080px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.sc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 0 0.5rem;
+}
+
+.sc-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.sc-brand-mark {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2dd4bf, #0e7490);
+  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.15);
+}
+
+.sc-main {
+  padding: 1.5rem 0 3.5rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.sc-hero h1 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: #f0fdfa;
+}
+
+.sc-hero p {
+  margin: 0.75rem 0 0;
+  max-width: 34rem;
+  color: rgba(226, 245, 241, 0.78);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.sc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1rem;
+}
+
+.sc-panel {
+  border-radius: 18px;
+  padding: 1.35rem 1.4rem 1.5rem;
+  background: rgba(6, 42, 50, 0.72);
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.sc-panel h2 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  color: #ecfeff;
+}
+
+.sc-panel-copy {
+  margin: 0.45rem 0 1rem;
+  color: rgba(226, 245, 241, 0.7);
+  font-size: 0.92rem;
+}
+
+.sc-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.3rem;
+  border-radius: 12px;
+  background: rgba(2, 24, 28, 0.55);
+}
+
+.sc-tabs button {
+  border: 0;
+  border-radius: 9px;
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  color: rgba(226, 245, 241, 0.7);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-tabs button.is-active {
+  background: rgba(45, 212, 191, 0.18);
+  color: #f0fdfa;
+}
+
+.sc-account {
+  margin-bottom: 1rem;
+}
+
+.sc-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5eead4;
+}
+
+.sc-email {
+  margin: 0.35rem 0 0.55rem;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  color: #f0fdfa;
+}
+
+.sc-access {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sc-access.is-on {
+  color: #5eead4;
+}
+
+.sc-access.is-off {
+  color: #fda4af;
+}
+
+.sc-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.sc-status {
+  margin: 0.5rem 0 0;
+  color: rgba(226, 245, 241, 0.75);
+  font-size: 0.92rem;
+}
+
+.sc-plans {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sc-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 14px;
+  background: rgba(2, 24, 28, 0.45);
+  border: 1px solid rgba(94, 234, 212, 0.12);
+}
+
+.sc-plan h3 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: #f0fdfa;
+}
+
+.sc-plan p {
+  margin: 0.25rem 0 0;
+  color: rgba(226, 245, 241, 0.65);
+  font-size: 0.88rem;
+}
+
+.sc-plan-meta {
+  color: #5eead4 !important;
+  font-weight: 600;
+}
+
+.sc-plans-preview {
+  margin-top: 0.25rem;
+}
+
+.sc-page .btn-primary {
+  background: linear-gradient(135deg, #14b8a6, #0e7490);
+  border-color: transparent;
+}
+
+.sc-page .btn-secondary {
+  background: rgba(2, 24, 28, 0.45);
+  border-color: rgba(94, 234, 212, 0.25);
+  color: #e8f4f2;
+}
+
+.sc-page .login-field {
+  color: rgba(226, 245, 241, 0.85);
+}
+
+.sc-page .login-field input {
+  background: rgba(2, 24, 28, 0.55);
+  border-color: rgba(94, 234, 212, 0.2);
+  color: #f0fdfa;
+}
+
+@media (max-width: 860px) {
+  .sc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-plan {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
