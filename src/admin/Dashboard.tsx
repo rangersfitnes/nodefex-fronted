@@ -15,12 +15,14 @@ import {
   LogOut,
   Package,
   Plus,
+  Shield,
   Trash2,
+  Users,
   X,
 } from '../icons'
 
 export function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, isOwner, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +40,10 @@ export function Dashboard() {
     let cancelled = false
 
     async function load() {
-      if (!user) return
+      if (!user || (!isOwner && !isAdmin)) {
+        setLoading(false)
+        return
+      }
       setLoading(true)
       setError('')
       try {
@@ -58,7 +63,7 @@ export function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, isOwner, isAdmin])
 
   async function handleLogout() {
     await logout()
@@ -135,7 +140,7 @@ export function Dashboard() {
           <span className="login-mark" aria-hidden>
             <Hexagon size={20} strokeWidth={2.25} />
           </span>
-          <span>Nodefex Tecnologi</span>
+          <span>Nodefex Tecnology</span>
         </div>
         <div className="dashboard-user">
           <span className="dashboard-email">{user?.email}</span>
@@ -154,19 +159,120 @@ export function Dashboard() {
           </p>
           <div className="dashboard-hero-row">
             <div>
-              <h1>Nodefex Tecnologi</h1>
+              <h1>Nodefex Tecnology</h1>
               <p className="dashboard-copy">
-                Gestiona los proyectos del sitio. Solo el servidor escribe en Firestore.
+                {isAdmin
+                  ? 'Estos son los proyectos que el propietario te asignó.'
+                  : 'Gestiona los proyectos del sitio. Solo el servidor escribe en Firestore.'}
               </p>
             </div>
-            <button type="button" className="btn-primary" onClick={openModal}>
-              <Plus size={18} strokeWidth={2} aria-hidden />
-              Agregar proyecto
-            </button>
+            {isOwner ? (
+              <button type="button" className="btn-primary" onClick={openModal}>
+                <Plus size={18} strokeWidth={2} aria-hidden />
+                Agregar proyecto
+              </button>
+            ) : null}
           </div>
         </section>
 
-        <section className="proyectos-section" aria-label="Lista de proyectos">
+        {isAdmin ? (
+          <section className="proyectos-section" aria-label="Proyectos asignados">
+            <p className="dashboard-eyebrow">Proyectos</p>
+            {loading ? (
+              <div className="proyectos-status">
+                <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                Cargando proyectos...
+              </div>
+            ) : null}
+            {!loading && error ? (
+              <div className="proyectos-status proyectos-status-error" role="alert">
+                <AlertCircle size={18} strokeWidth={2} aria-hidden />
+                {error}
+              </div>
+            ) : null}
+            {!loading && !error && proyectos.length === 0 ? (
+              <div className="proyectos-empty">
+                <Shield size={28} strokeWidth={1.75} aria-hidden />
+                <p>Aún no tienes proyectos asignados.</p>
+              </div>
+            ) : null}
+            {!loading && !error && proyectos.length > 0 ? (
+              <div className="proyectos-grid">
+                {proyectos.map((proyecto) => (
+                  <article
+                    key={proyecto.id}
+                    className="proyecto-card proyecto-card-clickable"
+                    onClick={() =>
+                      navigate(`/admin/proyectos/${encodeURIComponent(proyecto.id)}`)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        navigate(`/admin/proyectos/${encodeURIComponent(proyecto.id)}`)
+                      }
+                    }}
+                    role="link"
+                    tabIndex={0}
+                  >
+                    <div className="proyecto-card-top">
+                      <div className="proyecto-card-icon" aria-hidden>
+                        <Package size={20} strokeWidth={1.75} />
+                      </div>
+                      <span
+                        className={`admin-role-badge ${
+                          proyecto.acceso?.nivel === 'manage'
+                            ? 'is-owner'
+                            : proyecto.acceso?.nivel === 'custom'
+                              ? 'is-custom'
+                              : 'is-admin'
+                        }`}
+                      >
+                        {proyecto.acceso?.nivel === 'manage'
+                          ? 'Gestionar'
+                          : proyecto.acceso?.nivel === 'custom'
+                            ? 'Personalizado'
+                            : 'Solo ver'}
+                      </span>
+                    </div>
+                    <h2>{proyecto.nombre}</h2>
+                    <p>{proyecto.descripcion}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {isOwner ? (
+          <>
+            <section className="proyectos-section" aria-label="Gestión de Nodefex">
+              <p className="dashboard-eyebrow">Gestión</p>
+              <div className="proyectos-grid">
+                <article
+                  className="proyecto-card proyecto-card-clickable"
+                  onClick={() => navigate('/admin/administradores')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      navigate('/admin/administradores')
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                >
+                  <div className="proyecto-card-top">
+                    <div className="proyecto-card-icon" aria-hidden>
+                      <Users size={20} strokeWidth={1.75} />
+                    </div>
+                  </div>
+                  <h2>Administradores</h2>
+                  <p>Crear y gestionar cuentas admin de Nodefex. No es un proyecto.</p>
+                </article>
+              </div>
+            </section>
+
+            <section className="proyectos-section" aria-label="Lista de proyectos">
+              <p className="dashboard-eyebrow">Proyectos</p>
           {loading ? (
             <div className="proyectos-status">
               <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
@@ -228,7 +334,9 @@ export function Dashboard() {
               ))}
             </div>
           ) : null}
-        </section>
+            </section>
+          </>
+        ) : null}
       </main>
 
       {modalOpen ? (

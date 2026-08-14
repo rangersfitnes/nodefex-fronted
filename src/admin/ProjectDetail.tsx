@@ -26,6 +26,7 @@ import {
   type ProyectoUsuario,
 } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
+import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import {
   AlertCircle,
   ArrowRight,
@@ -85,7 +86,7 @@ function statusClass(status: string) {
 export function ProjectDetail() {
   const { proyectoId = '' } = useParams()
   const decodedId = decodeURIComponent(proyectoId)
-  const { user, logout } = useAuth()
+  const { user, logout, getProjectAccess } = useAuth()
   const navigate = useNavigate()
 
   const [proyecto, setProyecto] = useState<Proyecto | null>(null)
@@ -153,6 +154,20 @@ export function ProjectDetail() {
   const esVelix = esProyectoVelix(decodedId)
   const esSistecontact = esProyectoSistecontact(decodedId)
   const soportaPlanes = esVelix || esSistecontact
+  const access: ProyectoAccesoConfig | null =
+    proyecto?.acceso || getProjectAccess(decodedId)
+  function can(action: AdminAccion): boolean {
+    if (!access) return false
+    if (access.nivel === 'manage') return true
+    if (access.nivel === 'custom') return access.acciones.includes(action)
+    return false
+  }
+  const canCreateUsers = can('create_users')
+  const canDeleteUsers = can('delete_users')
+  const canActivateMemberships = can('activate_memberships')
+  const canManagePlans = can('manage_plans')
+  const canManageSettings = can('manage_settings')
+  const isReadOnly = !access || access.nivel === 'view'
 
   const filteredUsers = useMemo(() => {
     const q = membershipQuery.trim().toLowerCase()
@@ -764,6 +779,9 @@ export function ProjectDetail() {
                   <div>
                     <h1>{proyecto.nombre}</h1>
                     <p className="dashboard-copy">{proyecto.descripcion}</p>
+                    {isReadOnly ? (
+                      <p className="section-note">Estás en modo solo lectura en este proyecto.</p>
+                    ) : null}
                   </div>
                   {soportaUsuarios ? (
                     <div className="hero-actions">
@@ -777,14 +795,16 @@ export function ProjectDetail() {
                           >
                             Abrir /velix
                           </Link>
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={openMembershipModal}
-                          >
-                            <Shield size={18} strokeWidth={2} aria-hidden />
-                            Activar licencia
-                          </button>
+                          {canActivateMemberships ? (
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              onClick={openMembershipModal}
+                            >
+                              <Shield size={18} strokeWidth={2} aria-hidden />
+                              Activar licencia
+                            </button>
+                          ) : null}
                         </>
                       ) : null}
                       {esSistecontact ? (
@@ -797,10 +817,12 @@ export function ProjectDetail() {
                           Abrir /sistecontact
                         </Link>
                       ) : null}
-                      <button type="button" className="btn-primary" onClick={openModal}>
-                        <Plus size={18} strokeWidth={2} aria-hidden />
-                        Crear usuario
-                      </button>
+                      {canCreateUsers ? (
+                        <button type="button" className="btn-primary" onClick={openModal}>
+                          <Plus size={18} strokeWidth={2} aria-hidden />
+                          Crear usuario
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -843,7 +865,7 @@ export function ProjectDetail() {
                             }}
                             placeholder="https://tu-dominio.com/velix"
                             required
-                            disabled={renewLinkSubmitting}
+                            disabled={renewLinkSubmitting || !canManageSettings}
                           />
                         </label>
 
@@ -861,6 +883,7 @@ export function ProjectDetail() {
                           </p>
                         ) : null}
 
+                        {canManageSettings ? (
                         <button
                           type="submit"
                           className="btn-primary"
@@ -883,6 +906,7 @@ export function ProjectDetail() {
                             </>
                           )}
                         </button>
+                        ) : null}
                       </form>
                     )}
                   </section>
@@ -920,7 +944,7 @@ export function ProjectDetail() {
                             }}
                             placeholder="https://www.mediafire.com/file/.../velixsetup.exe/file"
                             required
-                            disabled={downloadLinkSubmitting}
+                            disabled={downloadLinkSubmitting || !canManageSettings}
                           />
                         </label>
 
@@ -941,7 +965,7 @@ export function ProjectDetail() {
                         <button
                           type="submit"
                           className="btn-primary"
-                          disabled={downloadLinkSubmitting}
+                          disabled={downloadLinkSubmitting || !canManageSettings}
                         >
                           {downloadLinkSubmitting ? (
                             <>
@@ -994,7 +1018,7 @@ export function ProjectDetail() {
                             }}
                             placeholder="573001234567"
                             required
-                            disabled={whatsappSubmitting}
+                            disabled={whatsappSubmitting || !canManageSettings}
                           />
                         </label>
 
@@ -1012,7 +1036,7 @@ export function ProjectDetail() {
                           </p>
                         ) : null}
 
-                        <button type="submit" className="btn-primary" disabled={whatsappSubmitting}>
+                        <button type="submit" className="btn-primary" disabled={whatsappSubmitting || !canManageSettings}>
                           {whatsappSubmitting ? (
                             <>
                               <LoaderCircle
@@ -1049,6 +1073,7 @@ export function ProjectDetail() {
                         : ' Estos planes aparecen en la tienda pública /velix.'}
                     </p>
 
+                    {canManagePlans ? (
                     <form className="plan-admin-form" onSubmit={handleCreatePlan} noValidate>
                       <label className="login-field" htmlFor="plan-nombre">
                         Nombre del plan
@@ -1124,6 +1149,7 @@ export function ProjectDetail() {
                         )}
                       </button>
                     </form>
+                    ) : null}
 
                     {planesLoading ? (
                       <div className="proyectos-status">
@@ -1159,6 +1185,7 @@ export function ProjectDetail() {
                                 {plan.dias} días · {formatCop(plan.precio)}
                               </p>
                             </div>
+                            {canManagePlans ? (
                             <button
                               type="button"
                               className="proyecto-delete"
@@ -1167,6 +1194,7 @@ export function ProjectDetail() {
                             >
                               <Trash2 size={16} strokeWidth={2} />
                             </button>
+                            ) : null}
                           </article>
                         ))}
                       </div>
@@ -1262,7 +1290,7 @@ export function ProjectDetail() {
                             </div>
                           ) : null}
                           <div className="usuario-actions">
-                            {esSistecontact ? (
+                            {canActivateMemberships && esSistecontact ? (
                               <label
                                 className={`access-switch ${item.access ? 'is-on' : 'is-off'}`}
                                 title={
@@ -1292,7 +1320,7 @@ export function ProjectDetail() {
                                 </span>
                               </label>
                             ) : null}
-                            {esVelix ? (
+                            {canActivateMemberships && esVelix ? (
                               <button
                                 type="button"
                                 className="btn-secondary usuario-activate"
@@ -1303,6 +1331,7 @@ export function ProjectDetail() {
                                 Activar días
                               </button>
                             ) : null}
+                            {canDeleteUsers ? (
                             <button
                               type="button"
                               className="proyecto-delete"
@@ -1311,6 +1340,7 @@ export function ProjectDetail() {
                             >
                               <Trash2 size={16} strokeWidth={2} />
                             </button>
+                            ) : null}
                           </div>
                         </article>
                       ))}
@@ -1513,7 +1543,7 @@ export function ProjectDetail() {
         </div>
       </main>
 
-      {modalOpen ? (
+      {canCreateUsers && modalOpen ? (
         <div className="modal-overlay" role="presentation" onClick={closeModal}>
           <div
             className="modal-panel"
@@ -1601,7 +1631,7 @@ export function ProjectDetail() {
         </div>
       ) : null}
 
-      {esVelix && membershipOpen ? (
+      {canActivateMemberships && esVelix && membershipOpen ? (
         <div className="modal-overlay" role="presentation" onClick={closeMembershipModal}>
           <div
             className="modal-panel modal-panel-wide"

@@ -45,5 +45,7 @@ export {
   Trash2,
   User,
   Users,
+  IdCard,
+  BadgeCheck,
   X,
 } from 'lucide-react'

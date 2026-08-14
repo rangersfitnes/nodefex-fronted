@@ -1,4 +1,7 @@
 import { API_URL } from '../config'
+import type { ProyectoAccesoConfig } from './administradores'
+
+export type ProyectoAcceso = ProyectoAccesoConfig
 
 export type Proyecto = {
   id: string
@@ -6,6 +9,7 @@ export type Proyecto = {
   descripcion: string
   createdAt: string | null
   updatedAt: string | null
+  acceso?: ProyectoAcceso | null
 }
 
 export type ProyectoUsuario = {
