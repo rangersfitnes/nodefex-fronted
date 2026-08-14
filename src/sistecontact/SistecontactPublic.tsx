@@ -313,11 +313,16 @@ export function SistecontactPublic() {
           <span className="sc-brand-mark" aria-hidden />
           <strong>Sistecontact</strong>
         </div>
-        {session ? (
-          <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
-            Cerrar sesión
-          </button>
-        ) : null}
+        <div className="sc-header-actions">
+          <a className="btn-primary" href={APP_URL} target="_blank" rel="noreferrer">
+            Abrir Sistecontact
+          </a>
+          {session ? (
+            <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
+              Cerrar sesión
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <main className="sc-main">

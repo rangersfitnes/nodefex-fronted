@@ -1680,7 +1680,16 @@ a.btn-secondary {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 1.25rem 0 0.5rem;
+}
+
+.sc-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
 }
 
 .sc-brand {
