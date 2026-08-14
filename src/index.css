@@ -1416,9 +1416,78 @@ a {
   min-width: 7rem;
 }
 
+.contable-day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.4rem;
+}
+
+.contable-day {
+  min-width: 10.5rem;
+}
+
+.contable-day input[type='date'] {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--gray-900);
+  outline: none;
+}
+
+.contable-day-nav .btn-secondary {
+  min-height: 2.7rem;
+}
+
+.contable-day-btns {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.contable-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.contable-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.contable-bulk-count {
+  margin: 0;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.contable-check-cell {
+  width: 2.4rem;
+}
+
+.contable-check {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--blue-700);
+  cursor: pointer;
+}
+
+.pagos-table tr.is-selected td {
+  background: rgba(239, 246, 255, 0.95);
+}
+
 .contable-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -1451,6 +1520,12 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .contable-summary {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 720px) {

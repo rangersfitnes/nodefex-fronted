@@ -12,7 +12,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '../firebase'
-import { getMe, type AdminAccion, type Administrador, type ProyectoAccesoConfig } from '../api/administradores'
+import { getMe, ApiError, type AdminAccion, type Administrador, type ProyectoAccesoConfig } from '../api/administradores'
 
 type AuthContextValue = {
   user: User | null
@@ -24,14 +24,21 @@ type AuthContextValue = {
   canProjectAction: (proyectoId: string, action: AdminAccion) => boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  retryProfile: () => Promise<void>
+  profileError: string
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+function shouldSignOut(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403)
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [administrador, setAdministrador] = useState<Administrador | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState('')
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -46,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadProfile() {
       if (!user) {
         setAdministrador(null)
+        setProfileError('')
         setLoading(false)
         return
       }
@@ -54,10 +62,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await user.getIdToken()
         const profile = await getMe(token)
-        if (!cancelled) setAdministrador(profile)
-      } catch {
         if (!cancelled) {
-          setAdministrador(null)
+          setAdministrador(profile)
+          setProfileError('')
+        }
+      } catch (error) {
+        if (cancelled) return
+        setAdministrador(null)
+        setProfileError(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo cargar el perfil de administrador',
+        )
+        if (shouldSignOut(error)) {
           await signOut(auth)
         }
       } finally {
@@ -72,7 +89,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   async function login(email: string, password: string) {
+    setProfileError('')
     await signInWithEmailAndPassword(auth, email, password)
+  }
+
+  async function retryProfile() {
+    if (!user) return
+    setLoading(true)
+    setProfileError('')
+    try {
+      const token = await user.getIdToken()
+      const profile = await getMe(token)
+      setAdministrador(profile)
+    } catch (error) {
+      setAdministrador(null)
+      setProfileError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo cargar el perfil de administrador',
+      )
+      if (shouldSignOut(error)) {
+        await signOut(auth)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function logout() {
@@ -106,6 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         login,
         logout,
+        retryProfile,
+        profileError,
       }}
     >
       {children}

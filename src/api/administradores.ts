@@ -44,6 +44,16 @@ export type Administrador = {
   lastSignInAt: string | null
 }
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function apiFetch<T>(
   path: string,
   token: string,
@@ -63,7 +73,7 @@ async function apiFetch<T>(
   } & T
 
   if (!response.ok) {
-    throw new Error(data.error || 'Error en la solicitud')
+    throw new ApiError(data.error || 'Error en la solicitud', response.status)
   }
 
   return data

@@ -5,6 +5,7 @@ import {
   createContableApiKey,
   deleteContableApiKey,
   deleteContableMovimiento,
+  deleteContableMovimientos,
   listContableAnios,
   listContableApiKeys,
   listContableMovimientos,
@@ -12,12 +13,15 @@ import {
   type ContableApiKey,
   type ContableMovimiento,
   type ContableResumenAnual,
+  type ContableResumenDiario,
   type ContableTipo,
 } from '../api/contable'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   FileText,
   Key,
@@ -29,9 +33,28 @@ import {
   Trash2,
 } from '../icons'
 
-const POLL_MS = 8000
+const PAGE_SIZE = 20
 
 type ContableVista = 'movimientos' | 'claves' | 'docs'
+
+function todayBogota(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
+}
+
+function shiftYmd(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
+function formatDiaLargo(ymd: string): string {
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${ymd}T12:00:00-05:00`))
+}
 
 function CopyBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
@@ -138,7 +161,7 @@ function ContableApiDocs() {
                   <code>fecha</code>
                 </td>
                 <td>Sí</td>
-                <td>YYYY-MM-DD o ISO. Define el año del movimiento.</td>
+                <td>YYYY-MM-DD o ISO. Si solo envías el día, se guarda con la hora actual de Bogotá.</td>
               </tr>
               <tr>
                 <td>
@@ -223,22 +246,28 @@ function formatFecha(iso: string | null): string {
 
 export function ContablePanel() {
   const { user } = useAuth()
-  const currentYear = new Date().getFullYear()
+  const today = todayBogota()
+  const currentYear = Number(today.slice(0, 4))
   const [vista, setVista] = useState<ContableVista>('movimientos')
   const [tipo, setTipo] = useState<ContableTipo>('ingresos')
-  const [anio, setAnio] = useState(currentYear)
+  const [dia, setDia] = useState(today)
+  const anio = Number(dia.slice(0, 4))
   const [anios, setAnios] = useState<number[]>([currentYear])
   const [resumen, setResumen] = useState<ContableResumenAnual | null>(null)
+  const [resumenDia, setResumenDia] = useState<ContableResumenDiario | null>(null)
   const [movimientos, setMovimientos] = useState<ContableMovimiento[]>([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [deletingId, setDeletingId] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [deletingBulk, setDeletingBulk] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
   const [apiKeys, setApiKeys] = useState<ContableApiKey[]>([])
-  const [keysLoading, setKeysLoading] = useState(true)
+  const [keysLoading, setKeysLoading] = useState(false)
   const [keysError, setKeysError] = useState('')
   const [programaNombre, setProgramaNombre] = useState('')
   const [keySubmitting, setKeySubmitting] = useState(false)
@@ -275,23 +304,25 @@ export function ContablePanel() {
 
   useEffect(() => {
     let cancelled = false
-    let timer: ReturnType<typeof setInterval> | undefined
 
-    async function loadMovimientos(silent = false) {
+    async function loadMovimientos() {
       if (!user || vista !== 'movimientos') return
-      if (!silent) {
-        setLoading(true)
-        setError('')
-      }
+      setLoading(true)
+      setError('')
       try {
         const token = await user.getIdToken()
-        const data = await listContableMovimientos(token, tipo, anio)
+        const data = await listContableMovimientos(token, tipo, anio, { dia })
         if (cancelled) return
         setResumen(data.resumenAnual)
+        setResumenDia(data.resumenDia)
         setMovimientos(data.movimientos)
+        setSelectedIds((current) => {
+          const valid = new Set(data.movimientos.map((item) => item.id))
+          return current.filter((id) => valid.has(id))
+        })
         setUpdatedAt(new Date())
       } catch (err) {
-        if (!cancelled && !silent) {
+        if (!cancelled) {
           setError(err instanceof Error ? err.message : 'No se pudieron cargar los registros')
         }
       } finally {
@@ -299,16 +330,11 @@ export function ContablePanel() {
       }
     }
 
-    void loadMovimientos(false)
-    timer = setInterval(() => {
-      void loadMovimientos(true)
-    }, POLL_MS)
-
+    void loadMovimientos()
     return () => {
       cancelled = true
-      if (timer) clearInterval(timer)
     }
-  }, [user, tipo, anio, vista, refreshTick])
+  }, [user, tipo, anio, dia, vista, refreshTick])
 
   async function loadKeys() {
     if (!user) return
@@ -326,8 +352,9 @@ export function ContablePanel() {
   }
 
   useEffect(() => {
+    if (vista !== 'claves' || !user) return
     void loadKeys()
-  }, [user])
+  }, [user, vista])
 
   async function handleCreateKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -393,7 +420,17 @@ export function ContablePanel() {
       const token = await user.getIdToken()
       const nextResumen = await deleteContableMovimiento(token, tipo, anio, item.id)
       setMovimientos((current) => current.filter((mov) => mov.id !== item.id))
+      setSelectedIds((current) => current.filter((id) => id !== item.id))
       setResumen(nextResumen)
+      setResumenDia((current) =>
+        current
+          ? {
+              ...current,
+              total: Math.max(0, current.total - (Number(item.valor) || 0)),
+              cantidad: Math.max(0, current.cantidad - 1),
+            }
+          : current,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo eliminar el movimiento')
     } finally {
@@ -401,24 +438,93 @@ export function ContablePanel() {
     }
   }
 
+  async function handleDeleteSelected() {
+    if (!user || selectedIds.length === 0) return
+    const items = movimientos.filter((item) => selectedIds.includes(item.id))
+    if (!items.length) return
+    const total = items.reduce((sum, item) => sum + (Number(item.valor) || 0), 0)
+    const ok = window.confirm(
+      `¿Eliminar ${items.length} movimiento(s) por ${formatCop(total)}? Esta acción no se puede deshacer.`,
+    )
+    if (!ok) return
+    setDeletingBulk(true)
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const nextResumen = await deleteContableMovimientos(
+        token,
+        tipo,
+        anio,
+        items.map((item) => item.id),
+      )
+      const removed = new Set(items.map((item) => item.id))
+      setMovimientos((current) => current.filter((mov) => !removed.has(mov.id)))
+      setSelectedIds([])
+      setResumen(nextResumen)
+      setResumenDia((current) =>
+        current
+          ? {
+              ...current,
+              total: Math.max(0, current.total - total),
+              cantidad: Math.max(0, current.cantidad - items.length),
+            }
+          : current,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron eliminar los movimientos')
+    } finally {
+      setDeletingBulk(false)
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return movimientos
-    return movimientos.filter((item) =>
-      [
-        item.clienteNombre,
-        item.concepto,
-        item.categoria,
-        item.referencia,
-        item.metodoPago,
-        item.programa,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
-    )
+    const list = !q
+      ? movimientos
+      : movimientos.filter((item) =>
+          [
+            item.clienteNombre,
+            item.concepto,
+            item.categoria,
+            item.referencia,
+            item.metodoPago,
+            item.programa,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(q)),
+        )
+    return [...list].sort((a, b) => {
+      const aTime = Date.parse(a.creadoEn || a.fecha || '') || 0
+      const bTime = Date.parse(b.creadoEn || b.fecha || '') || 0
+      return bTime - aTime
+    })
   }, [movimientos, query])
 
-  const total = resumen?.total ?? 0
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((item) => selectedIds.includes(item.id))
+  const selectedCount = selectedIds.length
+  const totalDia = resumenDia?.total ?? filtered.reduce((sum, item) => sum + (Number(item.valor) || 0), 0)
+  const totalAnio = resumen?.total ?? 0
+  const isToday = dia === today
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allFilteredSelected ? [] : filtered.map((item) => item.id))
+  }
+
+  function goToDia(next: string) {
+    setDia(next)
+    setPage(1)
+    setSelectedIds([])
+  }
 
   return (
     <>
@@ -576,7 +682,7 @@ export function ContablePanel() {
           </button>
         </div>
         <p className="section-note">
-          Cada registro muestra el programa que lo ingresó. Pulsa actualizar para recargar.
+          {formatDiaLargo(dia)}. Cada registro muestra el programa que lo ingresó.
         </p>
 
         <div className="contable-toolbar">
@@ -584,17 +690,60 @@ export function ContablePanel() {
             <button
               type="button"
               className={tipo === 'ingresos' ? 'is-active' : ''}
-              onClick={() => setTipo('ingresos')}
+              onClick={() => {
+                setTipo('ingresos')
+                setPage(1)
+                setSelectedIds([])
+              }}
             >
               Ingresos
             </button>
             <button
               type="button"
               className={tipo === 'egresos' ? 'is-active' : ''}
-              onClick={() => setTipo('egresos')}
+              onClick={() => {
+                setTipo('egresos')
+                setPage(1)
+                setSelectedIds([])
+              }}
             >
               Egresos
             </button>
+          </div>
+
+          <div className="contable-day-nav">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => goToDia(shiftYmd(dia, -1))}
+              aria-label="Día anterior"
+            >
+              <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+            </button>
+            <label className="login-field contable-day" htmlFor="contable-dia">
+              Día
+              <input
+                id="contable-dia"
+                type="date"
+                value={dia}
+                max={today}
+                onChange={(event) => goToDia(event.target.value || today)}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => goToDia(shiftYmd(dia, 1))}
+              disabled={dia >= today}
+              aria-label="Día siguiente"
+            >
+              <ChevronRight size={16} strokeWidth={2} aria-hidden />
+            </button>
+            {!isToday ? (
+              <button type="button" className="btn-secondary" onClick={() => goToDia(today)}>
+                Hoy
+              </button>
+            ) : null}
           </div>
 
           <label className="login-field contable-year" htmlFor="contable-anio">
@@ -602,9 +751,14 @@ export function ContablePanel() {
             <select
               id="contable-anio"
               value={anio}
-              onChange={(event) => setAnio(Number(event.target.value))}
+              onChange={(event) => {
+                const year = Number(event.target.value)
+                goToDia(`${year}${dia.slice(4)}`)
+              }}
             >
-              {anios.map((year) => (
+              {Array.from(new Set([...anios, anio]))
+                .sort((a, b) => b - a)
+                .map((year) => (
                 <option key={year} value={year}>
                   {year}
                 </option>
@@ -620,7 +774,10 @@ export function ContablePanel() {
                 id="contable-q"
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setPage(1)
+                }}
                 placeholder="Programa, nombre o concepto"
               />
             </span>
@@ -629,12 +786,16 @@ export function ContablePanel() {
 
         <div className="contable-summary">
           <div>
-            <span>Total {tipo}</span>
-            <strong>{formatCop(total)}</strong>
+            <span>Total del día</span>
+            <strong>{formatCop(totalDia)}</strong>
           </div>
           <div>
-            <span>Movimientos</span>
-            <strong>{resumen?.cantidadMovimientos ?? movimientos.length}</strong>
+            <span>{tipo === 'ingresos' ? 'Ingresos del día' : 'Egresos del día'}</span>
+            <strong>{resumenDia?.cantidad ?? filtered.length}</strong>
+          </div>
+          <div>
+            <span>Total {anio}</span>
+            <strong>{formatCop(totalAnio)}</strong>
           </div>
           <div>
             <span>Última lectura</span>
@@ -668,8 +829,31 @@ export function ContablePanel() {
           <div className="proyectos-empty">
             <Receipt size={28} strokeWidth={1.75} aria-hidden />
             <p>
-              Aún no hay {tipo} registrados en {anio}.
+              No hay {tipo} el {formatDiaLargo(dia)}.
             </p>
+          </div>
+        ) : null}
+
+        {!loading && !error && filtered.length > 0 ? (
+          <div className="contable-bulk">
+            <p className="contable-bulk-count">
+              {selectedCount
+                ? `${selectedCount} seleccionado${selectedCount === 1 ? '' : 's'}`
+                : 'Selecciona movimientos para borrar'}
+            </p>
+            <button
+              type="button"
+              className="btn-danger"
+              disabled={selectedCount === 0 || deletingBulk}
+              onClick={() => void handleDeleteSelected()}
+            >
+              {deletingBulk ? (
+                <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+              ) : (
+                <Trash2 size={16} strokeWidth={2} aria-hidden />
+              )}
+              Borrar todo
+            </button>
           </div>
         ) : null}
 
@@ -678,6 +862,15 @@ export function ContablePanel() {
             <table className="pagos-table">
               <thead>
                 <tr>
+                  <th className="contable-check-cell">
+                    <input
+                      type="checkbox"
+                      className="contable-check"
+                      checked={allFilteredSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Seleccionar todos los movimientos del día"
+                    />
+                  </th>
                   <th>Fecha</th>
                   <th>Programa</th>
                   <th>Nombre</th>
@@ -689,9 +882,18 @@ export function ContablePanel() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item) => (
-                  <tr key={item.id}>
-                    <td>{formatFecha(item.fecha)}</td>
+                {paged.map((item) => (
+                  <tr key={item.id} className={selectedIds.includes(item.id) ? 'is-selected' : undefined}>
+                    <td className="contable-check-cell">
+                      <input
+                        type="checkbox"
+                        className="contable-check"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={() => toggleSelected(item.id)}
+                        aria-label={`Seleccionar ${item.concepto || item.id}`}
+                      />
+                    </td>
+                    <td>{formatFecha(item.creadoEn || item.fecha)}</td>
                     <td>{item.programa || '—'}</td>
                     <td>{item.clienteNombre || '—'}</td>
                     <td>{item.concepto || '—'}</td>
@@ -709,7 +911,7 @@ export function ContablePanel() {
                         type="button"
                         className="proyecto-delete"
                         onClick={() => void handleDeleteMovimiento(item)}
-                        disabled={deletingId === item.id}
+                        disabled={deletingId === item.id || deletingBulk}
                         aria-label={`Eliminar movimiento ${item.concepto || item.id}`}
                       >
                         {deletingId === item.id ? (
@@ -726,10 +928,37 @@ export function ContablePanel() {
           </div>
         ) : null}
 
-        <p className="pagos-filter-meta">
-          <RefreshCw size={14} strokeWidth={2} aria-hidden />
-          Mostrando {filtered.length} de {movimientos.length} registros
-        </p>
+        {!loading && !error && filtered.length > 0 ? (
+          <div className="contable-pager">
+            <p className="pagos-filter-meta">
+              <RefreshCw size={14} strokeWidth={2} aria-hidden />
+              {filtered.length} {tipo} el {dia}
+              {pageCount > 1 ? ` · página ${safePage} de ${pageCount}` : ''}
+            </p>
+            {pageCount > 1 ? (
+              <div className="contable-day-btns">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={safePage >= pageCount}
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                >
+                  Siguiente
+                  <ChevronRight size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </section>
       ) : null}
 

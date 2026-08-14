@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
+import { ApiError } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
@@ -57,6 +58,9 @@ const SERVICES = [
 ] as const
 
 function getLoginErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message
+  }
   if (error instanceof FirebaseError) {
     switch (error.code) {
       case 'auth/invalid-email':
@@ -77,16 +81,18 @@ function getLoginErrorMessage(error: unknown): string {
 }
 
 export function Login() {
-  const { user, loading, login } = useAuth()
-  const navigate = useNavigate()
+  const { user, administrador, loading, login, profileError, retryProfile } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  if (!loading && user) {
+  if (!loading && user && administrador) {
     return <Navigate to="/admin/dashboard" replace />
   }
+
+  const busy = submitting || (loading && Boolean(user))
+  const displayError = error || profileError
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -95,7 +101,6 @@ export function Login() {
 
     try {
       await login(email.trim(), password)
-      navigate('/admin/dashboard', { replace: true })
     } catch (err) {
       setError(getLoginErrorMessage(err))
     } finally {
@@ -198,7 +203,7 @@ export function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    disabled={submitting}
+                    disabled={busy}
                   />
                 </span>
               </label>
@@ -215,20 +220,31 @@ export function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    disabled={submitting}
+                    disabled={busy}
                   />
                 </span>
               </label>
 
-              {error ? (
+              {displayError ? (
                 <p className="login-error" role="alert">
                   <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                  {error}
+                  {displayError}
                 </p>
               ) : null}
 
-              <button className="login-submit" type="submit" disabled={submitting}>
-                {submitting ? (
+              {profileError && user ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => void retryProfile()}
+                  disabled={busy}
+                >
+                  Reintentar acceso
+                </button>
+              ) : null}
+
+              <button className="login-submit" type="submit" disabled={busy}>
+                {busy ? (
                   'Entrando...'
                 ) : (
                   <>

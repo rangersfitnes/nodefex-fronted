@@ -5,6 +5,7 @@ export type ContableTipo = 'ingresos' | 'egresos'
 export type ContableMovimiento = {
   id: string
   fecha: string | null
+  fechaEnviada?: string | number | boolean | null
   concepto: string | null
   categoria: string | null
   clienteId: string | null
@@ -30,6 +31,12 @@ export type ContableApiKey = {
   lastUsedAt: string | null
   createdBy: string | null
   key?: string
+}
+
+export type ContableResumenDiario = {
+  fecha: string
+  total: number
+  cantidad: number
 }
 
 export type ContableResumenAnual = {
@@ -82,9 +89,16 @@ export async function listContableMovimientos(
   token: string,
   tipo: ContableTipo,
   anio: number,
-  mes?: number,
-): Promise<{ resumenAnual: ContableResumenAnual; movimientos: ContableMovimiento[] }> {
-  const query = mes ? `?mes=${mes}` : ''
+  options: { mes?: number; dia?: string } = {},
+): Promise<{
+  resumenAnual: ContableResumenAnual
+  resumenDia: ContableResumenDiario | null
+  movimientos: ContableMovimiento[]
+}> {
+  const params = new URLSearchParams()
+  if (options.dia) params.set('dia', options.dia)
+  else if (options.mes) params.set('mes', String(options.mes))
+  const query = params.toString() ? `?${params.toString()}` : ''
   return apiFetch(`/api/contable/${tipo}/${anio}${query}`, token)
 }
 
@@ -98,6 +112,23 @@ export async function deleteContableMovimiento(
     `/api/contable/${tipo}/${anio}/${encodeURIComponent(id)}`,
     token,
     { method: 'DELETE' },
+  )
+  return data.resumenAnual
+}
+
+export async function deleteContableMovimientos(
+  token: string,
+  tipo: ContableTipo,
+  anio: number,
+  ids: string[],
+): Promise<ContableResumenAnual> {
+  const data = await apiFetch<{ resumenAnual: ContableResumenAnual }>(
+    `/api/contable/${tipo}/${anio}/eliminar`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    },
   )
   return data.resumenAnual
 }
