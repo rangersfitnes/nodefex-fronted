@@ -88,6 +88,20 @@ export async function listContableMovimientos(
   return apiFetch(`/api/contable/${tipo}/${anio}${query}`, token)
 }
 
+export async function deleteContableMovimiento(
+  token: string,
+  tipo: ContableTipo,
+  anio: number,
+  id: string,
+): Promise<ContableResumenAnual> {
+  const data = await apiFetch<{ resumenAnual: ContableResumenAnual }>(
+    `/api/contable/${tipo}/${anio}/${encodeURIComponent(id)}`,
+    token,
+    { method: 'DELETE' },
+  )
+  return data.resumenAnual
+}
+
 export async function listContableApiKeys(token: string): Promise<ContableApiKey[]> {
   const data = await apiFetch<{ apiKeys: ContableApiKey[] }>('/api/contable/api-keys', token)
   return data.apiKeys || []

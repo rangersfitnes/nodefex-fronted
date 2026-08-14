@@ -1067,6 +1067,10 @@ a {
   font-size: 1.15rem;
 }
 
+.section-heading .contable-refresh {
+  margin-left: auto;
+}
+
 .usuarios-list {
   display: grid;
   gap: 0.75rem;

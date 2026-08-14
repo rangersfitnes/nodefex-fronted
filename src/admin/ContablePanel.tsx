@@ -4,6 +4,7 @@ import { formatCop } from '../api/administradores'
 import {
   createContableApiKey,
   deleteContableApiKey,
+  deleteContableMovimiento,
   listContableAnios,
   listContableApiKeys,
   listContableMovimientos,
@@ -105,6 +106,19 @@ function ContableApiDocs() {
           <code>POST /api/contable/egresos</code>
         </p>
         <CopyBlock code={egresoExample} />
+      </article>
+
+      <article className="contable-docs-card">
+        <h3>Eliminar movimiento</h3>
+        <p>
+          Desde el panel, o con sesión de administrador:{' '}
+          <code>DELETE /api/contable/ingresos/2026/{'{id}'}</code>
+        </p>
+        <CopyBlock
+          code={`curl -X DELETE "${API_URL}/api/contable/ingresos/2026/ID_MOVIMIENTO" \\
+  -H "Authorization: Bearer TOKEN_ADMIN"`}
+        />
+        <p>Al borrar se resta el valor de los totales del año.</p>
       </article>
 
       <article className="contable-docs-card">
@@ -220,6 +234,8 @@ export function ContablePanel() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const [deletingId, setDeletingId] = useState('')
+  const [refreshTick, setRefreshTick] = useState(0)
 
   const [apiKeys, setApiKeys] = useState<ContableApiKey[]>([])
   const [keysLoading, setKeysLoading] = useState(true)
@@ -255,7 +271,7 @@ export function ContablePanel() {
     return () => {
       cancelled = true
     }
-  }, [user, tipo, currentYear])
+  }, [user, tipo, currentYear, refreshTick])
 
   useEffect(() => {
     let cancelled = false
@@ -292,7 +308,7 @@ export function ContablePanel() {
       cancelled = true
       if (timer) clearInterval(timer)
     }
-  }, [user, tipo, anio, vista])
+  }, [user, tipo, anio, vista, refreshTick])
 
   async function loadKeys() {
     if (!user) return
@@ -362,6 +378,27 @@ export function ContablePanel() {
     if (!createdKey) return
     await navigator.clipboard.writeText(createdKey)
     setCopied(true)
+  }
+
+  async function handleDeleteMovimiento(item: ContableMovimiento) {
+    if (!user) return
+    const label = item.concepto || item.clienteNombre || item.id
+    const ok = window.confirm(
+      `¿Eliminar el movimiento "${label}"${item.valor != null ? ` de ${formatCop(item.valor)}` : ''}?`,
+    )
+    if (!ok) return
+    setDeletingId(item.id)
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const nextResumen = await deleteContableMovimiento(token, tipo, anio, item.id)
+      setMovimientos((current) => current.filter((mov) => mov.id !== item.id))
+      setResumen(nextResumen)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el movimiento')
+    } finally {
+      setDeletingId('')
+    }
   }
 
   const filtered = useMemo(() => {
@@ -528,9 +565,18 @@ export function ContablePanel() {
         <div className="section-heading">
           <Receipt size={18} strokeWidth={2} aria-hidden />
           <h2>Movimientos</h2>
+          <button
+            type="button"
+            className="btn-secondary contable-refresh"
+            onClick={() => setRefreshTick((n) => n + 1)}
+            disabled={loading}
+          >
+            <RefreshCw className={loading ? 'spin' : undefined} size={16} strokeWidth={2} aria-hidden />
+            Actualizar
+          </button>
         </div>
         <p className="section-note">
-          Cada registro muestra el programa que lo ingresó. La lista se actualiza sola.
+          Cada registro muestra el programa que lo ingresó. Pulsa actualizar para recargar.
         </p>
 
         <div className="contable-toolbar">
@@ -639,6 +685,7 @@ export function ContablePanel() {
                   <th>Categoría</th>
                   <th>Valor</th>
                   <th>Estado</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -656,6 +703,21 @@ export function ContablePanel() {
                       >
                         {item.estado || '—'}
                       </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="proyecto-delete"
+                        onClick={() => void handleDeleteMovimiento(item)}
+                        disabled={deletingId === item.id}
+                        aria-label={`Eliminar movimiento ${item.concepto || item.id}`}
+                      >
+                        {deletingId === item.id ? (
+                          <LoaderCircle className="spin" size={16} strokeWidth={2} />
+                        ) : (
+                          <Trash2 size={16} strokeWidth={2} />
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}
