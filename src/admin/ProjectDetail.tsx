@@ -16,6 +16,7 @@ import {
   proyectoSoportaUsuarios,
   esProyectoVelix,
   esProyectoSistecontact,
+  esProyectoContable,
   setUsuarioAccessProyecto,
   saveLinkDescargaProyecto,
   saveLinkLicenciaProyecto,
@@ -27,6 +28,7 @@ import {
 } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
+import { ContablePanel } from './ContablePanel'
 import {
   AlertCircle,
   ArrowRight,
@@ -153,6 +155,7 @@ export function ProjectDetail() {
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
   const esVelix = esProyectoVelix(decodedId)
   const esSistecontact = esProyectoSistecontact(decodedId)
+  const esContable = esProyectoContable(decodedId)
   const soportaPlanes = esVelix || esSistecontact
   const access: ProyectoAccesoConfig | null =
     proyecto?.acceso || getProjectAccess(decodedId)
@@ -828,7 +831,9 @@ export function ProjectDetail() {
                 </div>
               </section>
 
-              {soportaUsuarios ? (
+              {esContable ? (
+                <ContablePanel />
+              ) : soportaUsuarios ? (
                 <>
                   {esVelix ? (
                   <>

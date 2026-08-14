@@ -934,6 +934,85 @@ a {
   cursor: pointer;
 }
 
+.admin-ganancia-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.1rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(209, 213, 219, 0.7);
+}
+
+.admin-ganancia-pct {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--blue-900);
+}
+
+.admin-ganancia-pct input {
+  width: 5.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(209, 213, 219, 0.95);
+  background: #fff;
+  color: var(--gray-900);
+}
+
+.admin-ganancia-total {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--blue-950);
+}
+
+.admin-ganancia-hero {
+  margin: 0.55rem 0 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--blue-700);
+}
+
+.admin-ganancia-summary {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.admin-ganancia-summary h2 {
+  margin: 0.15rem 0 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.6rem;
+  color: var(--blue-950);
+}
+
+.admin-ganancia-summary > p {
+  margin: 0.2rem 0 0.7rem;
+  color: var(--gray-500);
+  font-size: 0.9rem;
+}
+
+.admin-ganancia-summary ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.admin-ganancia-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
 @media (max-width: 640px) {
   .admin-access-options {
     flex-direction: column;
@@ -1235,6 +1314,183 @@ a {
   font-size: 0.78rem;
   word-break: break-all;
   max-width: 12rem;
+}
+
+.contable-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.contable-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.contable-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  color: var(--gray-700);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.contable-tabs button.is-active {
+  background: var(--blue-50);
+  color: var(--blue-900);
+}
+
+.contable-page-tabs {
+  margin-bottom: 1.1rem;
+}
+
+.contable-page-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.contable-docs {
+  display: grid;
+  gap: 1rem;
+}
+
+.contable-docs-card {
+  padding: 1.05rem 1.15rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.contable-docs-card h3 {
+  margin: 0 0 0.45rem;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: var(--blue-950);
+}
+
+.contable-docs-card p {
+  margin: 0 0 0.7rem;
+  color: var(--gray-700);
+  font-size: 0.92rem;
+}
+
+.contable-docs-card p:last-child {
+  margin-bottom: 0;
+}
+
+.contable-docs-block {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.contable-docs-block pre {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.contable-docs-block .btn-secondary {
+  justify-self: start;
+}
+
+.contable-year {
+  min-width: 7rem;
+}
+
+.contable-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.contable-summary div {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.contable-summary span {
+  display: block;
+  color: var(--gray-500);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contable-summary strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  color: var(--blue-950);
+}
+
+.pagos-filter-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (max-width: 720px) {
+  .contable-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contable-key-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.contable-key-form .login-field {
+  flex: 1 1 16rem;
+}
+
+.contable-key-secret {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.contable-key-secret p {
+  margin: 0;
+  color: #047857;
+  font-size: 0.88rem;
+}
+
+.contable-key-secret code {
+  word-break: break-all;
+  font-size: 0.85rem;
+  color: var(--blue-950);
+}
+
+.contable-key-secret .btn-secondary {
+  justify-self: start;
 }
 
 .pago-status {

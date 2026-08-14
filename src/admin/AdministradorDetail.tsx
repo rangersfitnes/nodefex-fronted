@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ADMIN_ACCIONES,
+  formatCop,
   getAdministrador,
   saveAdministradorAccesos,
   type AdminAccion,
@@ -33,6 +34,9 @@ export function AdministradorDetail() {
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [choices, setChoices] = useState<Record<string, AccessChoice>>({})
   const [accionesByProject, setAccionesByProject] = useState<Record<string, AdminAccion[]>>({})
+  const [gananciasOn, setGananciasOn] = useState<Record<string, boolean>>({})
+  const [porcentajes, setPorcentajes] = useState<Record<string, string>>({})
+  const [totales, setTotales] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -61,13 +65,26 @@ export function AdministradorDetail() {
         setProyectos(proyectosData)
         const nextChoices: Record<string, AccessChoice> = {}
         const nextAcciones: Record<string, AdminAccion[]> = {}
+        const nextOn: Record<string, boolean> = {}
+        const nextPct: Record<string, string> = {}
+        const nextTotales: Record<string, number> = {}
         for (const proyecto of proyectosData) {
           const access = profile.accesos?.[proyecto.id]
+          const ganancia = profile.ganancias?.[proyecto.id]
           nextChoices[proyecto.id] = access?.nivel ?? 'none'
           nextAcciones[proyecto.id] = access?.acciones ?? []
+          nextOn[proyecto.id] = Boolean(ganancia?.activa)
+          nextPct[proyecto.id] =
+            ganancia?.porcentaje != null && ganancia.porcentaje > 0
+              ? String(ganancia.porcentaje)
+              : ''
+          nextTotales[proyecto.id] = ganancia?.total ?? 0
         }
         setChoices(nextChoices)
         setAccionesByProject(nextAcciones)
+        setGananciasOn(nextOn)
+        setPorcentajes(nextPct)
+        setTotales(nextTotales)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'No se pudo cargar el administrador')
@@ -112,6 +129,7 @@ export function AdministradorDetail() {
     try {
       const token = await user.getIdToken()
       const accesos: Record<string, ProyectoAccesoConfig> = {}
+      const ganancias: Record<string, { activa: boolean; porcentaje: number }> = {}
       for (const [proyectoId, choice] of Object.entries(choices)) {
         if (choice === 'none') continue
         if (choice === 'custom') {
@@ -125,18 +143,42 @@ export function AdministradorDetail() {
         }
         accesos[proyectoId] = { nivel: choice, acciones: [] }
       }
-      const updated = await saveAdministradorAccesos(token, admin.uid, accesos)
+      for (const proyecto of proyectos) {
+        const activa = Boolean(gananciasOn[proyecto.id])
+        const porcentaje = Number(porcentajes[proyecto.id] || 0)
+        if (activa && (!Number.isFinite(porcentaje) || porcentaje <= 0 || porcentaje > 100)) {
+          throw new Error(`Indica un porcentaje válido (1 a 100) para ${proyecto.nombre}`)
+        }
+        ganancias[proyecto.id] = {
+          activa,
+          porcentaje: Number.isFinite(porcentaje) ? porcentaje : 0,
+        }
+      }
+      const updated = await saveAdministradorAccesos(token, admin.uid, accesos, ganancias)
       setAdmin(updated)
       const nextChoices: Record<string, AccessChoice> = {}
       const nextAcciones: Record<string, AdminAccion[]> = {}
+      const nextOn: Record<string, boolean> = {}
+      const nextPct: Record<string, string> = {}
+      const nextTotales: Record<string, number> = {}
       for (const proyecto of proyectos) {
         const access = updated.accesos?.[proyecto.id]
+        const ganancia = updated.ganancias?.[proyecto.id]
         nextChoices[proyecto.id] = access?.nivel ?? 'none'
         nextAcciones[proyecto.id] = access?.acciones ?? []
+        nextOn[proyecto.id] = Boolean(ganancia?.activa)
+        nextPct[proyecto.id] =
+          ganancia?.porcentaje != null && ganancia.porcentaje > 0
+            ? String(ganancia.porcentaje)
+            : ''
+        nextTotales[proyecto.id] = ganancia?.total ?? 0
       }
       setChoices(nextChoices)
       setAccionesByProject(nextAcciones)
-      setSuccess('Accesos y acciones guardados en el perfil del administrador')
+      setGananciasOn(nextOn)
+      setPorcentajes(nextPct)
+      setTotales(nextTotales)
+      setSuccess('Accesos, acciones y ganancias guardados en el perfil del administrador')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron guardar los accesos')
     } finally {
@@ -177,10 +219,15 @@ export function AdministradorDetail() {
             <h1>{admin?.nombre || admin?.email || 'Administrador'}</h1>
             <p className="dashboard-copy">
               {admin?.email}
-              {admin?.cedula ? ` · C.C. ${admin.cedula}` : ''}. Asigna visualización, todas las
-              acciones o un conjunto personalizado (crear usuarios, activar membresías, etc.). Se
-              guarda en Firestore en el perfil del admin.
+              {admin?.cedula ? ` · C.C. ${admin.cedula}` : ''}. Asigna acceso, acciones y un
+              porcentaje de ganancia por mensualidad. El acumulado se actualiza en cada pago
+              aprobado.
             </p>
+            {admin ? (
+              <p className="admin-ganancia-hero">
+                Ganancia total: {formatCop(admin.gananciaTotal || 0)}
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -277,6 +324,60 @@ export function AdministradorDetail() {
                           ))}
                         </fieldset>
                       ) : null}
+
+                      <div className="admin-ganancia-box">
+                        <label
+                          className={`access-switch ${gananciasOn[proyecto.id] ? 'is-on' : 'is-off'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(gananciasOn[proyecto.id])}
+                            disabled={saving}
+                            onChange={(event) => {
+                              const enabled = event.target.checked
+                              setGananciasOn((current) => ({
+                                ...current,
+                                [proyecto.id]: enabled,
+                              }))
+                              setSuccess('')
+                            }}
+                          />
+                          <span className="access-switch-track" aria-hidden>
+                            <span className="access-switch-thumb" />
+                          </span>
+                          <span className="access-switch-label">
+                            {gananciasOn[proyecto.id] ? 'Ganancias activas' : 'Ganancias apagadas'}
+                          </span>
+                        </label>
+
+                        {gananciasOn[proyecto.id] ? (
+                          <label className="admin-ganancia-pct" htmlFor={`pct-${proyecto.id}`}>
+                            % de cada mensualidad
+                            <input
+                              id={`pct-${proyecto.id}`}
+                              type="number"
+                              min={1}
+                              max={100}
+                              step={0.5}
+                              inputMode="decimal"
+                              value={porcentajes[proyecto.id] ?? ''}
+                              disabled={saving}
+                              onChange={(event) => {
+                                setPorcentajes((current) => ({
+                                  ...current,
+                                  [proyecto.id]: event.target.value,
+                                }))
+                                setSuccess('')
+                              }}
+                              placeholder="10"
+                            />
+                          </label>
+                        ) : null}
+
+                        <p className="admin-ganancia-total">
+                          Acumulado: {formatCop(totales[proyecto.id] ?? 0)}
+                        </p>
+                      </div>
                     </article>
                   )
                 })}

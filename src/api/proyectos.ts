@@ -46,6 +46,10 @@ export function esProyectoSistecontact(proyectoId: string): boolean {
   return normalizeProyectoId(proyectoId) === 'sistecontact'
 }
 
+export function esProyectoContable(proyectoId: string): boolean {
+  return normalizeProyectoId(proyectoId) === 'nodefex-contable'
+}
+
 async function apiFetch<T>(
   path: string,
   token: string,

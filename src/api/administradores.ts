@@ -22,6 +22,12 @@ export type ProyectoAccesoConfig = {
   acciones: AdminAccion[]
 }
 
+export type ProyectoGananciaConfig = {
+  activa: boolean
+  porcentaje: number
+  total: number
+}
+
 export type AdministradorRol = 'owner' | 'admin'
 
 export type Administrador = {
@@ -31,6 +37,8 @@ export type Administrador = {
   cedula: string | null
   rol: AdministradorRol
   accesos: Record<string, ProyectoAccesoConfig>
+  ganancias: Record<string, ProyectoGananciaConfig>
+  gananciaTotal: number
   createdAt: string | null
   updatedAt: string | null
   lastSignInAt: string | null
@@ -131,14 +139,23 @@ export async function saveAdministradorAccesos(
   token: string,
   uid: string,
   accesos: Record<string, ProyectoAccesoConfig>,
+  ganancias: Record<string, { activa: boolean; porcentaje: number }> = {},
 ): Promise<Administrador> {
   const data = await apiFetch<{ administrador: Administrador }>(
     `/api/administradores/${encodeURIComponent(uid)}/accesos`,
     token,
     {
       method: 'PUT',
-      body: JSON.stringify({ accesos }),
+      body: JSON.stringify({ accesos, ganancias }),
     },
   )
   return data.administrador
+}
+
+export function formatCop(value: number) {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(value) ? value : 0)
 }

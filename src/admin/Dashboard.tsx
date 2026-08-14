@@ -7,6 +7,7 @@ import {
   type Proyecto,
 } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
+import { formatCop } from '../api/administradores'
 import {
   AlertCircle,
   Hexagon,
@@ -22,7 +23,7 @@ import {
 } from '../icons'
 
 export function Dashboard() {
-  const { user, logout, isOwner, isAdmin } = useAuth()
+  const { user, logout, isOwner, isAdmin, administrador } = useAuth()
   const navigate = useNavigate()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading] = useState(true)
@@ -177,6 +178,30 @@ export function Dashboard() {
 
         {isAdmin ? (
           <section className="proyectos-section" aria-label="Proyectos asignados">
+            {(administrador?.gananciaTotal || 0) > 0 ||
+            Object.values(administrador?.ganancias || {}).some((item) => item.activa) ? (
+              <div className="admin-ganancia-summary">
+                <p className="dashboard-eyebrow">Ganancias</p>
+                <h2>{formatCop(administrador?.gananciaTotal || 0)}</h2>
+                <p>Suma de tu porcentaje en las mensualidades pagadas.</p>
+                <ul>
+                  {Object.entries(administrador?.ganancias || {})
+                    .filter(([, item]) => item.activa || item.total > 0)
+                    .map(([proyectoId, item]) => {
+                      const proyecto = proyectos.find((p) => p.id === proyectoId)
+                      return (
+                        <li key={proyectoId}>
+                          <span>{proyecto?.nombre || proyectoId}</span>
+                          <span>
+                            {item.activa ? `${item.porcentaje}% · ` : ''}
+                            {formatCop(item.total || 0)}
+                          </span>
+                        </li>
+                      )
+                    })}
+                </ul>
+              </div>
+            ) : null}
             <p className="dashboard-eyebrow">Proyectos</p>
             {loading ? (
               <div className="proyectos-status">

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   createAdministrador,
   deleteAdministrador,
+  formatCop,
   listAdministradores,
   type Administrador,
 } from '../api/administradores'
@@ -242,7 +243,7 @@ export function Administradores() {
                         ? [
                             item.nombre ? item.email : null,
                             item.cedula ? `C.C. ${item.cedula}` : null,
-                            'Clic para asignar acceso y acciones',
+                            `Ganancia ${formatCop(item.gananciaTotal || 0)}`,
                           ]
                             .filter(Boolean)
                             .join(' · ')
