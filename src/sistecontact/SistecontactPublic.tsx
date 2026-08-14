@@ -19,6 +19,7 @@ import { getSistecontactAuth } from '../sistecontactFirebase'
 
 const STORAGE_KEY = 'sistecontact_session'
 const PENDING_PAYMENT_KEY = 'sistecontact_pending_payment'
+const APP_URL = 'https://sistecontact.nodefex.com'
 
 type Session = {
   token: string
@@ -388,6 +389,14 @@ export function SistecontactPublic() {
               </div>
 
               <div className="sc-account-actions">
+                <a
+                  className="btn-primary"
+                  href={APP_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Abrir Sistecontact
+                </a>
                 <button type="button" className="btn-secondary" onClick={() => void refreshMe()}>
                   Actualizar estado
                 </button>
