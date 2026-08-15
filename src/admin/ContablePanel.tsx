@@ -160,15 +160,15 @@ function ContableApiDocs() {
                 <td>
                   <code>fecha</code>
                 </td>
-                <td>Sí</td>
-                <td>YYYY-MM-DD o ISO. Si solo envías el día, se guarda con la hora actual de Bogotá.</td>
+                <td>No</td>
+                <td>YYYY-MM-DD o ISO. Si no llega, se usa ahora (Bogotá). Si solo envías el día, se completa con la hora actual.</td>
               </tr>
               <tr>
                 <td>
                   <code>nombre</code>
                 </td>
-                <td>Sí</td>
-                <td>Nombre del cliente o tercero. También acepta <code>clienteNombre</code>.</td>
+                <td>No</td>
+                <td>Nombre del cliente o tercero. También acepta <code>clienteNombre</code>. Si no llega, se usa el nombre del programa.</td>
               </tr>
               <tr>
                 <td>

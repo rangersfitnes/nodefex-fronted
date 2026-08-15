@@ -26,6 +26,7 @@ export type CheckoutPayload = {
   reference: string
   integrity: string
   redirectUrl: string | null
+  customerEmail?: string | null
 }
 
 async function publicFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -84,8 +85,21 @@ export async function listSistecontactPlanes(): Promise<SistecontactPlan[]> {
   return data.licencias
 }
 
+export async function consultarMembresiaSistecontact(
+  email: string,
+): Promise<SistecontactUsuario> {
+  const data = await publicFetch<{ usuario: SistecontactUsuario }>(
+    '/api/sistecontact/membresia',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    },
+  )
+  return data.usuario
+}
+
 export async function iniciarPagoSistecontact(
-  token: string,
+  email: string,
   licenciaId: string,
 ): Promise<{
   mock: boolean
@@ -94,22 +108,23 @@ export async function iniciarPagoSistecontact(
   checkout: CheckoutPayload | null
   licencia: SistecontactPlan
 }> {
-  return authFetch('/api/sistecontact/pagos/iniciar', token, {
+  return publicFetch('/api/sistecontact/pagos/iniciar', {
     method: 'POST',
-    body: JSON.stringify({ licenciaId }),
+    body: JSON.stringify({ email, licenciaId }),
   })
 }
 
-export async function confirmarPagoSistecontact(
-  token: string,
-  payload: { reference: string; transactionId: string },
-): Promise<{
+export async function confirmarPagoSistecontact(payload: {
+  email?: string
+  reference: string
+  transactionId: string
+}): Promise<{
   activated: boolean
   alreadyActivated?: boolean
   membresia: SistecontactUsuario | null
   pago: { reference: string; status?: string; dias?: number }
 }> {
-  return authFetch('/api/sistecontact/pagos/confirmar', token, {
+  return publicFetch('/api/sistecontact/pagos/confirmar', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

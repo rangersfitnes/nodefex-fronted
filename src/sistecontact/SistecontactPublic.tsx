@@ -1,30 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  type User,
-} from 'firebase/auth'
-import {
-  bootstrapSistecontactUser,
   confirmarPagoSistecontact,
-  getSistecontactMe,
+  consultarMembresiaSistecontact,
   iniciarPagoSistecontact,
   listSistecontactPlanes,
   openWompiWebCheckout,
   type SistecontactPlan,
   type SistecontactUsuario,
 } from '../api/sistecontact'
-import { getSistecontactAuth } from '../sistecontactFirebase'
 
-const STORAGE_KEY = 'sistecontact_session'
+const EMAIL_KEY = 'sistecontact_checkout_email'
 const PENDING_PAYMENT_KEY = 'sistecontact_pending_payment'
 const APP_URL = 'https://sistecontact.nodefex.com'
-
-type Session = {
-  token: string
-  usuario: SistecontactUsuario
-}
 
 function formatCop(value: number) {
   return new Intl.NumberFormat('es-CO', {
@@ -34,18 +21,22 @@ function formatCop(value: number) {
   }).format(value)
 }
 
-function readPendingPayment(): { reference: string } | null {
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+}
+
+function readPendingPayment(): { reference: string; email: string } | null {
   try {
     const raw = sessionStorage.getItem(PENDING_PAYMENT_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as { reference: string }
+    return JSON.parse(raw) as { reference: string; email: string }
   } catch {
     return null
   }
 }
 
-function writePendingPayment(reference: string) {
-  sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ reference }))
+function writePendingPayment(reference: string, email: string) {
+  sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ reference, email }))
 }
 
 function clearPendingPayment() {
@@ -53,27 +44,16 @@ function clearPendingPayment() {
 }
 
 export function SistecontactPublic() {
-  const [authUser, setAuthUser] = useState<User | null>(null)
-  const [authReady, setAuthReady] = useState(false)
-  const [session, setSession] = useState<Session | null>(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem(EMAIL_KEY) || '')
+  const [membresia, setMembresia] = useState<SistecontactUsuario | null>(null)
   const [formError, setFormError] = useState('')
-  const [formBusy, setFormBusy] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [planes, setPlanes] = useState<SistecontactPlan[]>([])
   const [planesLoading, setPlanesLoading] = useState(true)
   const [planesError, setPlanesError] = useState('')
   const [payingId, setPayingId] = useState('')
   const [confirming, setConfirming] = useState(false)
-
-  useEffect(() => {
-    const auth = getSistecontactAuth()
-    return onAuthStateChanged(auth, (user) => {
-      setAuthUser(user)
-      setAuthReady(true)
-    })
-  }, [])
+  const [lookingUp, setLookingUp] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -100,43 +80,10 @@ export function SistecontactPublic() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-
-    async function syncSession() {
-      if (!authUser) {
-        setSession(null)
-        return
-      }
-
-      try {
-        const token = await authUser.getIdToken()
-        const usuario = await bootstrapSistecontactUser(token)
-        if (!cancelled) {
-          const next = { token, usuario }
-          setSession(next)
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setFormError(err instanceof Error ? err.message : 'No se pudo iniciar sesión')
-          setSession(null)
-        }
-      }
-    }
-
-    void syncSession()
-    return () => {
-      cancelled = true
-    }
-  }, [authUser])
-
-  useEffect(() => {
-    if (!session?.token) return
-
+    const pending = readPendingPayment()
     const params = new URLSearchParams(window.location.search)
     const transactionId =
       params.get('id') || params.get('transaction_id') || params.get('transactionId')
-    const pending = readPendingPayment()
 
     if (!transactionId || !pending?.reference) return
 
@@ -146,20 +93,16 @@ export function SistecontactPublic() {
       setConfirming(true)
       setStatusMessage('Confirmando pago con Wompi...')
       try {
-        const result = await confirmarPagoSistecontact(session!.token, {
+        const result = await confirmarPagoSistecontact({
+          email: pending!.email,
           reference: pending!.reference,
           transactionId: transactionId!,
         })
         if (cancelled) return
-        if (result.membresia) {
-          setSession((current) =>
-            current
-              ? {
-                  ...current,
-                  usuario: result.membresia!,
-                }
-              : current,
-          )
+        if (result.membresia) setMembresia(result.membresia)
+        if (pending?.email) {
+          setEmail(pending.email)
+          localStorage.setItem(EMAIL_KEY, pending.email)
         }
         clearPendingPayment()
         setStatusMessage(
@@ -183,54 +126,50 @@ export function SistecontactPublic() {
     return () => {
       cancelled = true
     }
-  }, [session?.token])
+  }, [])
 
-  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const value = email.trim().toLowerCase()
+    if (!isValidEmail(value)) {
+      setFormError('Escribe un correo válido')
+      return
+    }
     setFormError('')
-    setFormBusy(true)
-
+    setLookingUp(true)
     try {
-      const auth = getSistecontactAuth()
-      await signInWithEmailAndPassword(auth, email.trim(), password)
-      setPassword('')
+      localStorage.setItem(EMAIL_KEY, value)
+      const usuario = await consultarMembresiaSistecontact(value)
+      setMembresia(usuario)
+      setStatusMessage(
+        usuario.access
+          ? `Membresía activa · ${usuario.diasRestantes} días`
+          : 'Este correo no tiene una membresía activa.',
+      )
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message.includes('invalid-credential') ||
-              err.message.includes('wrong-password') ||
-              err.message.includes('user-not-found')
-            ? 'Correo o contraseña incorrectos'
-            : err.message
-          : 'No se pudo iniciar sesión'
-      setFormError(message)
+      setFormError(err instanceof Error ? err.message : 'No se pudo consultar la membresía')
     } finally {
-      setFormBusy(false)
+      setLookingUp(false)
     }
   }
 
-  async function handleLogout() {
-    clearPendingPayment()
-    localStorage.removeItem(STORAGE_KEY)
-    setSession(null)
-    setStatusMessage('')
-    await signOut(getSistecontactAuth())
-  }
-
   async function handlePay(plan: SistecontactPlan) {
-    if (!session) return
+    const value = email.trim().toLowerCase()
+    if (!isValidEmail(value)) {
+      setFormError('Escribe tu correo para activar la membresía')
+      return
+    }
+
     setPayingId(plan.id)
     setStatusMessage('')
     setFormError('')
+    localStorage.setItem(EMAIL_KEY, value)
 
     try {
-      const token = await authUser!.getIdToken(true)
-      const result = await iniciarPagoSistecontact(token, plan.id)
+      const result = await iniciarPagoSistecontact(value, plan.id)
 
       if (result.mock) {
-        if (result.membresia) {
-          setSession({ token, usuario: result.membresia })
-        }
+        if (result.membresia) setMembresia(result.membresia)
         setStatusMessage(
           result.mensaje ||
             `Pago simulado: se activaron ${result.licencia.dias} días de membresía.`,
@@ -242,10 +181,10 @@ export function SistecontactPublic() {
         throw new Error('No se recibió información de checkout de Wompi')
       }
 
-      writePendingPayment(result.checkout.reference)
+      writePendingPayment(result.checkout.reference, value)
       openWompiWebCheckout({
         ...result.checkout,
-        customerEmail: session.usuario.email,
+        customerEmail: result.checkout.customerEmail || value,
       })
       setStatusMessage(
         'Se abrió Wompi en una nueva pestaña. Al terminar el pago volverás aquí y se activará la membresía.',
@@ -258,8 +197,8 @@ export function SistecontactPublic() {
   }
 
   async function handleConfirmManual() {
-    if (!session) return
     const pending = readPendingPayment()
+    const value = (pending?.email || email).trim().toLowerCase()
     if (!pending?.reference) {
       setStatusMessage(
         'No hay un pago pendiente en esta sesión. Compra un plan primero o vuelve desde Wompi.',
@@ -274,14 +213,12 @@ export function SistecontactPublic() {
 
     setConfirming(true)
     try {
-      const token = await authUser!.getIdToken(true)
-      const result = await confirmarPagoSistecontact(token, {
+      const result = await confirmarPagoSistecontact({
+        email: value,
         reference: pending.reference,
         transactionId: transactionId.trim(),
       })
-      if (result.membresia) {
-        setSession({ token, usuario: result.membresia })
-      }
+      if (result.membresia) setMembresia(result.membresia)
       clearPendingPayment()
       setStatusMessage(
         `Membresía actualizada. Acceso ${result.membresia?.access ? 'activo' : 'inactivo'} · ${result.membresia?.diasRestantes ?? 0} días.`,
@@ -290,18 +227,6 @@ export function SistecontactPublic() {
       setStatusMessage(err instanceof Error ? err.message : 'No se pudo confirmar el pago')
     } finally {
       setConfirming(false)
-    }
-  }
-
-  async function refreshMe() {
-    if (!authUser) return
-    try {
-      const token = await authUser.getIdToken(true)
-      const usuario = await getSistecontactMe(token)
-      setSession({ token, usuario })
-      setStatusMessage('Estado de membresía actualizado.')
-    } catch (err) {
-      setStatusMessage(err instanceof Error ? err.message : 'No se pudo actualizar el estado')
     }
   }
 
@@ -317,156 +242,87 @@ export function SistecontactPublic() {
           <a className="btn-primary" href={APP_URL} target="_blank" rel="noreferrer">
             Abrir Sistecontact
           </a>
-          {session ? (
-            <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
-              Cerrar sesión
-            </button>
-          ) : null}
         </div>
       </header>
 
       <main className="sc-main">
         <section className="sc-hero">
           <h1>Sistecontact</h1>
-          <p>Inicia sesión con tu cuenta, elige un plan y activa tu membresía.</p>
+          <p>Elige un plan, indica tu correo y activa la membresía. No necesitas iniciar sesión.</p>
         </section>
 
-        {!authReady ? (
-          <p className="sc-status">Cargando...</p>
-        ) : !session ? (
+        <div className="sc-grid">
           <section className="sc-panel">
-            <h2>Iniciar sesión</h2>
+            <h2>Correo para la membresía</h2>
             <p className="sc-panel-copy">
-              Las cuentas las crea el administrador. Si aún no tienes acceso, solicítalo al
-              equipo.
+              Usa el mismo correo con el que entrarás a Sistecontact. Ahí se activa el acceso.
             </p>
 
-            <form className="modal-form" onSubmit={handleAuthSubmit} noValidate>
+            <form className="modal-form" onSubmit={(event) => void handleLookup(event)} noValidate>
               <label className="login-field" htmlFor="sc-email">
-                Correo
+                Correo electrónico
                 <input
                   id="sc-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={formBusy}
+                  disabled={Boolean(payingId) || confirming || lookingUp}
                   autoComplete="email"
+                  placeholder="ivan.p@example.net"
                 />
               </label>
-              <label className="login-field" htmlFor="sc-password">
-                Contraseña
-                <input
-                  id="sc-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  disabled={formBusy}
-                  autoComplete="current-password"
-                />
-              </label>
-
-              {formError ? (
-                <p className="login-error" role="alert">
-                  {formError}
-                </p>
-              ) : null}
-
-              <button type="submit" className="btn-primary" disabled={formBusy}>
-                {formBusy ? 'Espera...' : 'Entrar'}
+              <button type="submit" className="btn-secondary" disabled={lookingUp || Boolean(payingId)}>
+                {lookingUp ? 'Consultando...' : 'Consultar membresía'}
               </button>
             </form>
-          </section>
-        ) : (
-          <div className="sc-grid">
-            <section className="sc-panel">
+
+            {membresia ? (
               <div className="sc-account">
-                <p className="sc-eyebrow">Tu cuenta</p>
-                <p className="sc-email">{session.usuario.email}</p>
-                <p className={`sc-access ${session.usuario.access ? 'is-on' : 'is-off'}`}>
-                  Membresía: {session.usuario.access ? 'Activa' : 'Inactiva'}
-                  {session.usuario.diasRestantes > 0
-                    ? ` · ${session.usuario.diasRestantes} días`
-                    : ''}
+                <p className="sc-eyebrow">Estado</p>
+                <p className="sc-email">{membresia.email || email}</p>
+                <p className={`sc-access ${membresia.access ? 'is-on' : 'is-off'}`}>
+                  Membresía: {membresia.access ? 'Activa' : 'Inactiva'}
+                  {membresia.diasRestantes > 0 ? ` · ${membresia.diasRestantes} días` : ''}
                 </p>
               </div>
+            ) : null}
 
-              <div className="sc-account-actions">
-                <a
-                  className="btn-primary"
-                  href={APP_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir Sistecontact
-                </a>
-                <button type="button" className="btn-secondary" onClick={() => void refreshMe()}>
-                  Actualizar estado
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => void handleConfirmManual()}
-                  disabled={confirming}
-                >
-                  Ya pagué
-                </button>
-              </div>
+            <div className="sc-account-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => void handleConfirmManual()}
+                disabled={confirming}
+              >
+                Ya pagué
+              </button>
+            </div>
 
-              {statusMessage ? <p className="sc-status">{statusMessage}</p> : null}
-              {formError ? (
-                <p className="login-error" role="alert">
-                  {formError}
-                </p>
-              ) : null}
-            </section>
-
-            <section className="sc-panel">
-              <h2>Planes de membresía</h2>
-              <p className="sc-panel-copy">
-                El pago activa tu acceso en Sistecontact por la vigencia del plan.
+            {statusMessage ? <p className="sc-status">{statusMessage}</p> : null}
+            {formError ? (
+              <p className="login-error" role="alert">
+                {formError}
               </p>
+            ) : null}
+          </section>
 
-              {planesLoading ? <p className="sc-status">Cargando planes...</p> : null}
-              {planesError ? (
-                <p className="login-error" role="alert">
-                  {planesError}
-                </p>
-              ) : null}
-              {!planesLoading && !planesError && planes.length === 0 ? (
-                <p className="sc-status">Aún no hay planes publicados.</p>
-              ) : null}
+          <section className="sc-panel">
+            <h2>Planes de membresía</h2>
+            <p className="sc-panel-copy">
+              El pago activa el acceso de ese correo en Sistecontact por la vigencia del plan.
+            </p>
 
-              <div className="sc-plans">
-                {planes.map((plan) => (
-                  <article key={plan.id} className="sc-plan">
-                    <div>
-                      <h3>{plan.nombre}</h3>
-                      <p>{plan.descripcion || `${plan.dias} días de acceso`}</p>
-                      <p className="sc-plan-meta">
-                        {plan.dias} días · {formatCop(plan.precio)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      disabled={Boolean(payingId) || confirming}
-                      onClick={() => void handlePay(plan)}
-                    >
-                      {payingId === plan.id ? 'Procesando...' : 'Pagar'}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+            {planesLoading ? <p className="sc-status">Cargando planes...</p> : null}
+            {planesError ? (
+              <p className="login-error" role="alert">
+                {planesError}
+              </p>
+            ) : null}
+            {!planesLoading && !planesError && planes.length === 0 ? (
+              <p className="sc-status">Aún no hay planes publicados.</p>
+            ) : null}
 
-        {!session && !planesLoading && planes.length > 0 ? (
-          <section className="sc-panel sc-plans-preview" aria-label="Planes disponibles">
-            <h2>Planes disponibles</h2>
             <div className="sc-plans">
               {planes.map((plan) => (
                 <article key={plan.id} className="sc-plan">
@@ -477,12 +333,19 @@ export function SistecontactPublic() {
                       {plan.dias} días · {formatCop(plan.precio)}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={Boolean(payingId) || confirming}
+                    onClick={() => void handlePay(plan)}
+                  >
+                    {payingId === plan.id ? 'Procesando...' : 'Pagar'}
+                  </button>
                 </article>
               ))}
             </div>
-            <p className="sc-status">Inicia sesión para pagar un plan.</p>
           </section>
-        ) : null}
+        </div>
       </main>
     </div>
   )
