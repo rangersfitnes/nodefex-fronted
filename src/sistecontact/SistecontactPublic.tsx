@@ -27,7 +27,7 @@ function isValidEmail(value: string) {
 
 function readPendingPayment(): { reference: string; email: string } | null {
   try {
-    const raw = sessionStorage.getItem(PENDING_PAYMENT_KEY)
+    const raw = localStorage.getItem(PENDING_PAYMENT_KEY)
     if (!raw) return null
     return JSON.parse(raw) as { reference: string; email: string }
   } catch {
@@ -36,11 +36,11 @@ function readPendingPayment(): { reference: string; email: string } | null {
 }
 
 function writePendingPayment(reference: string, email: string) {
-  sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ reference, email }))
+  localStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ reference, email }))
 }
 
 function clearPendingPayment() {
-  sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+  localStorage.removeItem(PENDING_PAYMENT_KEY)
 }
 
 export function SistecontactPublic() {
@@ -85,7 +85,7 @@ export function SistecontactPublic() {
     const transactionId =
       params.get('id') || params.get('transaction_id') || params.get('transactionId')
 
-    if (!transactionId || !pending?.reference) return
+    if (!transactionId && !pending?.reference) return
 
     let cancelled = false
 
@@ -94,9 +94,9 @@ export function SistecontactPublic() {
       setStatusMessage('Confirmando pago con Wompi...')
       try {
         const result = await confirmarPagoSistecontact({
-          email: pending!.email,
-          reference: pending!.reference,
-          transactionId: transactionId!,
+          email: pending?.email || email.trim().toLowerCase(),
+          reference: pending?.reference,
+          transactionId: transactionId || '',
         })
         if (cancelled) return
         if (result.membresia) setMembresia(result.membresia)
@@ -187,7 +187,7 @@ export function SistecontactPublic() {
         customerEmail: result.checkout.customerEmail || value,
       })
       setStatusMessage(
-        'Se abrió Wompi en una nueva pestaña. Al terminar el pago volverás aquí y se activará la membresía.',
+        'Te redirigimos a Wompi. Al pagar, volverás aquí y se activará la membresía.',
       )
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
@@ -199,24 +199,31 @@ export function SistecontactPublic() {
   async function handleConfirmManual() {
     const pending = readPendingPayment()
     const value = (pending?.email || email).trim().toLowerCase()
-    if (!pending?.reference) {
-      setStatusMessage(
-        'No hay un pago pendiente en esta sesión. Compra un plan primero o vuelve desde Wompi.',
+    const params = new URLSearchParams(window.location.search)
+    let transactionId =
+      params.get('id') || params.get('transaction_id') || params.get('transactionId') || ''
+    let reference = pending?.reference || ''
+
+    if (!reference && !transactionId) {
+      const pasted = window.prompt(
+        'Pega el ID de la transacción de Wompi o la referencia del pago (empieza por SC):',
       )
-      return
+      if (!pasted?.trim()) return
+      if (pasted.trim().startsWith('SC')) reference = pasted.trim()
+      else transactionId = pasted.trim()
     }
 
-    const transactionId = window.prompt(
-      'Pega el ID de la transacción de Wompi (aparece en el recibo o en la URL al volver):',
-    )
-    if (!transactionId?.trim()) return
+    if (!value) {
+      setFormError('Escribe el correo con el que pagaste')
+      return
+    }
 
     setConfirming(true)
     try {
       const result = await confirmarPagoSistecontact({
         email: value,
-        reference: pending.reference,
-        transactionId: transactionId.trim(),
+        reference: reference || undefined,
+        transactionId: transactionId || undefined,
       })
       if (result.membresia) setMembresia(result.membresia)
       clearPendingPayment()

@@ -116,8 +116,8 @@ export async function iniciarPagoSistecontact(
 
 export async function confirmarPagoSistecontact(payload: {
   email?: string
-  reference: string
-  transactionId: string
+  reference?: string
+  transactionId?: string
 }): Promise<{
   activated: boolean
   alreadyActivated?: boolean
@@ -142,7 +142,6 @@ export function openWompiWebCheckout(checkout: {
   const form = document.createElement('form')
   form.method = 'GET'
   form.action = 'https://checkout.wompi.co/p/'
-  form.target = '_blank'
   form.style.display = 'none'
 
   const fields: Record<string, string> = {
