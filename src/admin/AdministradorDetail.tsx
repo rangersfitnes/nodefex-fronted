@@ -4,9 +4,13 @@ import {
   ADMIN_ACCIONES,
   formatCop,
   getAdministrador,
+  getAdministradorGanancias,
+  liquidarAdministradorGanancias,
   saveAdministradorAccesos,
   type AdminAccion,
   type Administrador,
+  type GananciaLiquidacion,
+  type GananciaMovimiento,
   type ProyectoAccesoConfig,
   type ProyectoAccesoNivel,
 } from '../api/administradores'
@@ -15,15 +19,26 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   ArrowRight,
+  Banknote,
   Check,
   Hexagon,
   LoaderCircle,
   LogOut,
   Shield,
   Users,
+  X,
 } from '../icons'
 
 type AccessChoice = 'none' | ProyectoAccesoNivel
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
 
 export function AdministradorDetail() {
   const { uid = '' } = useParams()
@@ -37,10 +52,16 @@ export function AdministradorDetail() {
   const [gananciasOn, setGananciasOn] = useState<Record<string, boolean>>({})
   const [porcentajes, setPorcentajes] = useState<Record<string, string>>({})
   const [totales, setTotales] = useState<Record<string, number>>({})
+  const [movimientos, setMovimientos] = useState<GananciaMovimiento[]>([])
+  const [liquidaciones, setLiquidaciones] = useState<GananciaLiquidacion[]>([])
+  const [pendienteTotal, setPendienteTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
+  const [liquidarOpen, setLiquidarOpen] = useState(false)
+  const [liquidating, setLiquidating] = useState(false)
+  const [liquidarError, setLiquidarError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -52,9 +73,13 @@ export function AdministradorDetail() {
       setSuccess('')
       try {
         const token = await user.getIdToken()
-        const [profile, proyectosData] = await Promise.all([
+        const [profile, proyectosData, gananciasData] = await Promise.all([
           getAdministrador(token, decodedUid),
           listProyectos(token),
+          getAdministradorGanancias(token, decodedUid).catch(() => ({
+            pendiente: { total: 0, movimientos: [] as GananciaMovimiento[] },
+            liquidaciones: [] as GananciaLiquidacion[],
+          })),
         ])
         if (cancelled) return
         if (profile.rol === 'owner') {
@@ -85,6 +110,9 @@ export function AdministradorDetail() {
         setGananciasOn(nextOn)
         setPorcentajes(nextPct)
         setTotales(nextTotales)
+        setMovimientos(gananciasData.pendiente.movimientos)
+        setPendienteTotal(gananciasData.pendiente.total)
+        setLiquidaciones(gananciasData.liquidaciones)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'No se pudo cargar el administrador')
@@ -186,6 +214,36 @@ export function AdministradorDetail() {
     }
   }
 
+  async function handleLiquidar() {
+    if (!user || !admin || liquidating) return
+    setLiquidating(true)
+    setLiquidarError('')
+    try {
+      const token = await user.getIdToken()
+      const { administrador, liquidacion } = await liquidarAdministradorGanancias(
+        token,
+        admin.uid,
+      )
+      setAdmin(administrador)
+      const nextTotales: Record<string, number> = {}
+      for (const proyecto of proyectos) {
+        nextTotales[proyecto.id] = administrador.ganancias?.[proyecto.id]?.total ?? 0
+      }
+      setTotales(nextTotales)
+      setMovimientos([])
+      setPendienteTotal(0)
+      setLiquidaciones((current) => [liquidacion, ...current].slice(0, 20))
+      setLiquidarOpen(false)
+      setSuccess(
+        `Se liquidaron ${formatCop(liquidacion.monto)} y se reinició el acumulado de ganancias.`,
+      )
+    } catch (err) {
+      setLiquidarError(err instanceof Error ? err.message : 'No se pudieron liquidar las ganancias')
+    } finally {
+      setLiquidating(false)
+    }
+  }
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
@@ -215,18 +273,33 @@ export function AdministradorDetail() {
             <Users size={14} strokeWidth={2} aria-hidden />
             Accesos del administrador
           </p>
-          <div>
-            <h1>{admin?.nombre || admin?.email || 'Administrador'}</h1>
-            <p className="dashboard-copy">
-              {admin?.email}
-              {admin?.cedula ? ` · C.C. ${admin.cedula}` : ''}. Asigna acceso, acciones y un
-              porcentaje de ganancia por mensualidad. El acumulado se actualiza en cada pago
-              aprobado.
-            </p>
-            {admin ? (
-              <p className="admin-ganancia-hero">
-                Ganancia total: {formatCop(admin.gananciaTotal || 0)}
+          <div className="dashboard-hero-row">
+            <div>
+              <h1>{admin?.nombre || admin?.email || 'Administrador'}</h1>
+              <p className="dashboard-copy">
+                {admin?.email}
+                {admin?.cedula ? ` · C.C. ${admin.cedula}` : ''}. Asigna acceso, acciones y un
+                porcentaje de ganancia por mensualidad. El acumulado se actualiza en cada pago
+                aprobado.
               </p>
+              {admin ? (
+                <p className="admin-ganancia-hero">
+                  Ganancia pendiente: {formatCop(pendienteTotal || admin.gananciaTotal || 0)}
+                </p>
+              ) : null}
+            </div>
+            {admin && (pendienteTotal > 0 || (admin.gananciaTotal || 0) > 0) ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setLiquidarError('')
+                  setLiquidarOpen(true)
+                }}
+              >
+                <Banknote size={18} strokeWidth={2} aria-hidden />
+                Liquidar ganancias
+              </button>
             ) : null}
           </div>
         </section>
@@ -245,8 +318,80 @@ export function AdministradorDetail() {
           </div>
         ) : null}
 
+        {!loading && success ? (
+          <p className="renew-link-success" role="status">
+            <Check size={16} strokeWidth={2} aria-hidden />
+            {success}
+          </p>
+        ) : null}
+
         {!loading && admin ? (
-          <form className="admin-access-form" onSubmit={handleSave}>
+          <>
+            <section className="admin-ganancia-ledger" aria-label="Concepto de ganancias">
+              <div className="admin-ganancia-ledger-head">
+                <div>
+                  <p className="dashboard-eyebrow">Ganancias pendientes</p>
+                  <h2>Concepto y valor</h2>
+                </div>
+                <strong>{formatCop(pendienteTotal)}</strong>
+              </div>
+              {movimientos.length === 0 ? (
+                <p className="admin-ganancia-empty">Aún no hay comisiones pendientes de liquidar.</p>
+              ) : (
+                <div className="admin-ganancia-table-wrap">
+                  <table className="admin-ganancia-table">
+                    <thead>
+                      <tr>
+                        <th>Concepto</th>
+                        <th>Fecha</th>
+                        <th>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientos.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <span>{item.concepto}</span>
+                            {item.proyectoId ? (
+                              <small>
+                                {proyectos.find((p) => p.id === item.proyectoId)?.nombre ||
+                                  item.proyectoId}
+                              </small>
+                            ) : null}
+                          </td>
+                          <td>{formatFecha(item.createdAt)}</td>
+                          <td>{formatCop(item.valor)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {liquidaciones.length > 0 ? (
+              <section className="admin-ganancia-ledger" aria-label="Liquidaciones">
+                <div className="admin-ganancia-ledger-head">
+                  <div>
+                    <p className="dashboard-eyebrow">Historial</p>
+                    <h2>Liquidaciones</h2>
+                  </div>
+                </div>
+                <ul className="admin-liquidacion-list">
+                  {liquidaciones.map((item) => (
+                    <li key={item.id}>
+                      <span>
+                        {formatFecha(item.createdAt)} · {item.conceptos.length} concepto
+                        {item.conceptos.length === 1 ? '' : 's'}
+                      </span>
+                      <strong>{formatCop(item.monto)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            <form className="admin-access-form" onSubmit={handleSave}>
             {proyectos.length === 0 ? (
               <div className="proyectos-empty">
                 <p>Aún no hay proyectos para asignar.</p>
@@ -384,13 +529,6 @@ export function AdministradorDetail() {
               </div>
             )}
 
-            {success ? (
-              <p className="renew-link-success" role="status">
-                <Check size={16} strokeWidth={2} aria-hidden />
-                {success}
-              </p>
-            ) : null}
-
             <div className="modal-actions">
               <button type="submit" className="btn-primary" disabled={saving || proyectos.length === 0}>
                 {saving ? (
@@ -407,8 +545,94 @@ export function AdministradorDetail() {
               </button>
             </div>
           </form>
+          </>
         ) : null}
       </main>
+
+      {liquidarOpen && admin ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => {
+            if (!liquidating) setLiquidarOpen(false)
+          }}
+        >
+          <div
+            className="modal-panel modal-panel-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="liquidar-ganancias-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="liquidar-ganancias-title">Liquidar ganancias</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setLiquidarOpen(false)}
+                disabled={liquidating}
+                aria-label="Cerrar"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+            <p className="modal-confirm-text">
+              Se pagará a {admin.nombre || admin.email} el acumulado actual. Al liquidar se
+              guarda el registro y el contador de ganancias vuelve a cero.
+            </p>
+            {movimientos.length === 0 ? (
+              <p className="admin-ganancia-empty">No hay conceptos pendientes.</p>
+            ) : (
+              <ul className="liquidar-conceptos">
+                {movimientos.map((item) => (
+                  <li key={item.id}>
+                    <span>{item.concepto}</span>
+                    <strong>{formatCop(item.valor)}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="liquidar-total">
+              Total a liquidar
+              <strong>{formatCop(pendienteTotal)}</strong>
+            </p>
+            {liquidarError ? (
+              <p className="proyectos-status proyectos-status-error" role="alert">
+                <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                {liquidarError}
+              </p>
+            ) : null}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setLiquidarOpen(false)}
+                disabled={liquidating}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleLiquidar()}
+                disabled={liquidating || movimientos.length === 0 || pendienteTotal <= 0}
+              >
+                {liquidating ? (
+                  <>
+                    <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                    Liquidando...
+                  </>
+                ) : (
+                  <>
+                    <Banknote size={16} strokeWidth={2} aria-hidden />
+                    Liquidar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

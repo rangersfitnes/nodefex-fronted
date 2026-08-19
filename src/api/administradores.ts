@@ -162,6 +162,55 @@ export async function saveAdministradorAccesos(
   return data.administrador
 }
 
+export type GananciaMovimiento = {
+  id: string
+  reference: string | null
+  proyectoId: string | null
+  porcentaje: number
+  montoPago: number
+  valor: number
+  concepto: string
+  email: string | null
+  dias: number | null
+  createdAt: string | null
+  liquidacionId: string | null
+}
+
+export type GananciaLiquidacion = {
+  id: string
+  monto: number
+  conceptos: Array<{
+    id: string
+    concepto: string
+    valor: number
+    proyectoId: string | null
+    reference: string | null
+  }>
+  desglose: Record<string, number>
+  createdBy: string | null
+  createdAt: string | null
+}
+
+export async function getAdministradorGanancias(
+  token: string,
+  uid: string,
+): Promise<{
+  pendiente: { total: number; movimientos: GananciaMovimiento[] }
+  liquidaciones: GananciaLiquidacion[]
+}> {
+  return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias`, token)
+}
+
+export async function liquidarAdministradorGanancias(
+  token: string,
+  uid: string,
+): Promise<{ liquidacion: GananciaLiquidacion; administrador: Administrador }> {
+  return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias/liquidar`, token, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
 export function formatCop(value: number) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',

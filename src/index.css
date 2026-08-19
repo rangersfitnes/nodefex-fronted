@@ -862,6 +862,8 @@ a {
 .admin-access-form {
   display: grid;
   gap: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .admin-access-list {
@@ -1010,6 +1012,142 @@ a {
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.admin-ganancia-ledger {
+  max-width: 960px;
+  margin: 0 auto 1.1rem;
+  padding: 1rem 1.15rem 1.15rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(209, 213, 219, 0.9);
+}
+
+.admin-ganancia-ledger-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-ganancia-ledger-head h2 {
+  margin: 0.1rem 0 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.2rem;
+  color: var(--blue-950);
+}
+
+.admin-ganancia-ledger-head strong {
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  color: var(--blue-700);
+}
+
+.admin-ganancia-empty {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: 0.92rem;
+}
+
+.admin-ganancia-table-wrap {
+  overflow: auto;
+}
+
+.admin-ganancia-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-ganancia-table th,
+.admin-ganancia-table td {
+  padding: 0.65rem 0.4rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.95);
+  font-size: 0.9rem;
+  color: var(--gray-700);
+  vertical-align: top;
+}
+
+.admin-ganancia-table th {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.admin-ganancia-table td:last-child,
+.admin-ganancia-table th:last-child {
+  text-align: right;
+  font-weight: 650;
+  color: var(--blue-950);
+  white-space: nowrap;
+}
+
+.admin-ganancia-table td span {
+  display: block;
+  color: var(--gray-800);
+}
+
+.admin-ganancia-table td small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--gray-500);
+  font-size: 0.78rem;
+}
+
+.admin-liquidacion-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-liquidacion-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.liquidar-conceptos {
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.liquidar-conceptos li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 10px;
+  background: var(--gray-100);
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.liquidar-conceptos li strong,
+.liquidar-total strong {
+  white-space: nowrap;
+  color: var(--blue-950);
+}
+
+.liquidar-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  font-weight: 650;
   color: var(--gray-700);
 }
 
@@ -1227,6 +1365,11 @@ a {
   margin: 0;
   color: #166534;
   font-size: 0.9rem;
+}
+
+.dashboard-main > .renew-link-success {
+  max-width: 960px;
+  margin: 0 auto 1rem;
 }
 
 .pagos-table-wrap {

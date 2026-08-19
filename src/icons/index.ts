@@ -6,6 +6,7 @@
 export {
   AlertCircle,
   ArrowRight,
+  Banknote,
   Bell,
   Building2,
   Brain,
