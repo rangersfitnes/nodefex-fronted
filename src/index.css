@@ -2372,6 +2372,11 @@ a.btn-secondary {
   font-size: 0.92rem;
 }
 
+.sc-panel-copy a {
+  color: #67e8f9;
+  font-weight: 650;
+}
+
 .sc-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

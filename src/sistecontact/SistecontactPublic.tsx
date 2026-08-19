@@ -139,12 +139,18 @@ export function SistecontactPublic() {
     setLookingUp(true)
     try {
       localStorage.setItem(EMAIL_KEY, value)
-      const usuario = await consultarMembresiaSistecontact(value)
+      const { usuario, registrado } = await consultarMembresiaSistecontact(value)
       setMembresia(usuario)
+      if (!registrado || !usuario) {
+        setStatusMessage(
+          'Este correo no está registrado en Sistecontact. Crea tu cuenta primero y luego paga la membresía.',
+        )
+        return
+      }
       setStatusMessage(
         usuario.access
-          ? `Membresía activa · ${usuario.diasRestantes} días`
-          : 'Este correo no tiene una membresía activa.',
+          ? `Cuenta encontrada · membresía activa · ${usuario.diasRestantes} días`
+          : 'Cuenta encontrada. Este correo aún no tiene una membresía activa.',
       )
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo consultar la membresía')
@@ -156,7 +162,7 @@ export function SistecontactPublic() {
   async function handlePay(plan: SistecontactPlan) {
     const value = email.trim().toLowerCase()
     if (!isValidEmail(value)) {
-      setFormError('Escribe tu correo para activar la membresía')
+      setFormError('Escribe el correo de tu cuenta registrada en Sistecontact')
       return
     }
 
@@ -255,14 +261,20 @@ export function SistecontactPublic() {
       <main className="sc-main">
         <section className="sc-hero">
           <h1>Sistecontact</h1>
-          <p>Elige un plan, indica tu correo y activa la membresía. No necesitas iniciar sesión.</p>
+          <p>
+            Primero crea tu cuenta en Sistecontact con tu correo. Después elige un plan y paga la
+            membresía; no se puede pagar un correo que no esté registrado.
+          </p>
         </section>
 
         <div className="sc-grid">
           <section className="sc-panel">
-            <h2>Correo para la membresía</h2>
+            <h2>Correo de tu cuenta</h2>
             <p className="sc-panel-copy">
-              Usa el mismo correo con el que entrarás a Sistecontact. Ahí se activa el acceso.
+              Debe ser el mismo correo con el que ya te registraste en Sistecontact.{' '}
+              <a href={APP_URL} target="_blank" rel="noreferrer">
+                Crear cuenta
+              </a>
             </p>
 
             <form className="modal-form" onSubmit={(event) => void handleLookup(event)} noValidate>
@@ -317,7 +329,7 @@ export function SistecontactPublic() {
           <section className="sc-panel">
             <h2>Planes de membresía</h2>
             <p className="sc-panel-copy">
-              El pago activa el acceso de ese correo en Sistecontact por la vigencia del plan.
+              El pago solo se activa si ese correo ya tiene cuenta en Sistecontact.
             </p>
 
             {planesLoading ? <p className="sc-status">Cargando planes...</p> : null}

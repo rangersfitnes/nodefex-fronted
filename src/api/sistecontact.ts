@@ -85,17 +85,22 @@ export async function listSistecontactPlanes(): Promise<SistecontactPlan[]> {
   return data.licencias
 }
 
-export async function consultarMembresiaSistecontact(
-  email: string,
-): Promise<SistecontactUsuario> {
-  const data = await publicFetch<{ usuario: SistecontactUsuario }>(
-    '/api/sistecontact/membresia',
-    {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    },
-  )
-  return data.usuario
+export async function consultarMembresiaSistecontact(email: string): Promise<{
+  registrado: boolean
+  usuario: SistecontactUsuario | null
+}> {
+  const data = await publicFetch<{
+    registrado?: boolean
+    usuario?: SistecontactUsuario | null
+  }>('/api/sistecontact/membresia', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+  const usuario = data.usuario?.uid ? data.usuario : null
+  return {
+    registrado: data.registrado !== false && Boolean(usuario),
+    usuario,
+  }
 }
 
 export async function iniciarPagoSistecontact(

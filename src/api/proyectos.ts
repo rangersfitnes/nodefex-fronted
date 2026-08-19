@@ -17,6 +17,7 @@ export type ProyectoUsuario = {
   email: string | null
   disabled: boolean
   emailVerified: boolean
+  passwordEnabled?: boolean
   createdAt: string | null
   lastSignInAt: string | null
   diasRestantes: number
@@ -126,6 +127,23 @@ export async function createUsuarioProyecto(
     token,
     {
       method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.usuario
+}
+
+export async function updateUsuarioProyecto(
+  token: string,
+  proyectoId: string,
+  uid: string,
+  payload: { email?: string; password?: string },
+): Promise<ProyectoUsuario> {
+  const data = await apiFetch<{ usuario: ProyectoUsuario }>(
+    `/api/proyectos/${encodeURIComponent(proyectoId)}/usuarios/${encodeURIComponent(uid)}`,
+    token,
+    {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     },
   )

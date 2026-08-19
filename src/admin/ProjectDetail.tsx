@@ -18,6 +18,7 @@ import {
   esProyectoSistecontact,
   esProyectoContable,
   setUsuarioAccessProyecto,
+  updateUsuarioProyecto,
   saveLinkDescargaProyecto,
   saveLinkLicenciaProyecto,
   saveSoporteWhatsappProyecto,
@@ -35,6 +36,7 @@ import {
   Check,
   Download,
   Hexagon,
+  Key,
   LayoutDashboard,
   Link2,
   LoaderCircle,
@@ -113,6 +115,11 @@ export function ProjectDetail() {
   const [membershipSuccess, setMembershipSuccess] = useState('')
   const [accessSavingUid, setAccessSavingUid] = useState('')
   const [accessError, setAccessError] = useState('')
+  const [credentialsUser, setCredentialsUser] = useState<ProyectoUsuario | null>(null)
+  const [credentialsEmail, setCredentialsEmail] = useState('')
+  const [credentialsPassword, setCredentialsPassword] = useState('')
+  const [credentialsError, setCredentialsError] = useState('')
+  const [credentialsSaving, setCredentialsSaving] = useState(false)
 
   const [planes, setPlanes] = useState<LicenciaPlan[]>([])
   const [planesLoading, setPlanesLoading] = useState(false)
@@ -442,6 +449,59 @@ export function ProjectDetail() {
   function closeModal() {
     if (submitting) return
     setModalOpen(false)
+  }
+
+  function openCredentialsModal(item: ProyectoUsuario) {
+    setCredentialsUser(item)
+    setCredentialsEmail(item.email || '')
+    setCredentialsPassword('')
+    setCredentialsError('')
+  }
+
+  function closeCredentialsModal() {
+    if (credentialsSaving) return
+    setCredentialsUser(null)
+    setCredentialsPassword('')
+    setCredentialsError('')
+  }
+
+  async function handleUpdateCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user || !credentialsUser) return
+
+    const nextEmail = credentialsEmail.trim().toLowerCase()
+    const nextPassword = credentialsPassword
+    const emailChanged = nextEmail !== (credentialsUser.email || '').trim().toLowerCase()
+
+    if (!emailChanged && !nextPassword) {
+      setCredentialsError('Cambia el correo o escribe una contraseña')
+      return
+    }
+    if (nextPassword && nextPassword.length < 6) {
+      setCredentialsError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+
+    setCredentialsError('')
+    setCredentialsSaving(true)
+    try {
+      const token = await user.getIdToken()
+      const updated = await updateUsuarioProyecto(token, decodedId, credentialsUser.uid, {
+        ...(emailChanged ? { email: nextEmail } : {}),
+        ...(nextPassword ? { password: nextPassword } : {}),
+      })
+      setUsuarios((current) =>
+        current
+          .map((item) => (item.uid === updated.uid ? { ...item, ...updated } : item))
+          .sort((a, b) => String(a.email || '').localeCompare(String(b.email || ''))),
+      )
+      setCredentialsUser(null)
+      setCredentialsPassword('')
+    } catch (err) {
+      setCredentialsError(err instanceof Error ? err.message : 'No se pudo actualizar el usuario')
+    } finally {
+      setCredentialsSaving(false)
+    }
   }
 
   function openMembershipModal() {
@@ -1269,6 +1329,9 @@ export function ProjectDetail() {
                             <p>
                               UID: {item.uid}
                               {item.disabled ? ' · Deshabilitado' : ''}
+                              {esSistecontact && item.passwordEnabled === false
+                                ? ' · Sin contraseña'
+                                : ''}
                             </p>
                             {esVelix ? (
                               <p className="usuario-license">
@@ -1295,6 +1358,17 @@ export function ProjectDetail() {
                             </div>
                           ) : null}
                           <div className="usuario-actions">
+                            {canCreateUsers && esSistecontact ? (
+                              <button
+                                type="button"
+                                className="btn-secondary usuario-activate"
+                                onClick={() => openCredentialsModal(item)}
+                                aria-label={`Editar correo y contraseña de ${item.email || item.uid}`}
+                              >
+                                <Key size={15} strokeWidth={2} aria-hidden />
+                                Correo y clave
+                              </button>
+                            ) : null}
                             {canActivateMemberships && esSistecontact ? (
                               <label
                                 className={`access-switch ${item.access ? 'is-on' : 'is-off'}`}
@@ -1627,6 +1701,104 @@ export function ProjectDetail() {
                     <>
                       <Plus size={16} strokeWidth={2} aria-hidden />
                       Crear
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {canCreateUsers && esSistecontact && credentialsUser ? (
+        <div className="modal-overlay" role="presentation" onClick={closeCredentialsModal}>
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="credenciales-usuario-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="credenciales-usuario-title">Correo y contraseña</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeCredentialsModal}
+                disabled={credentialsSaving}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            <form className="modal-form" onSubmit={(event) => void handleUpdateCredentials(event)} noValidate>
+              <p className="modal-confirm-text">
+                {credentialsUser.passwordEnabled === false
+                  ? 'Este usuario no tiene contraseña. Puedes crearle una para que entre con correo y clave, o cambiarle el correo.'
+                  : 'Cambia el correo o asígnale una nueva contraseña si la perdió.'}
+              </p>
+
+              <label className="login-field" htmlFor="credencial-email">
+                Correo
+                <input
+                  id="credencial-email"
+                  type="email"
+                  autoComplete="off"
+                  value={credentialsEmail}
+                  onChange={(e) => setCredentialsEmail(e.target.value)}
+                  required
+                  disabled={credentialsSaving}
+                  autoFocus
+                />
+              </label>
+
+              <label className="login-field" htmlFor="credencial-password">
+                {credentialsUser.passwordEnabled === false
+                  ? 'Crear contraseña'
+                  : 'Nueva contraseña'}
+                <input
+                  id="credencial-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={credentialsPassword}
+                  onChange={(e) => setCredentialsPassword(e.target.value)}
+                  minLength={6}
+                  disabled={credentialsSaving}
+                  placeholder={
+                    credentialsUser.passwordEnabled === false
+                      ? 'Mínimo 6 caracteres'
+                      : 'Déjala vacía si no la vas a cambiar'
+                  }
+                />
+              </label>
+
+              {credentialsError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {credentialsError}
+                </p>
+              ) : null}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeCredentialsModal}
+                  disabled={credentialsSaving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={credentialsSaving}>
+                  {credentialsSaving ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Key size={16} strokeWidth={2} aria-hidden />
+                      Guardar
                     </>
                   )}
                 </button>
