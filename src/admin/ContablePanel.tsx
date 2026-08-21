@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Download,
   FileText,
   Key,
   LoaderCircle,
@@ -54,6 +55,223 @@ function formatDiaLargo(ymd: string): string {
     month: 'long',
     year: 'numeric',
   }).format(new Date(`${ymd}T12:00:00-05:00`))
+}
+
+function buildContableIngresosApiTxt() {
+  const base = API_URL.replace(/\/$/, '')
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
+
+  return `NODEFEX CONTABLE — INTEGRACIÓN PARA TU PROYECTO
+============================================================
+Documento para el equipo / sistema que enviará ingresos a Nodefex
+usando una API key.
+
+Fecha: ${today}
+Destinatario: proyecto externo con API key (nfx_...)
+
+OBJETIVO
+--------
+Cada vez que en TU proyecto ocurra un ingreso (pago, recarga,
+membresía, venta, etc.), debes hacer un POST HTTP a Nodefex para
+que el movimiento quede registrado en contabilidad.
+
+Nodefex identifica tu proyecto por la API key. No uses login de
+admin ni Firebase Auth para esta integración.
+
+
+1) URL OBLIGATORIA (backend, no el sitio web)
+--------------------------------------------
+POST ${base}/api/contable/ingresos
+
+NO uses:
+- https://www.nodefex.com/...
+- https://nodefex.com/...
+- rutas relativas de tu propio dominio
+
+Alias válido:
+POST ${base}/api/contable/entradas
+
+
+2) HEADERS OBLIGATORIOS
+-----------------------
+Content-Type: application/json
+X-Api-Key: PEGA_AQUI_TU_API_KEY_COMPLETA
+
+La API key:
+- Empieza por nfx_
+- Te la entrega el administrador de Nodefex Contable
+- Guárdala solo en el backend / variables de entorno de TU proyecto
+- Nunca la expongas en el frontend público ni en repositorios
+
+También se acepta:
+Authorization: Bearer PEGA_AQUI_TU_API_KEY_COMPLETA
+
+
+3) CUÁNDO LLAMAR LA API
+-----------------------
+Llama el endpoint DESPUÉS de confirmar el cobro en tu sistema
+(pago aprobado, recarga exitosa, membresía pagada, etc.).
+
+Si el cobro falla o queda pendiente, NO envíes el ingreso.
+
+
+4) BODY JSON — CAMPOS QUE DEBES ENVIAR
+--------------------------------------
+Mínimo obligatorio:
+
+{
+  "concepto": "texto descriptivo del ingreso",
+  "valor": 100000
+}
+
+Recomendado (mejor trazabilidad):
+
+{
+  "fecha": "${today}",
+  "nombre": "Nombre del cliente",
+  "concepto": "recarga membresía 30 días",
+  "valor": 100000,
+  "categoria": "membresias",
+  "metodoPago": "nequi",
+  "referencia": "ID_DE_TU_TRANSACCION",
+  "clienteId": "ID_INTERNO_DE_TU_USUARIO"
+}
+
+Reglas de tipos:
+- concepto = string (texto). Obligatorio.
+- valor = number en pesos COP, mayor a 0. Obligatorio.
+  Correcto:   100000
+  Incorrecto: "100.000"  "$100.000"  "100000 COP"
+- fecha = "YYYY-MM-DD" o ISO. Si no la envías, Nodefex usa la hora actual (Bogotá).
+- nombre = string con el cliente/tercero. Si no llega, Nodefex usa el nombre del programa de tu API key.
+
+Alias aceptados (por si tu código ya usa otros nombres):
+- concepto  → tambien: descripcion, detalle, motivo
+- valor     → tambien: amount, monto, value, total, precio
+- nombre    → tambien: clienteNombre, name, cliente, customer
+- fecha     → tambien: date
+- metodoPago → tambien: paymentMethod
+- referencia → tambien: reference, recibo, factura
+- clienteId  → tambien: customerId, userId
+
+
+5) EJEMPLO LISTO PARA COPIAR (JavaScript / Node)
+------------------------------------------------
+const NODEFEX_API = "${base}";
+const NODEFEX_API_KEY = process.env.NODEFEX_CONTABLE_API_KEY; // nfx_...
+
+async function registrarIngresoEnNodefex({ concepto, valor, nombre, referencia, clienteId, metodoPago }) {
+  const response = await fetch(\`\${NODEFEX_API}/api/contable/ingresos\`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": NODEFEX_API_KEY,
+    },
+    body: JSON.stringify({
+      fecha: new Date().toISOString().slice(0, 10),
+      concepto,
+      valor: Number(valor),
+      nombre,
+      referencia,
+      clienteId,
+      metodoPago,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || \`Nodefex respondió \${response.status}\`);
+  }
+  return data; // 201 Created
+}
+
+// Ejemplo de uso después de un pago aprobado en TU proyecto:
+// await registrarIngresoEnNodefex({
+//   concepto: "Membresía 30 días",
+//   valor: 49900,
+//   nombre: "correo@cliente.com",
+//   referencia: "TX-ABC-123",
+//   clienteId: "uid-del-usuario",
+//   metodoPago: "wompi",
+// });
+
+
+6) EJEMPLO CURL (prueba manual)
+-------------------------------
+curl -X POST "${base}/api/contable/ingresos" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: PEGA_AQUI_TU_API_KEY" \\
+  -d "{\\"fecha\\":\\"${today}\\",\\"nombre\\":\\"Cliente Demo\\",\\"concepto\\":\\"pago prueba\\",\\"valor\\":100000,\\"referencia\\":\\"TEST-001\\"}"
+
+
+7) RESPUESTA ESPERADA
+---------------------
+HTTP 201
+
+{
+  "movimiento": {
+    "id": "...",
+    "concepto": "pago prueba",
+    "valor": 100000,
+    "clienteNombre": "Cliente Demo",
+    "programa": "nombre de tu programa",
+    "origen": "api-key"
+  },
+  "resumenAnual": { ... },
+  "path": "proyectos/nodefex-contable/contabilidad/ingresos/años/AAAA/movimientos/ID"
+}
+
+Si recibes 201, el ingreso quedó registrado.
+
+
+8) ERRORES QUE DEBES MANEJAR
+----------------------------
+401  API key inválida o desactivada
+     → Revisa la clave completa (nfx_...) y que no tenga espacios.
+
+400  El concepto es obligatorio
+     → El body no es JSON, falta Content-Type: application/json,
+       o no enviaste "concepto" como texto.
+
+400  El valor debe ser un número mayor a 0
+     → Envía valor numérico (100000), no string formateado.
+
+404 o HTML del sitio Nodefex
+     → Estás llamando nodefex.com / www.nodefex.com en vez de:
+       ${base}/api/contable/ingresos
+
+503  Sin cuota temporal de base de datos
+     → Reintenta más tarde.
+
+
+9) CHECKLIST ANTES DE SUBIR A PRODUCCIÓN
+----------------------------------------
+[ ] Usas exactamente: ${base}/api/contable/ingresos
+[ ] Headers: Content-Type application/json + X-Api-Key
+[ ] Body JSON con al menos concepto (string) y valor (number)
+[ ] La llamada ocurre solo cuando el pago/cobro ya está confirmado
+[ ] La API key está en variable de entorno del backend de TU proyecto
+[ ] Probaste con curl o un pago de prueba y recibiste HTTP 201
+
+
+10) EGRESOS (OPCIONAL)
+----------------------
+Si también debes registrar salidas de dinero:
+POST ${base}/api/contable/egresos
+Mismos headers y misma forma de body.
+`
+}
+
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 function CopyBlock({ code }: { code: string }) {
@@ -89,14 +307,23 @@ function ContableApiDocs() {
   -H "X-Api-Key: nfx_TU_CLAVE" \\
   -d '{"fecha":"2026-08-14","nombre":"Proveedor","concepto":"arriendo","valor":250000,"categoria":"gastos","metodoPago":"transferencia"}'`
 
+  function handleDownloadIngresosTxt() {
+    downloadTextFile('nodefex-contable-api-ingresos.txt', buildContableIngresosApiTxt())
+  }
+
   return (
     <section className="usuarios-section contable-docs" aria-label="Documentación de la API">
       <div className="section-heading">
         <FileText size={18} strokeWidth={2} aria-hidden />
         <h2>Documentación de la API</h2>
+        <button type="button" className="btn-secondary" onClick={handleDownloadIngresosTxt}>
+          <Download size={16} strokeWidth={2} aria-hidden />
+          Descargar TXT para el proyecto
+        </button>
       </div>
       <p className="section-note">
-        Base: <code>{API_URL}</code>. Autentica cada escritura con la API key del programa.
+        Base: <code>{API_URL}</code>. El TXT está pensado para entregárselo al otro proyecto que
+        usará la API key: incluye URL, headers, body, ejemplo de código y checklist.
       </p>
 
       <article className="contable-docs-card">
@@ -566,6 +793,21 @@ export function ContablePanel() {
           <code>POST /api/contable/ingresos</code> o <code>/egresos</code>. El movimiento queda
           etiquetado con ese programa.
         </p>
+        <div className="hero-actions" style={{ marginBottom: '1rem' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() =>
+              downloadTextFile(
+                'nodefex-contable-api-ingresos.txt',
+                buildContableIngresosApiTxt(),
+              )
+            }
+          >
+            <Download size={16} strokeWidth={2} aria-hidden />
+            Descargar TXT para el proyecto (API ingresos)
+          </button>
+        </div>
 
         <form className="contable-key-form" onSubmit={(event) => void handleCreateKey(event)}>
           <label className="login-field" htmlFor="programa-nombre">

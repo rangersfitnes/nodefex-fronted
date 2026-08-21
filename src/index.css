@@ -1197,15 +1197,18 @@ a {
   gap: 0.5rem;
   margin-bottom: 1rem;
   color: var(--blue-950);
+  flex-wrap: wrap;
 }
 
 .section-heading h2 {
   margin: 0;
   font-family: Outfit, 'DM Sans', sans-serif;
   font-size: 1.15rem;
+  flex: 1 1 auto;
 }
 
-.section-heading .contable-refresh {
+.section-heading .contable-refresh,
+.section-heading .btn-secondary {
   margin-left: auto;
 }
 
