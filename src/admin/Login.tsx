@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { ApiError } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
@@ -118,12 +118,9 @@ export function Login() {
           <span className="login-mark" aria-hidden>
             <Hexagon size={20} strokeWidth={2.25} />
           </span>
-          <span className="landing-nav-name">Nodefex Tecnologi</span>
+          <span className="landing-nav-name">Nodefex Tecnology</span>
         </div>
         <div className="landing-nav-actions">
-          <Link to="/velix" className="landing-nav-link">
-            Velix
-          </Link>
           <a href="#acceso" className="landing-nav-cta">
             Acceso
             <ArrowRight size={16} strokeWidth={2} aria-hidden />
@@ -135,7 +132,7 @@ export function Login() {
         <section className="landing-hero" aria-labelledby="landing-brand">
           <p className="landing-kicker">Ingeniería · Producto · Infraestructura</p>
           <h1 id="landing-brand" className="landing-brand-title">
-            Nodefex Tecnologi
+            Nodefex Tecnology
           </h1>
           <p className="landing-hero-copy">
             Construimos software, hardware y soluciones digitales con estándar industrial.
@@ -182,7 +179,7 @@ export function Login() {
           <div className="landing-access-copy">
             <h2 id="acceso-title">Acceso administrativo</h2>
             <p>
-              Inicia sesión para gestionar proyectos, licencias Velix y operación de la plataforma.
+              Inicia sesión para gestionar proyectos y operación de la plataforma.
             </p>
           </div>
 
@@ -259,7 +256,7 @@ export function Login() {
       </main>
 
       <footer className="landing-footer">
-        <p>© {new Date().getFullYear()} Nodefex Tecnologi</p>
+        <p>© {new Date().getFullYear()} Nodefex Tecnology</p>
       </footer>
     </div>
   )

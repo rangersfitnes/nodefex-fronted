@@ -799,7 +799,7 @@ export function ProjectDetail() {
           <span className="login-mark" aria-hidden>
             <Hexagon size={20} strokeWidth={2.25} />
           </span>
-          <span>Nodefex Tecnologi</span>
+          <span>Nodefex Tecnology</span>
         </div>
         <div className="dashboard-user">
           <span className="dashboard-email">{user?.email}</span>
