@@ -24,7 +24,7 @@ export type ProyectoUsuario = {
   licenseExpiresAt: string | null
   activa: boolean
   timezone: string
-  /** Sistecontact: users/{uid}/settings/access.access */
+  /** Sistecontact: users/{uid}/settings/access.access · Fexmenu: premiumCorreos/{email}.premium */
   access?: boolean
 }
 
@@ -35,7 +35,7 @@ function normalizeProyectoId(proyectoId: string): string {
 /** Proyectos con Firebase Auth externo gestionable desde el admin */
 export function proyectoSoportaUsuarios(proyectoId: string): boolean {
   const id = normalizeProyectoId(proyectoId)
-  return id === 'velix' || id === 'sistecontact'
+  return id === 'velix' || id === 'sistecontact' || id === 'fexmenu'
 }
 
 /** Funciones exclusivas de Velix (licencias, pagos, links públicos) */
@@ -45,6 +45,10 @@ export function esProyectoVelix(proyectoId: string): boolean {
 
 export function esProyectoSistecontact(proyectoId: string): boolean {
   return normalizeProyectoId(proyectoId) === 'sistecontact'
+}
+
+export function esProyectoFexmenu(proyectoId: string): boolean {
+  return normalizeProyectoId(proyectoId) === 'fexmenu'
 }
 
 export function esProyectoContable(proyectoId: string): boolean {

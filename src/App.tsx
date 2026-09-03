@@ -10,6 +10,7 @@ import { AdministradorDetail } from './admin/AdministradorDetail'
 import { RegistroAdmin } from './admin/RegistroAdmin'
 import { VelixPublic } from './velix/VelixPublic'
 import { SistecontactPublic } from './sistecontact/SistecontactPublic'
+import { FexmenuPublic } from './fexmenu/FexmenuPublic'
 
 export default function App() {
   return (
@@ -20,6 +21,8 @@ export default function App() {
         <Route path="/Velix" element={<Navigate to="/velix" replace />} />
         <Route path="/sistecontact" element={<SistecontactPublic />} />
         <Route path="/Sistecontact" element={<Navigate to="/sistecontact" replace />} />
+        <Route path="/fexmenu" element={<FexmenuPublic />} />
+        <Route path="/Fexmenu" element={<Navigate to="/fexmenu" replace />} />
         <Route path="/registroadmin" element={<RegistroAdmin />} />
         <Route path="/RegistroAdmin" element={<Navigate to="/registroadmin" replace />} />
         <Route path="/admin" element={<Navigate to="/admin/login" replace />} />

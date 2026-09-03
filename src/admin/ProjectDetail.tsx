@@ -16,6 +16,7 @@ import {
   proyectoSoportaUsuarios,
   esProyectoVelix,
   esProyectoSistecontact,
+  esProyectoFexmenu,
   esProyectoContable,
   setUsuarioAccessProyecto,
   updateUsuarioProyecto,
@@ -162,8 +163,10 @@ export function ProjectDetail() {
   const soportaUsuarios = proyectoSoportaUsuarios(decodedId)
   const esVelix = esProyectoVelix(decodedId)
   const esSistecontact = esProyectoSistecontact(decodedId)
+  const esFexmenu = esProyectoFexmenu(decodedId)
   const esContable = esProyectoContable(decodedId)
-  const soportaPlanes = esVelix || esSistecontact
+  const soportaPlanes = esVelix || esSistecontact || esFexmenu
+  const soportaSwitchAccess = esSistecontact || esFexmenu
   const access: ProyectoAccesoConfig | null =
     proyecto?.acceso || getProjectAccess(decodedId)
   function can(action: AdminAccion): boolean {
@@ -663,9 +666,11 @@ export function ProjectDetail() {
     if (!user) return
     const label = item.email || item.uid
     const ok = window.confirm(
-      esSistecontact
-        ? `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth de Sistecontact.`
-        : `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth Velix y su membresía en Firestore.`,
+      esFexmenu
+        ? `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth de Fexmenu y su documento premiumCorreos.`
+        : esSistecontact
+          ? `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth de Sistecontact.`
+          : `¿Eliminar al usuario "${label}"?\nSe borrará de Firebase Auth Velix y su membresía en Firestore.`,
     )
     if (!ok) return
 
@@ -680,7 +685,7 @@ export function ProjectDetail() {
   }
 
   async function handleToggleAccess(item: ProyectoUsuario, nextAccess: boolean) {
-    if (!user || !esSistecontact) return
+    if (!user || !soportaSwitchAccess) return
 
     setAccessError('')
     setAccessSavingUid(item.uid)
@@ -878,6 +883,16 @@ export function ProjectDetail() {
                           rel="noreferrer"
                         >
                           Abrir /sistecontact
+                        </Link>
+                      ) : null}
+                      {esFexmenu ? (
+                        <Link
+                          to="/fexmenu"
+                          className="btn-secondary"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir /fexmenu
                         </Link>
                       ) : null}
                       {canCreateUsers ? (
@@ -1133,9 +1148,11 @@ export function ProjectDetail() {
                     </div>
                     <p className="section-note">
                       Se guardan en Firestore Nodefex: <code>proyectos/{'{id}'}/licencias</code>.
-                      {esSistecontact
-                        ? ' Estos planes aparecen en la tienda pública /sistecontact.'
-                        : ' Estos planes aparecen en la tienda pública /velix.'}
+                      {esFexmenu
+                        ? ' Estos planes aparecen en la tienda pública /fexmenu y activan premiumCorreos/{correo}.'
+                        : esSistecontact
+                          ? ' Estos planes aparecen en la tienda pública /sistecontact.'
+                          : ' Estos planes aparecen en la tienda pública /velix.'}
                     </p>
 
                     {canManagePlans ? (
@@ -1147,7 +1164,9 @@ export function ProjectDetail() {
                           value={planNombre}
                           onChange={(e) => setPlanNombre(e.target.value)}
                           placeholder={
-                            esSistecontact ? 'Membresía 30 días' : 'Licencia 30 días'
+                            esSistecontact || esFexmenu
+                              ? 'Membresía 30 días'
+                              : 'Licencia 30 días'
                           }
                           required
                           disabled={planSubmitting}
@@ -1234,7 +1253,7 @@ export function ProjectDetail() {
                       <div className="proyectos-empty">
                         <p>
                           No hay planes. Crea uno (por ejemplo 30 días) para venderlo en /
-                          {esSistecontact ? 'sistecontact' : 'velix'}.
+                          {esFexmenu ? 'fexmenu' : esSistecontact ? 'sistecontact' : 'velix'}.
                         </p>
                       </div>
                     ) : null}
@@ -1273,13 +1292,17 @@ export function ProjectDetail() {
                     <h2>
                       {esVelix
                         ? 'Usuarios y membresías (Velix)'
-                        : 'Usuarios y membresías (Sistecontact)'}
+                        : esFexmenu
+                          ? 'Usuarios y premium (Fexmenu)'
+                          : 'Usuarios y membresías (Sistecontact)'}
                     </h2>
                   </div>
                   <p className="section-note">
                     {esVelix
                       ? 'Vigencias calculadas en zona horaria America/Bogota. Se guarda la fecha exacta de vencimiento en Firestore. Usa «Activar días» en cada usuario para sumar licencia manualmente.'
-                      : 'El switch activa users/{uid}/settings/access. Los pagos de /sistecontact suman días de vigencia automáticamente.'}
+                      : esFexmenu
+                        ? 'El switch escribe premiumCorreos/{correo}.premium. Los pagos de /fexmenu suman días y ponen premium=true automáticamente.'
+                        : 'El switch activa users/{uid}/settings/access. Los pagos de /sistecontact suman días de vigencia automáticamente.'}
                   </p>
 
                   {esVelix && membershipSuccess ? (
@@ -1289,7 +1312,7 @@ export function ProjectDetail() {
                     </p>
                   ) : null}
 
-                  {esSistecontact && accessError ? (
+                  {soportaSwitchAccess && accessError ? (
                     <div className="proyectos-status proyectos-status-error" role="alert">
                       <AlertCircle size={18} strokeWidth={2} aria-hidden />
                       {accessError}
@@ -1329,7 +1352,7 @@ export function ProjectDetail() {
                             <p>
                               UID: {item.uid}
                               {item.disabled ? ' · Deshabilitado' : ''}
-                              {esSistecontact && item.passwordEnabled === false
+                              {soportaSwitchAccess && item.passwordEnabled === false
                                 ? ' · Sin contraseña'
                                 : ''}
                             </p>
@@ -1358,7 +1381,7 @@ export function ProjectDetail() {
                             </div>
                           ) : null}
                           <div className="usuario-actions">
-                            {canCreateUsers && esSistecontact ? (
+                            {canCreateUsers && soportaSwitchAccess ? (
                               <button
                                 type="button"
                                 className="btn-secondary usuario-activate"
@@ -1369,7 +1392,7 @@ export function ProjectDetail() {
                                 Correo y clave
                               </button>
                             ) : null}
-                            {canActivateMemberships && esSistecontact ? (
+                            {canActivateMemberships && soportaSwitchAccess ? (
                               <label
                                 className={`access-switch ${item.access ? 'is-on' : 'is-off'}`}
                                 title={
@@ -1710,7 +1733,7 @@ export function ProjectDetail() {
         </div>
       ) : null}
 
-      {canCreateUsers && esSistecontact && credentialsUser ? (
+      {canCreateUsers && soportaSwitchAccess && credentialsUser ? (
         <div className="modal-overlay" role="presentation" onClick={closeCredentialsModal}>
           <div
             className="modal-panel"
