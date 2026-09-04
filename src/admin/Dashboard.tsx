@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  MessageCircle,
   Package,
   Plus,
   Shield,
@@ -68,7 +69,7 @@ export function Dashboard() {
 
   async function handleLogout() {
     await logout()
-    navigate('/admin/login', { replace: true })
+    navigate('/admin', { replace: true })
   }
 
   function openModal() {
@@ -292,6 +293,26 @@ export function Dashboard() {
                   </div>
                   <h2>Administradores</h2>
                   <p>Crear y gestionar cuentas admin de Nodefex. No es un proyecto.</p>
+                </article>
+                <article
+                  className="proyecto-card proyecto-card-clickable"
+                  onClick={() => navigate('/admin/sitio-contacto')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      navigate('/admin/sitio-contacto')
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                >
+                  <div className="proyecto-card-top">
+                    <div className="proyecto-card-icon" aria-hidden>
+                      <MessageCircle size={20} strokeWidth={1.75} />
+                    </div>
+                  </div>
+                  <h2>Contacto del sitio</h2>
+                  <p>Botón flotante de la página principal: WhatsApp, teléfono o enlace.</p>
                 </article>
               </div>
             </section>

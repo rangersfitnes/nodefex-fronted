@@ -35,6 +35,7 @@ export {
   LogIn,
   LogOut,
   Mail,
+  Megaphone,
   Menu,
   MessageCircle,
   Package,
@@ -45,6 +46,7 @@ export {
   RefreshCw,
   Search,
   Settings,
+  Share2,
   Shield,
   Smartphone,
   Trash2,
@@ -52,5 +54,6 @@ export {
   Users,
   IdCard,
   BadgeCheck,
+  Video,
   X,
 } from 'lucide-react'

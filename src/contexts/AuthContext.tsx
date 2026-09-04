@@ -4,6 +4,8 @@ import {
   useEffect,
   useState,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
 } from 'react'
 import {
   onAuthStateChanged,
@@ -12,11 +14,18 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '../firebase'
-import { getMe, ApiError, type AdminAccion, type Administrador, type ProyectoAccesoConfig } from '../api/administradores'
+import {
+  getMe,
+  ApiError,
+  type AdminAccion,
+  type Administrador,
+  type ProyectoAccesoConfig,
+} from '../api/administradores'
 
 type AuthContextValue = {
   user: User | null
   administrador: Administrador | null
+  setAdministrador: Dispatch<SetStateAction<Administrador | null>>
   loading: boolean
   isOwner: boolean
   isAdmin: boolean
@@ -126,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         administrador,
+        setAdministrador,
         loading,
         isOwner: administrador?.rol === 'owner',
         isAdmin: administrador?.rol === 'admin',

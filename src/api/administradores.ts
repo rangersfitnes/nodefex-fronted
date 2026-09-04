@@ -39,6 +39,7 @@ export type Administrador = {
   accesos: Record<string, ProyectoAccesoConfig>
   ganancias: Record<string, ProyectoGananciaConfig>
   gananciaTotal: number
+  mustChangePassword?: boolean
   createdAt: string | null
   updatedAt: string | null
   lastSignInAt: string | null
@@ -81,6 +82,15 @@ async function apiFetch<T>(
 
 export async function getMe(token: string): Promise<Administrador> {
   const data = await apiFetch<{ administrador: Administrador }>('/api/me', token)
+  return data.administrador
+}
+
+export async function confirmPasswordChanged(token: string): Promise<Administrador> {
+  const data = await apiFetch<{ administrador: Administrador }>(
+    '/api/me/password-changed',
+    token,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
   return data.administrador
 }
 

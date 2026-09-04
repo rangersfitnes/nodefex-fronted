@@ -136,7 +136,7 @@ function VelixShell({ children }: { children: ReactNode }) {
             <p className="login-brand-subtitle">Licencias del programa</p>
           </div>
         </div>
-        <Link to="/admin/login" className="back-link">
+        <Link to="/admin" className="back-link">
           Admin Nodefex
         </Link>
       </header>

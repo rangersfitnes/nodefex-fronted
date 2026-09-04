@@ -1,61 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { ApiError } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
-import {
-  AlertCircle,
-  ArrowRight,
-  Brain,
-  Code2,
-  Cpu,
-  Globe,
-  Hexagon,
-  Layers,
-  Lock,
-  LogIn,
-  Mail,
-  Printer,
-  Smartphone,
-} from '../icons'
-
-const SERVICES = [
-  {
-    title: 'Desarrollo de Software',
-    description: 'Sistemas a medida, APIs y arquitectura escalable para operaciones reales.',
-    icon: Code2,
-  },
-  {
-    title: 'Desarrollo Web',
-    description: 'Productos digitales de alto rendimiento con experiencia clara y moderna.',
-    icon: Globe,
-  },
-  {
-    title: 'Aplicaciones',
-    description: 'Apps móviles y de escritorio conectadas a tu infraestructura.',
-    icon: Smartphone,
-  },
-  {
-    title: 'Inteligencia Artificial',
-    description: 'Automatización inteligente y modelos aplicados a procesos de negocio.',
-    icon: Brain,
-  },
-  {
-    title: 'Impresión 3D',
-    description: 'Prototipado rápido y fabricación digital para hardware y producto.',
-    icon: Printer,
-  },
-  {
-    title: 'Hardware',
-    description: 'Integración de dispositivos, IoT y componentes electrónicos.',
-    icon: Cpu,
-  },
-  {
-    title: 'Soluciones Tecnológicas',
-    description: 'Consultoría e implementación integral de stack y operación técnica.',
-    icon: Layers,
-  },
-] as const
+import { AlertCircle, ArrowRight, Hexagon, Lock, LogIn, Mail, Shield } from '../icons'
 
 function getLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -109,155 +57,122 @@ export function Login() {
   }
 
   return (
-    <div className="login-page landing-page">
-      <div className="login-backdrop landing-backdrop" aria-hidden />
-      <div className="landing-grid-overlay" aria-hidden />
+    <div className="admin-gate">
+      <div className="admin-gate-bg" aria-hidden />
+      <div className="admin-gate-orb admin-gate-orb-a" aria-hidden />
+      <div className="admin-gate-orb admin-gate-orb-b" aria-hidden />
 
-      <header className="landing-nav">
-        <div className="landing-nav-brand">
-          <span className="login-mark" aria-hidden>
-            <Hexagon size={20} strokeWidth={2.25} />
-          </span>
-          <span className="landing-nav-name">Nodefex Tecnology</span>
-        </div>
-        <div className="landing-nav-actions">
-          <a href="#acceso" className="landing-nav-cta">
-            Acceso
-            <ArrowRight size={16} strokeWidth={2} aria-hidden />
-          </a>
-        </div>
-      </header>
+      <div className="admin-gate-shell">
+        <section className="admin-gate-welcome" aria-labelledby="admin-welcome-title">
+          <div className="admin-gate-brand">
+            <span className="admin-gate-mark" aria-hidden>
+              <Hexagon size={22} strokeWidth={2.25} />
+            </span>
+            <span>Nodefex Tecnology</span>
+          </div>
 
-      <main className="landing-main">
-        <section className="landing-hero" aria-labelledby="landing-brand">
-          <p className="landing-kicker">Ingeniería · Producto · Infraestructura</p>
-          <h1 id="landing-brand" className="landing-brand-title">
-            Nodefex Tecnology
-          </h1>
-          <p className="landing-hero-copy">
-            Construimos software, hardware y soluciones digitales con estándar industrial.
+          <p className="admin-gate-eyebrow">
+            <Shield size={14} strokeWidth={2} aria-hidden />
+            Acceso seguro
           </p>
-          <div className="landing-hero-actions">
-            <a href="#servicios" className="btn-primary landing-btn">
-              Ver capacidades
-            </a>
-            <a href="#acceso" className="btn-secondary landing-btn">
-              Panel admin
-            </a>
-          </div>
-        </section>
+          <h1 id="admin-welcome-title">Bienvenido</h1>
+          <p className="admin-gate-copy">Accede al panel de Nodefex.</p>
 
-        <section id="servicios" className="landing-services" aria-labelledby="servicios-title">
-          <div className="landing-section-head">
-            <h2 id="servicios-title">Capacidades</h2>
-            <p>Un equipo técnico para construir, integrar y operar tecnología de punta.</p>
-          </div>
-
-          <ul className="landing-service-list">
-            {SERVICES.map((service, index) => {
-              const Icon = service.icon
-              return (
-                <li
-                  key={service.title}
-                  className="landing-service-item"
-                  style={{ animationDelay: `${0.06 * index}s` }}
-                >
-                  <span className="landing-service-icon" aria-hidden>
-                    <Icon size={22} strokeWidth={1.75} />
-                  </span>
-                  <div>
-                    <h3>{service.title}</h3>
-                    <p>{service.description}</p>
-                  </div>
-                </li>
-              )
-            })}
+          <ul className="admin-gate-points">
+            <li>Gestión de proyectos y membresías</li>
+            <li>Control de accesos y operación</li>
+            <li>Panel exclusivo del equipo Nodefex</li>
           </ul>
         </section>
 
-        <section id="acceso" className="landing-access" aria-labelledby="acceso-title">
-          <div className="landing-access-copy">
-            <h2 id="acceso-title">Acceso administrativo</h2>
-            <p>
-              Inicia sesión para gestionar proyectos y operación de la plataforma.
-            </p>
-          </div>
+        <section className="admin-gate-card" aria-labelledby="admin-login-title">
+          <header className="admin-gate-card-top">
+            <div className="admin-gate-brand admin-gate-brand-light">
+              <span className="admin-gate-mark admin-gate-mark-light" aria-hidden>
+                <Hexagon size={20} strokeWidth={2.25} />
+              </span>
+              <span>Nodefex Tecnology</span>
+            </div>
+            <div className="admin-gate-form-head">
+              <h2 id="admin-login-title">Iniciar sesión</h2>
+              <p>Cuenta de administrador</p>
+            </div>
+          </header>
 
-          <div className="login-panel landing-login-panel">
-            <form className="login-form" onSubmit={handleSubmit} noValidate>
-              <h3>Iniciar sesión</h3>
-              <p className="login-lead">Cuenta de administrador Nodefex.</p>
-
-              <label className="login-field" htmlFor="email">
-                Correo electrónico
-                <span className="login-input-wrap">
-                  <Mail className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={busy}
-                  />
-                </span>
-              </label>
-
-              <label className="login-field" htmlFor="password">
-                Contraseña
-                <span className="login-input-wrap">
-                  <Lock className="login-input-icon" size={18} strokeWidth={1.75} aria-hidden />
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={busy}
-                  />
-                </span>
-              </label>
-
-              {displayError ? (
-                <p className="login-error" role="alert">
-                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                  {displayError}
-                </p>
-              ) : null}
-
-              {profileError && user ? (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => void retryProfile()}
+          <form className="admin-gate-form" onSubmit={handleSubmit} noValidate>
+            <label className="admin-gate-field" htmlFor="email">
+              Correo
+              <span className="admin-gate-input">
+                <Mail size={18} strokeWidth={1.75} aria-hidden />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   disabled={busy}
-                >
-                  Reintentar acceso
-                </button>
-              ) : null}
+                  placeholder="admin@empresa.com"
+                />
+              </span>
+            </label>
 
-              <button className="login-submit" type="submit" disabled={busy}>
-                {busy ? (
-                  'Entrando...'
-                ) : (
-                  <>
-                    <LogIn size={18} strokeWidth={2} aria-hidden />
-                    Entrar
-                  </>
-                )}
+            <label className="admin-gate-field" htmlFor="password">
+              Contraseña
+              <span className="admin-gate-input">
+                <Lock size={18} strokeWidth={1.75} aria-hidden />
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={busy}
+                  placeholder="••••••••"
+                />
+              </span>
+            </label>
+
+            {displayError ? (
+              <p className="admin-gate-error" role="alert">
+                <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                <span>{displayError}</span>
+              </p>
+            ) : null}
+
+            {profileError && user ? (
+              <button
+                type="button"
+                className="admin-gate-secondary"
+                onClick={() => void retryProfile()}
+                disabled={busy}
+              >
+                Reintentar acceso
               </button>
-            </form>
-          </div>
-        </section>
-      </main>
+            ) : null}
 
-      <footer className="landing-footer">
-        <p>© {new Date().getFullYear()} Nodefex Tecnology</p>
-      </footer>
+            <button className="admin-gate-submit" type="submit" disabled={busy}>
+              {busy ? (
+                'Entrando...'
+              ) : (
+                <>
+                  Entrar
+                  <LogIn size={18} strokeWidth={2} aria-hidden />
+                </>
+              )}
+            </button>
+          </form>
+
+          <Link to="/" className="admin-gate-back">
+            Volver al sitio
+            <ArrowRight size={14} strokeWidth={2} aria-hidden />
+          </Link>
+        </section>
+      </div>
     </div>
   )
 }

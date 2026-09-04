@@ -17,8 +17,8 @@ import {
 } from '../icons'
 
 const PANEL_LOGIN_URL = import.meta.env.DEV
-  ? '/admin/login'
-  : 'https://nodefex.com/admin/login'
+  ? '/admin'
+  : 'https://nodefex.com/admin'
 
 export function RegistroAdmin() {
   const [nombre, setNombre] = useState('')

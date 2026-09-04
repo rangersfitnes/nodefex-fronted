@@ -439,7 +439,7 @@ export function ProjectDetail() {
 
   async function handleLogout() {
     await logout()
-    navigate('/admin/login', { replace: true })
+    navigate('/admin', { replace: true })
   }
 
   function openModal() {

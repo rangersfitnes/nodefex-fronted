@@ -130,7 +130,7 @@ export function AdministradorDetail() {
 
   async function handleLogout() {
     await logout()
-    navigate('/admin/login', { replace: true })
+    navigate('/admin', { replace: true })
   }
 
   function setChoice(proyectoId: string, value: AccessChoice) {
