@@ -9,9 +9,13 @@ export type ContableMovimiento = {
   concepto: string | null
   categoria: string | null
   clienteId: string | null
+  /** Alias de compatibilidad con el campo de entrada `nombre`. */
+  nombre?: string | null
   clienteNombre: string | null
   metodoPago: string | null
   valor: number | null
+  /** Montos en pesos colombianos (no centavos). */
+  unidad?: 'COP'
   referencia: string | null
   estado: string | null
   programa: string | null
@@ -39,12 +43,19 @@ export type ContableResumenDiario = {
   cantidad: number
 }
 
+export type ContableResumenPeriodo = {
+  desde: string
+  hasta: string
+  total: number
+  cantidad: number
+}
+
 export type ContableResumenAnual = {
   tipo: ContableTipo
   año: number
   total: number
-  totalIngresos?: number
-  totalEgresos?: number
+  totalIngresos: number
+  totalEgresos: number
   cantidadMovimientos: number
   actualizadoEn?: string | null
 }
@@ -89,17 +100,60 @@ export async function listContableMovimientos(
   token: string,
   tipo: ContableTipo,
   anio: number,
-  options: { mes?: number; dia?: string } = {},
+  options: { mes?: number; dia?: string; desde?: string; hasta?: string } = {},
 ): Promise<{
   resumenAnual: ContableResumenAnual
   resumenDia: ContableResumenDiario | null
+  resumenPeriodo: ContableResumenPeriodo | null
   movimientos: ContableMovimiento[]
 }> {
   const params = new URLSearchParams()
-  if (options.dia) params.set('dia', options.dia)
-  else if (options.mes) params.set('mes', String(options.mes))
+  if (options.desde && options.hasta) {
+    params.set('desde', options.desde)
+    params.set('hasta', options.hasta)
+  } else if (options.dia) {
+    params.set('dia', options.dia)
+  } else if (options.mes) {
+    params.set('mes', String(options.mes))
+  }
   const query = params.toString() ? `?${params.toString()}` : ''
   return apiFetch(`/api/contable/${tipo}/${anio}${query}`, token)
+}
+
+export async function listContableMovimientosRango(
+  token: string,
+  tipo: ContableTipo,
+  options: { desde: string; hasta: string },
+): Promise<{
+  resumenAnual: ContableResumenAnual
+  resumenDia: ContableResumenDiario | null
+  resumenPeriodo: ContableResumenPeriodo | null
+  movimientos: ContableMovimiento[]
+}> {
+  const params = new URLSearchParams({
+    desde: options.desde,
+    hasta: options.hasta,
+  })
+  return apiFetch(`/api/contable/${tipo}/rango?${params.toString()}`, token)
+}
+
+export async function createContableMovimiento(
+  token: string,
+  tipo: ContableTipo,
+  payload: {
+    fecha: string
+    concepto: string
+    valor: number
+    nombre?: string
+  },
+): Promise<{
+  movimiento: ContableMovimiento
+  resumenAnual: ContableResumenAnual
+}> {
+  return apiFetch(`/api/contable/${tipo}`, token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function deleteContableMovimiento(
