@@ -23,12 +23,27 @@ const TABS: {
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
 ]
 
-function canAccessAvTab(
+function canViewAvTab(
   access: ProyectoAccesoConfig | null | undefined,
   action: AdminAccion,
 ): boolean {
   if (!access) return false
   if (access.nivel === 'manage' || access.nivel === 'view') return true
+  if (access.nivel === 'custom') {
+    return (
+      access.acciones.includes(action) || (access.visualizar || []).includes(action)
+    )
+  }
+  return false
+}
+
+function canEditAvTab(
+  access: ProyectoAccesoConfig | null | undefined,
+  action: AdminAccion,
+): boolean {
+  if (!access) return false
+  if (access.nivel === 'manage') return true
+  if (access.nivel === 'view') return false
   if (access.nivel === 'custom') return access.acciones.includes(action)
   return false
 }
@@ -39,7 +54,7 @@ type AudiovisualPanelProps = {
 
 export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
   const allowedTabs = useMemo(
-    () => TABS.filter((tab) => canAccessAvTab(access, tab.action)),
+    () => TABS.filter((tab) => canViewAvTab(access, tab.action)),
     [access],
   )
 
@@ -54,6 +69,10 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       setVista(allowedTabs[0].id)
     }
   }, [allowedTabs, vista])
+
+  const finanzasReadOnly = !canEditAvTab(access, 'av_finanzas')
+  const planesReadOnly = !canEditAvTab(access, 'av_planes')
+  const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
 
   if (allowedTabs.length === 0) {
     return (
@@ -87,6 +106,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       >
         {allowedTabs.map((tab) => {
           const Icon = tab.icon
+          const readOnlyTab = !canEditAvTab(access, tab.action)
           return (
             <button
               key={tab.id}
@@ -98,6 +118,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
             >
               <Icon size={16} strokeWidth={2} aria-hidden />
               {tab.label}
+              {readOnlyTab ? <span className="av-tab-readonly">Solo ver</span> : null}
             </button>
           )
         })}
@@ -105,6 +126,11 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
 
       {vista === 'finanzas' ? (
         <div className="av-finanzas" role="tabpanel" aria-label="Finanzas">
+          {finanzasReadOnly ? (
+            <p className="section-note av-readonly-banner">
+              Modo solo visualización: puedes consultar, pero no crear ni editar movimientos.
+            </p>
+          ) : null}
           <div className="contable-tabs contable-period-tabs" role="tablist" aria-label="Finanzas">
             <button
               type="button"
@@ -145,13 +171,15 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
           </div>
 
           {finanzasVista === 'principal' ? <AvFinanzasPrincipalPanel /> : null}
-          {finanzasVista === 'ingresos' ? <AvIngresosPanel /> : null}
-          {finanzasVista === 'egresos' ? <AvEgresosPanel /> : null}
-          {finanzasVista === 'facturacion' ? <AvFacturacionPanel /> : null}
+          {finanzasVista === 'ingresos' ? <AvIngresosPanel readOnly={finanzasReadOnly} /> : null}
+          {finanzasVista === 'egresos' ? <AvEgresosPanel readOnly={finanzasReadOnly} /> : null}
+          {finanzasVista === 'facturacion' ? (
+            <AvFacturacionPanel readOnly={finanzasReadOnly} />
+          ) : null}
         </div>
       ) : null}
 
-      {vista === 'planes' ? <AvPlanesPanel /> : null}
+      {vista === 'planes' ? <AvPlanesPanel readOnly={planesReadOnly} /> : null}
 
       {vista === 'equipos' ? (
         <div className="audiovisual-placeholder" role="tabpanel" aria-label="Equipos">
@@ -161,7 +189,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
         </div>
       ) : null}
 
-      {vista === 'clientes' ? <AvClientesPanel /> : null}
+      {vista === 'clientes' ? <AvClientesPanel readOnly={clientesReadOnly} /> : null}
     </section>
   )
 }

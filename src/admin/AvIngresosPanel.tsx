@@ -86,7 +86,7 @@ function formatYmd(ymd: string | null): string {
 
 type ModalMode = 'crear' | 'editar'
 
-export function AvIngresosPanel() {
+export function AvIngresosPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [ingresos, setIngresos] = useState<AvIngresoCaja[]>([])
   const [total, setTotal] = useState(0)
@@ -351,10 +351,12 @@ export function AvIngresosPanel() {
             <RefreshCw size={16} strokeWidth={2} aria-hidden className={loading ? 'spin' : undefined} />
             Actualizar
           </button>
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Nuevo ingreso
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Nuevo ingreso
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -387,10 +389,12 @@ export function AvIngresosPanel() {
         <div className="proyectos-empty">
           <Receipt size={28} strokeWidth={1.75} aria-hidden />
           <p>Aún no hay ingresos. Registra el primero para ver el historial.</p>
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Nuevo ingreso
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Nuevo ingreso
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -416,26 +420,28 @@ export function AvIngresosPanel() {
                   <td>{formatPagoPartes(item.partes || [], item.metodoPago)}</td>
                   <td>{formatCop(item.valor)}</td>
                   <td>
-                    <div className="av-ingresos-row-actions">
-                      <button type="button" className="btn-secondary" onClick={() => openEdit(item)}>
-                        <Pencil size={14} strokeWidth={2} aria-hidden />
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        disabled={deletingId === item.id}
-                        aria-label="Eliminar ingreso"
-                        onClick={() => void handleDelete(item)}
-                      >
-                        {deletingId === item.id ? (
-                          <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                        )}
-                        Eliminar
-                      </button>
-                    </div>
+                    {!readOnly ? (
+                      <div className="av-ingresos-row-actions">
+                        <button type="button" className="btn-secondary" onClick={() => openEdit(item)}>
+                          <Pencil size={14} strokeWidth={2} aria-hidden />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={deletingId === item.id}
+                          aria-label="Eliminar ingreso"
+                          onClick={() => void handleDelete(item)}
+                        >
+                          {deletingId === item.id ? (
+                            <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                          )}
+                          Eliminar
+                        </button>
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))}

@@ -36,6 +36,7 @@ import {
 } from '../icons'
 
 type AccessChoice = 'none' | ProyectoAccesoNivel
+type CapabilityMode = 'none' | 'view' | 'manage'
 
 function formatFecha(iso: string | null) {
   if (!iso) return '—'
@@ -55,6 +56,26 @@ function accionesDisponiblesParaProyecto(proyectoId: string): {
   return ADMIN_ACCIONES_MEMBRESIA
 }
 
+function modeFromAccess(
+  access: ProyectoAccesoConfig | undefined,
+  accion: AdminAccion,
+): CapabilityMode {
+  if (!access) return 'none'
+  if (access.nivel === 'manage') return 'manage'
+  if (access.nivel === 'view') return 'view'
+  if (access.acciones?.includes(accion)) return 'manage'
+  if (access.visualizar?.includes(accion)) return 'view'
+  return 'none'
+}
+
+function emptyModesForProyecto(proyectoId: string): Record<AdminAccion, CapabilityMode> {
+  const modes = {} as Record<AdminAccion, CapabilityMode>
+  for (const accion of accionesDisponiblesParaProyecto(proyectoId)) {
+    modes[accion.id] = 'none'
+  }
+  return modes
+}
+
 export function AdministradorDetail() {
   const { uid = '' } = useParams()
   const decodedUid = decodeURIComponent(uid)
@@ -63,7 +84,9 @@ export function AdministradorDetail() {
   const [admin, setAdmin] = useState<Administrador | null>(null)
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [choices, setChoices] = useState<Record<string, AccessChoice>>({})
-  const [accionesByProject, setAccionesByProject] = useState<Record<string, AdminAccion[]>>({})
+  const [capabilityModes, setCapabilityModes] = useState<
+    Record<string, Partial<Record<AdminAccion, CapabilityMode>>>
+  >({})
   const [gananciasOn, setGananciasOn] = useState<Record<string, boolean>>({})
   const [porcentajes, setPorcentajes] = useState<Record<string, string>>({})
   const [totales, setTotales] = useState<Record<string, number>>({})
@@ -104,7 +127,7 @@ export function AdministradorDetail() {
         setAdmin(profile)
         setProyectos(proyectosData)
         const nextChoices: Record<string, AccessChoice> = {}
-        const nextAcciones: Record<string, AdminAccion[]> = {}
+        const nextModes: Record<string, Partial<Record<AdminAccion, CapabilityMode>>> = {}
         const nextOn: Record<string, boolean> = {}
         const nextPct: Record<string, string> = {}
         const nextTotales: Record<string, number> = {}
@@ -112,7 +135,11 @@ export function AdministradorDetail() {
           const access = profile.accesos?.[proyecto.id]
           const ganancia = profile.ganancias?.[proyecto.id]
           nextChoices[proyecto.id] = access?.nivel ?? 'none'
-          nextAcciones[proyecto.id] = access?.acciones ?? []
+          const modes = emptyModesForProyecto(proyecto.id)
+          for (const accion of accionesDisponiblesParaProyecto(proyecto.id)) {
+            modes[accion.id] = modeFromAccess(access, accion.id)
+          }
+          nextModes[proyecto.id] = modes
           nextOn[proyecto.id] = Boolean(ganancia?.activa)
           nextPct[proyecto.id] =
             ganancia?.porcentaje != null && ganancia.porcentaje > 0
@@ -121,7 +148,7 @@ export function AdministradorDetail() {
           nextTotales[proyecto.id] = ganancia?.total ?? 0
         }
         setChoices(nextChoices)
-        setAccionesByProject(nextAcciones)
+        setCapabilityModes(nextModes)
         setGananciasOn(nextOn)
         setPorcentajes(nextPct)
         setTotales(nextTotales)
@@ -150,15 +177,23 @@ export function AdministradorDetail() {
 
   function setChoice(proyectoId: string, value: AccessChoice) {
     setChoices((current) => ({ ...current, [proyectoId]: value }))
+    if (value === 'custom') {
+      setCapabilityModes((current) => ({
+        ...current,
+        [proyectoId]: current[proyectoId] ?? emptyModesForProyecto(proyectoId),
+      }))
+    }
     setSuccess('')
   }
 
-  function toggleAccion(proyectoId: string, accion: AdminAccion, enabled: boolean) {
-    setAccionesByProject((current) => {
-      const list = current[proyectoId] ?? []
-      const next = enabled ? [...new Set([...list, accion])] : list.filter((item) => item !== accion)
-      return { ...current, [proyectoId]: next }
-    })
+  function setCapabilityMode(proyectoId: string, accion: AdminAccion, mode: CapabilityMode) {
+    setCapabilityModes((current) => ({
+      ...current,
+      [proyectoId]: {
+        ...(current[proyectoId] ?? emptyModesForProyecto(proyectoId)),
+        [accion]: mode,
+      },
+    }))
     setChoices((current) => ({ ...current, [proyectoId]: 'custom' }))
     setSuccess('')
   }
@@ -176,15 +211,22 @@ export function AdministradorDetail() {
       for (const [proyectoId, choice] of Object.entries(choices)) {
         if (choice === 'none') continue
         if (choice === 'custom') {
-          const acciones = accionesByProject[proyectoId] ?? []
-          if (acciones.length === 0) {
-            accesos[proyectoId] = { nivel: 'view', acciones: [] }
+          const modes = capabilityModes[proyectoId] ?? {}
+          const acciones: AdminAccion[] = []
+          const visualizar: AdminAccion[] = []
+          for (const accion of accionesDisponiblesParaProyecto(proyectoId)) {
+            const mode = modes[accion.id] ?? 'none'
+            if (mode === 'manage') acciones.push(accion.id)
+            if (mode === 'view') visualizar.push(accion.id)
+          }
+          if (acciones.length === 0 && visualizar.length === 0) {
+            accesos[proyectoId] = { nivel: 'view', acciones: [], visualizar: [] }
           } else {
-            accesos[proyectoId] = { nivel: 'custom', acciones }
+            accesos[proyectoId] = { nivel: 'custom', acciones, visualizar }
           }
           continue
         }
-        accesos[proyectoId] = { nivel: choice, acciones: [] }
+        accesos[proyectoId] = { nivel: choice, acciones: [], visualizar: [] }
       }
       for (const proyecto of proyectos) {
         const activa = Boolean(gananciasOn[proyecto.id])
@@ -200,7 +242,7 @@ export function AdministradorDetail() {
       const updated = await saveAdministradorAccesos(token, admin.uid, accesos, ganancias)
       setAdmin(updated)
       const nextChoices: Record<string, AccessChoice> = {}
-      const nextAcciones: Record<string, AdminAccion[]> = {}
+      const nextModes: Record<string, Partial<Record<AdminAccion, CapabilityMode>>> = {}
       const nextOn: Record<string, boolean> = {}
       const nextPct: Record<string, string> = {}
       const nextTotales: Record<string, number> = {}
@@ -208,7 +250,11 @@ export function AdministradorDetail() {
         const access = updated.accesos?.[proyecto.id]
         const ganancia = updated.ganancias?.[proyecto.id]
         nextChoices[proyecto.id] = access?.nivel ?? 'none'
-        nextAcciones[proyecto.id] = access?.acciones ?? []
+        const modes = emptyModesForProyecto(proyecto.id)
+        for (const accion of accionesDisponiblesParaProyecto(proyecto.id)) {
+          modes[accion.id] = modeFromAccess(access, accion.id)
+        }
+        nextModes[proyecto.id] = modes
         nextOn[proyecto.id] = Boolean(ganancia?.activa)
         nextPct[proyecto.id] =
           ganancia?.porcentaje != null && ganancia.porcentaje > 0
@@ -217,7 +263,7 @@ export function AdministradorDetail() {
         nextTotales[proyecto.id] = ganancia?.total ?? 0
       }
       setChoices(nextChoices)
-      setAccionesByProject(nextAcciones)
+      setCapabilityModes(nextModes)
       setGananciasOn(nextOn)
       setPorcentajes(nextPct)
       setTotales(nextTotales)
@@ -415,7 +461,8 @@ export function AdministradorDetail() {
               <div className="admin-access-list">
                 {proyectos.map((proyecto) => {
                   const value = choices[proyecto.id] ?? 'none'
-                  const selected = accionesByProject[proyecto.id] ?? []
+                  const modes = capabilityModes[proyecto.id] ?? emptyModesForProyecto(proyecto.id)
+                  const capacidades = accionesDisponiblesParaProyecto(proyecto.id)
                   return (
                     <article key={proyecto.id} className="admin-access-card">
                       <div>
@@ -470,27 +517,64 @@ export function AdministradorDetail() {
                         <fieldset className="admin-action-options">
                           <legend>
                             {esProyectoAudiovisual(proyecto.id)
-                              ? 'Pestañas permitidas'
-                              : 'Acciones permitidas'}
+                              ? 'Permiso por pestaña'
+                              : 'Permiso por acción'}
                           </legend>
-                          {accionesDisponiblesParaProyecto(proyecto.id).length === 0 ? (
+                          <p className="section-note admin-access-hint">
+                            Combina «Solo visualizar» (sin cambios) y «Puede gestionar» según lo que
+                            necesite el administrador.
+                          </p>
+                          {capacidades.length === 0 ? (
                             <p className="section-note">
                               Para este proyecto usa «Solo visualizar» o «Todas las acciones».
                             </p>
                           ) : (
-                            accionesDisponiblesParaProyecto(proyecto.id).map((accion) => (
-                              <label key={accion.id}>
-                                <input
-                                  type="checkbox"
-                                  checked={selected.includes(accion.id)}
-                                  onChange={(event) =>
-                                    toggleAccion(proyecto.id, accion.id, event.target.checked)
-                                  }
-                                  disabled={saving}
-                                />
-                                {accion.label}
-                              </label>
-                            ))
+                            capacidades.map((accion) => {
+                              const mode = modes[accion.id] ?? 'none'
+                              return (
+                                <div key={accion.id} className="admin-capability-row">
+                                  <span className="admin-capability-label">{accion.label}</span>
+                                  <div className="admin-capability-modes">
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`cap-${proyecto.id}-${accion.id}`}
+                                        checked={mode === 'none'}
+                                        onChange={() =>
+                                          setCapabilityMode(proyecto.id, accion.id, 'none')
+                                        }
+                                        disabled={saving}
+                                      />
+                                      Sin acceso
+                                    </label>
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`cap-${proyecto.id}-${accion.id}`}
+                                        checked={mode === 'view'}
+                                        onChange={() =>
+                                          setCapabilityMode(proyecto.id, accion.id, 'view')
+                                        }
+                                        disabled={saving}
+                                      />
+                                      Solo visualizar
+                                    </label>
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`cap-${proyecto.id}-${accion.id}`}
+                                        checked={mode === 'manage'}
+                                        onChange={() =>
+                                          setCapabilityMode(proyecto.id, accion.id, 'manage')
+                                        }
+                                        disabled={saving}
+                                      />
+                                      Puede gestionar
+                                    </label>
+                                  </div>
+                                </div>
+                              )
+                            })
                           )}
                         </fieldset>
                       ) : null}

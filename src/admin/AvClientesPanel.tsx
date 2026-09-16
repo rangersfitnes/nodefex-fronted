@@ -457,7 +457,7 @@ function ClienteFormFields({
   )
 }
 
-export function AvClientesPanel() {
+export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [vista, setVista] = useState<VistaClientes>('lista')
   const [clientes, setClientes] = useState<AvCliente[]>([])
@@ -683,7 +683,7 @@ export function AvClientesPanel() {
 
   async function handleUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!user || !detalle) return
+    if (!user || !detalle || readOnly) return
 
     const validationError = validateClienteForm(editForm, { requireDocumento: false })
     if (validationError) {
@@ -796,6 +796,11 @@ export function AvClientesPanel() {
 
           <section className="av-cliente-section">
             <h3>Información del cliente</h3>
+            {readOnly ? (
+              <p className="section-note av-readonly-banner">
+                Modo solo visualización: puedes consultar los datos, pero no editarlos.
+              </p>
+            ) : null}
             <form
               className="av-cliente-form"
               onSubmit={(event) => void handleUpdate(event)}
@@ -803,7 +808,7 @@ export function AvClientesPanel() {
             >
               <ClienteFormFields
                 form={editForm}
-                submitting={editSubmitting}
+                submitting={editSubmitting || readOnly}
                 documentoLocked
                 idPrefix="av-cli-edit"
                 onChange={updateEditField}
@@ -819,18 +824,20 @@ export function AvClientesPanel() {
 
               {editSuccess ? <p className="av-cliente-success">{editSuccess}</p> : null}
 
-              <div className="av-ingresos-form-actions">
-                <button type="submit" className="btn-primary" disabled={editSubmitting}>
-                  {editSubmitting ? (
-                    <>
-                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Guardando...
-                    </>
-                  ) : (
-                    'Guardar cambios'
-                  )}
-                </button>
-              </div>
+              {!readOnly ? (
+                <div className="av-ingresos-form-actions">
+                  <button type="submit" className="btn-primary" disabled={editSubmitting}>
+                    {editSubmitting ? (
+                      <>
+                        <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                        Guardando...
+                      </>
+                    ) : (
+                      'Guardar cambios'
+                    )}
+                  </button>
+                </div>
+              ) : null}
             </form>
           </section>
 
@@ -925,10 +932,12 @@ export function AvClientesPanel() {
             <RefreshCw size={16} strokeWidth={2} aria-hidden className={loading ? 'spin' : undefined} />
             Actualizar
           </button>
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Crear cliente
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Crear cliente
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -950,10 +959,12 @@ export function AvClientesPanel() {
         <div className="proyectos-empty">
           <Users size={28} strokeWidth={1.75} aria-hidden />
           <p>Aún no hay clientes. Crea el primero para empezar.</p>
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Crear cliente
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Crear cliente
+            </button>
+          ) : null}
         </div>
       ) : null}
 

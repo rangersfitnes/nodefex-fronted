@@ -113,7 +113,7 @@ function formatYmd(ymd: string | null): string {
   }).format(new Date(`${ymd}T12:00:00-05:00`))
 }
 
-export function AvFacturacionPanel() {
+export function AvFacturacionPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
 
   const [vista, setVista] = useState<VistaFacturacion>('lista')
@@ -661,25 +661,27 @@ export function AvFacturacionPanel() {
             Volver al listado
           </button>
           <div className="av-ingresos-toolbar-actions">
-            {detalle.saldoPendiente > 0 ? (
+            {detalle.saldoPendiente > 0 && !readOnly ? (
               <button type="button" className="btn-primary" onClick={openPagoModal}>
                 <Plus size={16} strokeWidth={2} aria-hidden />
                 Registrar pago
               </button>
             ) : null}
-            <button
-              type="button"
-              className="btn-danger"
-              disabled={deletingId === detalle.id}
-              onClick={() => void handleDeleteFactura(detalle)}
-            >
-              {deletingId === detalle.id ? (
-                <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-              ) : (
-                <Trash2 size={16} strokeWidth={2} aria-hidden />
-              )}
-              Eliminar
-            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={deletingId === detalle.id}
+                onClick={() => void handleDeleteFactura(detalle)}
+              >
+                {deletingId === detalle.id ? (
+                  <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Trash2 size={16} strokeWidth={2} aria-hidden />
+                )}
+                Eliminar
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -751,7 +753,7 @@ export function AvFacturacionPanel() {
             <div className="proyectos-empty">
               <Receipt size={28} strokeWidth={1.75} aria-hidden />
               <p>Registra el primer pago para actualizar el saldo y el estado.</p>
-              {detalle.saldoPendiente > 0 ? (
+              {detalle.saldoPendiente > 0 && !readOnly ? (
                 <button type="button" className="btn-primary" onClick={openPagoModal}>
                   <Plus size={16} strokeWidth={2} aria-hidden />
                   Registrar pago
@@ -780,19 +782,21 @@ export function AvFacturacionPanel() {
                       <td>{pago.referencia || '—'}</td>
                       <td>{pago.notas || '—'}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          disabled={deletingPagoId === pago.id}
-                          aria-label="Eliminar pago"
-                          onClick={() => void handleDeletePago(pago.id)}
-                        >
-                          {deletingPagoId === pago.id ? (
-                            <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                          ) : (
-                            <Trash2 size={16} strokeWidth={2} aria-hidden />
-                          )}
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={deletingPagoId === pago.id}
+                            aria-label="Eliminar pago"
+                            onClick={() => void handleDeletePago(pago.id)}
+                          >
+                            {deletingPagoId === pago.id ? (
+                              <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                            ) : (
+                              <Trash2 size={16} strokeWidth={2} aria-hidden />
+                            )}
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -825,10 +829,12 @@ export function AvFacturacionPanel() {
             <RefreshCw size={16} strokeWidth={2} aria-hidden className={loading ? 'spin' : undefined} />
             Actualizar
           </button>
-          <button type="button" className="btn-primary" onClick={() => void openNueva()}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Nueva factura
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={() => void openNueva()}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Nueva factura
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -925,10 +931,12 @@ export function AvFacturacionPanel() {
         <div className="proyectos-empty">
           <Receipt size={28} strokeWidth={1.75} aria-hidden />
           <p>No hay facturas con estos filtros. Crea la primera para empezar.</p>
-          <button type="button" className="btn-primary" onClick={() => void openNueva()}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Nueva factura
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={() => void openNueva()}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Nueva factura
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -972,19 +980,21 @@ export function AvFacturacionPanel() {
                       <button type="button" className="btn-secondary" onClick={() => openDetalle(item)}>
                         Ver
                       </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        disabled={deletingId === item.id}
-                        aria-label="Eliminar factura"
-                        onClick={() => void handleDeleteFactura(item)}
-                      >
-                        {deletingId === item.id ? (
-                          <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Trash2 size={16} strokeWidth={2} aria-hidden />
-                        )}
-                      </button>
+                      {!readOnly ? (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={deletingId === item.id}
+                          aria-label="Eliminar factura"
+                          onClick={() => void handleDeleteFactura(item)}
+                        >
+                          {deletingId === item.id ? (
+                            <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Trash2 size={16} strokeWidth={2} aria-hidden />
+                          )}
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

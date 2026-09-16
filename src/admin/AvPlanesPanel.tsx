@@ -19,7 +19,7 @@ import {
 
 type ModalMode = 'crear' | 'editar'
 
-export function AvPlanesPanel() {
+export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [planes, setPlanes] = useState<AvPlan[]>([])
   const [loading, setLoading] = useState(true)
@@ -182,10 +182,12 @@ export function AvPlanesPanel() {
             <RefreshCw size={16} strokeWidth={2} aria-hidden className={loading ? 'spin' : undefined} />
             Actualizar
           </button>
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Nuevo plan
-          </button>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Nuevo plan
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -240,23 +242,25 @@ export function AvPlanesPanel() {
                     </span>
                   </td>
                   <td>
-                    <div className="av-ingresos-row-actions">
-                      <button type="button" className="btn-secondary" onClick={() => openEdit(plan)}>
-                        <Pencil size={14} strokeWidth={2} aria-hidden />
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        disabled={togglingId === plan.id}
-                        onClick={() => void handleToggle(plan)}
-                      >
-                        {togglingId === plan.id ? (
-                          <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
-                        ) : null}
-                        {plan.activo ? 'Desactivar' : 'Activar'}
-                      </button>
-                    </div>
+                    {!readOnly ? (
+                      <div className="av-ingresos-row-actions">
+                        <button type="button" className="btn-secondary" onClick={() => openEdit(plan)}>
+                          <Pencil size={14} strokeWidth={2} aria-hidden />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={togglingId === plan.id}
+                          onClick={() => void handleToggle(plan)}
+                        >
+                          {togglingId === plan.id ? (
+                            <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                          ) : null}
+                          {plan.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))}

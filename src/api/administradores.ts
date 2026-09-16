@@ -36,6 +36,8 @@ export type ProyectoAccesoNivel = 'view' | 'manage' | 'custom'
 export type ProyectoAccesoConfig = {
   nivel: ProyectoAccesoNivel
   acciones: AdminAccion[]
+  /** Secciones o capacidades en solo lectura (nivel custom). */
+  visualizar?: AdminAccion[]
 }
 
 export type ProyectoGananciaConfig = {
