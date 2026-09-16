@@ -2328,6 +2328,276 @@ a {
   gap: 1rem;
 }
 
+.audiovisual-placeholder {
+  display: grid;
+  justify-items: start;
+  gap: 0.55rem;
+  padding: 1.35rem 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--blue-950);
+}
+
+.audiovisual-placeholder h3 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.1rem;
+}
+
+.audiovisual-placeholder p {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: 0.95rem;
+  max-width: 36rem;
+}
+
+.av-finanzas,
+.av-ingresos,
+.av-planes,
+.av-clientes {
+  display: grid;
+  gap: 1rem;
+}
+
+.av-ingresos-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.av-ingresos-toolbar h3 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  color: var(--blue-950);
+}
+
+.av-ingresos-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.av-ingresos-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.av-ingresos-filters .login-field {
+  margin: 0;
+}
+
+.av-ingresos-filters select,
+.av-ingresos-filters input[type='date'] {
+  width: 100%;
+}
+
+.av-ingresos-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.av-ingresos-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+}
+
+.av-ingresos-span-2 {
+  grid-column: span 2;
+}
+
+.av-ingresos-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 50, 92, 0.16);
+  font: inherit;
+  color: inherit;
+  background: #fff;
+}
+
+.av-plan-activo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  color: var(--blue-950);
+}
+
+.modal-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 50, 92, 0.16);
+  font: inherit;
+  color: inherit;
+  background: #fff;
+}
+
+.av-ingresos-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.av-ingresos-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.av-ingresos-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.av-ingresos-detail-head h3 {
+  margin: 0.15rem 0 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  color: var(--blue-950);
+}
+
+.av-ingresos-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.av-ingresos-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.av-ingresos-meta div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.av-ingresos-meta dt {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+.av-ingresos-meta dd {
+  margin: 0;
+  color: var(--blue-950);
+}
+
+.av-ingresos-pagos-head h4 {
+  margin: 0 0 0.2rem;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: var(--blue-950);
+}
+
+.av-ingresos-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: var(--blue-700, #1d4ed8);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.av-ingresos-link:hover {
+  color: var(--blue-950);
+}
+
+.av-ingresos-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.av-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.av-estado-pendiente {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.22);
+}
+
+.av-estado-parcial {
+  color: #1e40af;
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.av-estado-pagado {
+  color: #166534;
+  background: rgba(74, 222, 128, 0.22);
+}
+
+.av-estado-vencido {
+  color: #9f1239;
+  background: rgba(251, 113, 133, 0.2);
+}
+
+@media (max-width: 960px) {
+  .av-ingresos-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .av-ingresos-filters,
+  .av-ingresos-form-grid,
+  .av-ingresos-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .av-ingresos-span-2 {
+    grid-column: auto;
+  }
+
+  .av-ingresos-toolbar-actions,
+  .av-ingresos-row-actions,
+  .av-ingresos-form-actions {
+    width: 100%;
+  }
+
+  .av-ingresos-toolbar-actions > *,
+  .av-ingresos-form-actions > * {
+    flex: 1 1 auto;
+  }
+}
+
 .contable-docs-card {
   padding: 1.05rem 1.15rem;
   border-radius: 12px;
@@ -3038,6 +3308,63 @@ a.btn-secondary {
   border: 1px solid var(--gray-300);
   box-shadow: var(--shadow);
   padding: 1.25rem 1.35rem 1.4rem;
+}
+
+.av-cliente-modal {
+  width: min(100%, 720px);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+}
+
+.av-cliente-form {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.av-cliente-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.av-cliente-section h3 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: var(--blue-950);
+}
+
+.av-cliente-fieldset {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.av-cliente-fieldset legend {
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.av-cliente-radio-row,
+.av-cliente-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+
+.av-cliente-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .av-cliente-checkboxes {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal-header {

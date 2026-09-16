@@ -18,6 +18,7 @@ import {
   esProyectoSistecontact,
   esProyectoFexmenu,
   esProyectoContable,
+  esProyectoAudiovisual,
   setUsuarioAccessProyecto,
   updateUsuarioProyecto,
   saveLinkDescargaProyecto,
@@ -31,6 +32,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { ContablePanel } from './ContablePanel'
+import { AudiovisualPanel } from './AudiovisualPanel'
 import {
   AlertCircle,
   ArrowRight,
@@ -165,6 +167,7 @@ export function ProjectDetail() {
   const esSistecontact = esProyectoSistecontact(decodedId)
   const esFexmenu = esProyectoFexmenu(decodedId)
   const esContable = esProyectoContable(decodedId)
+  const esAudiovisual = esProyectoAudiovisual(decodedId)
   const soportaPlanes = esVelix || esSistecontact || esFexmenu
   const soportaSwitchAccess = esSistecontact || esFexmenu
   const access: ProyectoAccesoConfig | null =
@@ -908,6 +911,8 @@ export function ProjectDetail() {
 
               {esContable ? (
                 <ContablePanel />
+              ) : esAudiovisual ? (
+                <AudiovisualPanel />
               ) : soportaUsuarios ? (
                 <>
                   {esVelix ? (

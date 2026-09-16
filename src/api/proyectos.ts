@@ -55,6 +55,15 @@ export function esProyectoContable(proyectoId: string): boolean {
   return normalizeProyectoId(proyectoId) === 'nodefex-contable'
 }
 
+export function esProyectoAudiovisual(proyectoId: string): boolean {
+  const id = normalizeProyectoId(proyectoId)
+  return (
+    id === 'nodefex audio visual' ||
+    id === 'nodefex-audio-visual' ||
+    id === 'nodefex-audiovisual'
+  )
+}
+
 async function apiFetch<T>(
   path: string,
   token: string,
