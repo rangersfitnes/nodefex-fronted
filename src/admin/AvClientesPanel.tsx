@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { formatCop } from '../api/administradores'
 import {
   createAvCliente,
+  deleteAvCliente,
   listAvClientes,
   listAvFacturas,
   updateAvCliente,
@@ -20,6 +21,7 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  Trash2,
   Users,
   X,
 } from '../icons'
@@ -475,6 +477,7 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [editError, setEditError] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editSuccess, setEditSuccess] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const [facturas, setFacturas] = useState<AvFactura[]>([])
   const [facturasLoading, setFacturasLoading] = useState(false)
@@ -734,6 +737,28 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
+  async function handleDeleteCliente() {
+    if (!user || !detalle || readOnly || deleting) return
+    const ok = window.confirm(
+      `¿Eliminar al cliente «${detalle.nombre || detalle.documento || detalle.id}»? Esta acción no se puede deshacer.`,
+    )
+    if (!ok) return
+
+    setDeleting(true)
+    setEditError('')
+    try {
+      const token = await user.getIdToken()
+      await deleteAvCliente(token, detalle.id)
+      setClientes((current) => current.filter((item) => item.id !== detalle.id))
+      backToLista()
+      setRefreshTick((n) => n + 1)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'No se pudo eliminar el cliente')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (vista === 'detalle' && detalle) {
     return (
       <div className="av-clientes" role="tabpanel" aria-label="Detalle de cliente">
@@ -747,7 +772,7 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
               type="button"
               className="btn-secondary contable-refresh"
               onClick={() => setDetalleRefreshTick((n) => n + 1)}
-              disabled={facturasLoading || editSubmitting}
+              disabled={facturasLoading || editSubmitting || deleting}
               aria-label="Actualizar"
             >
               <RefreshCw
@@ -758,6 +783,21 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
               />
               Actualizar
             </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={deleting || editSubmitting}
+                onClick={() => void handleDeleteCliente()}
+              >
+                {deleting ? (
+                  <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Trash2 size={16} strokeWidth={2} aria-hidden />
+                )}
+                Eliminar
+              </button>
+            ) : null}
           </div>
         </div>
 

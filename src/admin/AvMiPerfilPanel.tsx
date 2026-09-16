@@ -1,0 +1,235 @@
+import {
+  ADMIN_ACCIONES_AUDIOVISUAL,
+  formatCop,
+  type AdminAccion,
+  type ProyectoAccesoConfig,
+  type ProyectoGananciaConfig,
+} from '../api/administradores'
+import { useAuth } from '../contexts/AuthContext'
+import { IdCard, Shield, User } from '../icons'
+
+const NIVEL_LABEL: Record<string, string> = {
+  view: 'Solo visualizar',
+  custom: 'Acciones personalizadas',
+  manage: 'Todas las acciones',
+}
+
+function normalizeProjectKey(proyectoId: string): string {
+  return proyectoId.trim().toLowerCase().replace(/[\s_]+/g, '-')
+}
+
+function isAudiovisualProjectId(proyectoId: string): boolean {
+  const key = normalizeProjectKey(proyectoId)
+  return (
+    key === 'nodefex-audio-visual' ||
+    key === 'nodefex-audiovisual' ||
+    key.includes('audio-visual') ||
+    key.includes('audiovisual')
+  )
+}
+
+function resolveAudiovisualAccess(
+  accesos: Record<string, ProyectoAccesoConfig> | undefined,
+  preferred?: ProyectoAccesoConfig | null,
+): { proyectoId: string | null; access: ProyectoAccesoConfig | null } {
+  let proyectoId: string | null = null
+  for (const key of Object.keys(accesos || {})) {
+    if (isAudiovisualProjectId(key)) {
+      proyectoId = key
+      break
+    }
+  }
+  return {
+    proyectoId,
+    access: preferred || (proyectoId && accesos ? accesos[proyectoId] : null),
+  }
+}
+
+function resolveAudiovisualGanancia(
+  ganancias: Record<string, ProyectoGananciaConfig> | undefined,
+  proyectoId: string | null,
+): ProyectoGananciaConfig | null {
+  if (!ganancias) return null
+  if (proyectoId && ganancias[proyectoId]) return ganancias[proyectoId]
+  for (const [key, value] of Object.entries(ganancias)) {
+    if (isAudiovisualProjectId(key)) return value
+  }
+  return null
+}
+
+function formatFecha(iso: string | null): string {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
+
+function capabilityMode(
+  access: ProyectoAccesoConfig,
+  accion: AdminAccion,
+): 'manage' | 'view' | 'none' {
+  if (access.nivel === 'manage') return 'manage'
+  if (access.nivel === 'view') return 'view'
+  if (access.acciones.includes(accion)) return 'manage'
+  if ((access.visualizar || []).includes(accion)) return 'view'
+  return 'none'
+}
+
+const MODE_LABEL = {
+  manage: 'Puede gestionar',
+  view: 'Solo visualizar',
+  none: 'Sin acceso',
+} as const
+
+type AvMiPerfilPanelProps = {
+  access?: ProyectoAccesoConfig | null
+}
+
+export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
+  const { administrador } = useAuth()
+
+  if (!administrador) {
+    return (
+      <div className="av-mi-perfil" role="tabpanel" aria-label="Mi perfil">
+        <div className="proyectos-empty">
+          <User size={28} strokeWidth={1.75} aria-hidden />
+          <p>No se pudo cargar tu perfil de administrador.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const { proyectoId, access: resolvedAccess } = resolveAudiovisualAccess(
+    administrador.accesos,
+    access,
+  )
+  const ganancia = resolveAudiovisualGanancia(administrador.ganancias, proyectoId)
+
+  return (
+    <div className="av-mi-perfil" role="tabpanel" aria-label="Mi perfil">
+      <div className="av-ingresos-toolbar">
+        <div>
+          <h3>Mi perfil</h3>
+          <p className="section-note">
+            Tu información como administrador en Nodefex Audio Visual.
+          </p>
+        </div>
+      </div>
+
+      <div className="av-ingresos-detail">
+        <div className="av-ingresos-detail-head">
+          <div>
+            <p className="av-ingresos-kicker">Administrador</p>
+            <h3>{administrador.nombre || administrador.email || 'Sin nombre'}</h3>
+            <p className="section-note">{administrador.email || 'Sin correo'}</p>
+          </div>
+          <span className="av-estado av-estado-parcial">
+            <Shield size={14} strokeWidth={2} aria-hidden />
+            Admin
+          </span>
+        </div>
+
+        <dl className="av-ingresos-meta">
+          <div>
+            <dt>Nombre</dt>
+            <dd>{administrador.nombre || '—'}</dd>
+          </div>
+          <div>
+            <dt>Correo</dt>
+            <dd>{administrador.email || '—'}</dd>
+          </div>
+          <div>
+            <dt>
+              <span className="av-mi-perfil-dt-inline">
+                <IdCard size={14} strokeWidth={2} aria-hidden />
+                Cédula
+              </span>
+            </dt>
+            <dd>{administrador.cedula || '—'}</dd>
+          </div>
+          <div>
+            <dt>Rol</dt>
+            <dd>Administrador</dd>
+          </div>
+          <div>
+            <dt>Cuenta creada</dt>
+            <dd>{formatFecha(administrador.createdAt)}</dd>
+          </div>
+          <div>
+            <dt>Último acceso</dt>
+            <dd>{formatFecha(administrador.lastSignInAt)}</dd>
+          </div>
+        </dl>
+
+        <section className="av-cliente-section">
+          <h3>Acceso a Nodefex Audio Visual</h3>
+          {resolvedAccess ? (
+            <>
+              <dl className="av-ingresos-meta">
+                <div>
+                  <dt>Nivel de acceso</dt>
+                  <dd>{NIVEL_LABEL[resolvedAccess.nivel] || resolvedAccess.nivel}</dd>
+                </div>
+                <div>
+                  <dt>Proyecto</dt>
+                  <dd>{proyectoId || 'Nodefex Audio Visual'}</dd>
+                </div>
+              </dl>
+
+              {resolvedAccess.nivel === 'custom' ? (
+                <div className="av-mi-perfil-permisos">
+                  <p className="section-note">Permisos por pestaña</p>
+                  <ul className="av-mi-perfil-permisos-list">
+                    {ADMIN_ACCIONES_AUDIOVISUAL.map((item) => {
+                      const mode = capabilityMode(resolvedAccess, item.id)
+                      return (
+                        <li key={item.id}>
+                          <span>{item.label}</span>
+                          <strong data-mode={mode}>{MODE_LABEL[mode]}</strong>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ) : (
+                <p className="section-note">
+                  {resolvedAccess.nivel === 'manage'
+                    ? 'Tienes acceso completo para gestionar todas las pestañas.'
+                    : 'Puedes visualizar todas las pestañas, sin permiso para hacer cambios.'}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="section-note">No hay configuración de acceso disponible.</p>
+          )}
+        </section>
+
+        <section className="av-cliente-section">
+          <h3>Ganancias del proyecto</h3>
+          {ganancia?.activa ? (
+            <div className="contable-summary">
+              <div>
+                <span>Estado</span>
+                <strong>Activas</strong>
+              </div>
+              <div>
+                <span>% por mensualidad</span>
+                <strong>{ganancia.porcentaje}%</strong>
+              </div>
+              <div>
+                <span>Acumulado</span>
+                <strong>{formatCop(ganancia.total || 0)}</strong>
+              </div>
+            </div>
+          ) : (
+            <p className="section-note">
+              Las ganancias para este proyecto están apagadas o no están configuradas.
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}

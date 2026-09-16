@@ -1,26 +1,51 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
-import { Banknote, Layers, Package, Users, Video } from '../icons'
+import { useAuth } from '../contexts/AuthContext'
+import { Banknote, FileText, Layers, Package, User, Users, Video } from '../icons'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
 import { AvFacturacionPanel } from './AvFacturacionPanel'
 import { AvIngresosPanel } from './AvIngresosPanel'
+import { AvMiPerfilPanel } from './AvMiPerfilPanel'
+import { AvMovimientosPanel } from './AvMovimientosPanel'
 import { AvPlanesPanel } from './AvPlanesPanel'
 
-type AudiovisualVista = 'finanzas' | 'planes' | 'equipos' | 'clientes'
+type AudiovisualVista =
+  | 'finanzas'
+  | 'planes'
+  | 'equipos'
+  | 'clientes'
+  | 'movimientos'
+  | 'mi-perfil'
 type FinanzasSubvista = 'principal' | 'ingresos' | 'facturacion' | 'egresos'
 
 const TABS: {
   id: AudiovisualVista
   label: string
   icon: typeof Banknote
-  action: AdminAccion
+  action: AdminAccion | null
+  ownerOnly?: boolean
+  adminOnly?: boolean
 }[] = [
   { id: 'finanzas', label: 'Finanzas', icon: Banknote, action: 'av_finanzas' },
   { id: 'planes', label: 'Planes', icon: Layers, action: 'av_planes' },
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
+  {
+    id: 'movimientos',
+    label: 'Movimientos',
+    icon: FileText,
+    action: null,
+    ownerOnly: true,
+  },
+  {
+    id: 'mi-perfil',
+    label: 'Mi perfil',
+    icon: User,
+    action: null,
+    adminOnly: true,
+  },
 ]
 
 function canViewAvTab(
@@ -53,9 +78,17 @@ type AudiovisualPanelProps = {
 }
 
 export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
+  const { isOwner, isAdmin } = useAuth()
+
   const allowedTabs = useMemo(
-    () => TABS.filter((tab) => canViewAvTab(access, tab.action)),
-    [access],
+    () =>
+      TABS.filter((tab) => {
+        if (tab.ownerOnly) return isOwner
+        if (tab.adminOnly) return isAdmin && !isOwner
+        if (!tab.action) return false
+        return canViewAvTab(access, tab.action)
+      }),
+    [access, isOwner, isAdmin],
   )
 
   const [vista, setVista] = useState<AudiovisualVista>(
@@ -106,7 +139,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       >
         {allowedTabs.map((tab) => {
           const Icon = tab.icon
-          const readOnlyTab = !canEditAvTab(access, tab.action)
+          const readOnlyTab = tab.action ? !canEditAvTab(access, tab.action) : false
           return (
             <button
               key={tab.id}
@@ -118,7 +151,9 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
             >
               <Icon size={16} strokeWidth={2} aria-hidden />
               {tab.label}
-              {readOnlyTab ? <span className="av-tab-readonly">Solo ver</span> : null}
+              {readOnlyTab && !tab.ownerOnly ? (
+                <span className="av-tab-readonly">Solo ver</span>
+              ) : null}
             </button>
           )
         })}
@@ -190,6 +225,12 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       ) : null}
 
       {vista === 'clientes' ? <AvClientesPanel readOnly={clientesReadOnly} /> : null}
+
+      {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
+
+      {vista === 'mi-perfil' && isAdmin && !isOwner ? (
+        <AvMiPerfilPanel access={access} />
+      ) : null}
     </section>
   )
 }

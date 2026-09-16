@@ -529,3 +529,52 @@ export async function getAvFinanzasResumen(token: string): Promise<AvFinanzasRes
   const data = await apiFetch<{ resumen: AvFinanzasResumen }>('/api/audiovisual/resumen', token)
   return data.resumen
 }
+
+export type AvMovimientoTipo =
+  | 'plan'
+  | 'cliente'
+  | 'factura'
+  | 'pago'
+  | 'ingreso'
+  | 'egreso'
+
+export type AvMovimientoAccion =
+  | 'crear'
+  | 'editar'
+  | 'eliminar'
+  | 'activar'
+  | 'desactivar'
+  | 'registrar_pago'
+
+export type AvMovimiento = {
+  id: string
+  tipo: AvMovimientoTipo | string | null
+  accion: AvMovimientoAccion | string | null
+  resumen: string | null
+  entidadId: string | null
+  entidadLabel: string | null
+  adminUid: string | null
+  adminEmail: string | null
+  adminNombre: string | null
+  creadoEn: string | null
+}
+
+export async function listAvMovimientos(
+  token: string,
+  options: { limit?: number } = {},
+): Promise<AvMovimiento[]> {
+  const params = new URLSearchParams()
+  if (options.limit) params.set('limit', String(options.limit))
+  const query = params.toString() ? `?${params.toString()}` : ''
+  const data = await apiFetch<{ movimientos: AvMovimiento[] }>(
+    `/api/audiovisual/movimientos${query}`,
+    token,
+  )
+  return data.movimientos
+}
+
+export async function deleteAvCliente(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/clientes/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}

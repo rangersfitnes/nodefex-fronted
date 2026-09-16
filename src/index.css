@@ -2410,6 +2410,69 @@ a {
   color: var(--gray-600);
 }
 
+.av-movimiento-admin {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.av-movimiento-admin strong {
+  font-weight: 600;
+  color: var(--blue-950);
+}
+
+.av-movimiento-admin span {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+
+.av-mi-perfil-dt-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.av-mi-perfil-permisos {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.av-mi-perfil-permisos-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.av-mi-perfil-permisos-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 50, 92, 0.1);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.av-mi-perfil-permisos-list strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.av-mi-perfil-permisos-list strong[data-mode='manage'] {
+  color: #166534;
+}
+
+.av-mi-perfil-permisos-list strong[data-mode='view'] {
+  color: #1d4ed8;
+}
+
+.av-mi-perfil-permisos-list strong[data-mode='none'] {
+  color: var(--gray-500);
+}
+
 .av-cliente-row {
   cursor: pointer;
 }
