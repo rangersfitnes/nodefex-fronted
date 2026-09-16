@@ -39,6 +39,38 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+function normalizeProjectKey(proyectoId: string): string {
+  return proyectoId.trim().toLowerCase().replace(/[\s_]+/g, '-')
+}
+
+function isAudiovisualProjectId(proyectoId: string): boolean {
+  const key = normalizeProjectKey(proyectoId)
+  return (
+    key === 'nodefex-audio-visual' ||
+    key === 'nodefex-audiovisual' ||
+    key.includes('audio-visual') ||
+    key.includes('audiovisual')
+  )
+}
+
+function resolveAccessFromMap(
+  accesos: Record<string, ProyectoAccesoConfig> | undefined,
+  proyectoId: string,
+): ProyectoAccesoConfig | null {
+  if (!accesos) return null
+  if (accesos[proyectoId]) return accesos[proyectoId]
+  const target = normalizeProjectKey(proyectoId)
+  for (const [key, value] of Object.entries(accesos)) {
+    if (normalizeProjectKey(key) === target) return value
+  }
+  if (isAudiovisualProjectId(proyectoId)) {
+    for (const [key, value] of Object.entries(accesos)) {
+      if (isAudiovisualProjectId(key)) return value
+    }
+  }
+  return null
+}
+
 function shouldSignOut(error: unknown) {
   return error instanceof ApiError && (error.status === 401 || error.status === 403)
 }
@@ -142,17 +174,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getProjectAccess: (proyectoId: string) => {
           if (!administrador) return null
           if (administrador.rol === 'owner') {
-            return { nivel: 'manage', acciones: [] }
+            return { nivel: 'manage', acciones: [], visualizar: [] }
           }
-          return administrador.accesos?.[proyectoId] ?? null
+          return resolveAccessFromMap(administrador.accesos, proyectoId)
         },
         canProjectAction: (proyectoId: string, action: AdminAccion) => {
           if (!administrador) return false
           if (administrador.rol === 'owner') return true
-          const access = administrador.accesos?.[proyectoId]
+          const access = resolveAccessFromMap(administrador.accesos, proyectoId)
           if (!access) return false
           if (access.nivel === 'manage') return true
-          if (access.nivel === 'custom') return access.acciones.includes(action)
+          if (access.nivel === 'custom') {
+            return (
+              access.acciones.includes(action) ||
+              (access.visualizar || []).includes(action)
+            )
+          }
           return false
         },
         login,
