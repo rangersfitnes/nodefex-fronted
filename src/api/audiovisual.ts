@@ -1,6 +1,6 @@
 import { API_URL } from '../config'
 
-export type AvIngresoEstado = 'pendiente' | 'parcial' | 'pagado' | 'vencido'
+export type AvFacturaEstado = 'pendiente' | 'parcial' | 'pagado' | 'vencido'
 
 export type AvPlan = {
   id: string
@@ -74,21 +74,51 @@ export type AvClienteCreatePayload = {
   notas?: string
 }
 
+export type AvClienteUpdatePayload = {
+  tipoPersona?: AvTipoPersona
+  nombre?: string
+  contactoNombre?: string | null
+  telefono?: string
+  correo?: string
+  ciudad?: string
+  direccion?: string | null
+  tipoComercial?: AvTipoComercial
+  tipoComercialOtro?: string | null
+  serviciosInteres?: AvServicioInteres[]
+  servicioOtro?: string | null
+  comoNosConocio?: AvComoNosConocio
+  comoNosConocioOtro?: string | null
+  referidoVendedor?: string | null
+  responsable?: string
+  notas?: string | null
+}
+
+export type AvMetodoPagoTipo = 'efectivo' | 'cuenta_bancaria' | 'pasarela'
+
+export type AvPagoParte = {
+  tipo: AvMetodoPagoTipo
+  valor: number
+  cuenta: string | null
+  detalle: string | null
+}
+
 export type AvPago = {
   id: string
   valor: number
   fecha: string | null
   metodoPago: string | null
+  partes: AvPagoParte[]
   referencia: string | null
   notas: string | null
   creadoEn: string | null
   createdBy: string | null
 }
 
-export type AvIngreso = {
+export type AvFactura = {
   id: string
+  numero: string | null
   cliente: string | null
-  proyecto: string | null
+  clienteId: string | null
   concepto: string | null
   valor: number
   unidad: 'COP'
@@ -97,18 +127,19 @@ export type AvIngreso = {
   creditos: number | null
   fechaEmision: string | null
   fechaVencimiento: string | null
-  estado: AvIngresoEstado
+  estado: AvFacturaEstado
   estadoManual: string | null
   totalPagado: number
   saldoPendiente: number
   notas: string | null
+  origen: string | null
   creadoEn: string | null
   actualizadoEn: string | null
   createdBy: string | null
   pagos: AvPago[]
 }
 
-export type AvIngresosResumen = {
+export type AvFacturasResumen = {
   totalFacturado: number
   totalCobrado: number
   totalPorCobrar: number
@@ -116,10 +147,27 @@ export type AvIngresosResumen = {
   cantidad: number
 }
 
-export type AvIngresosFiltros = {
+export type AvFacturasFiltros = {
   clientes: string[]
-  proyectos: string[]
-  estados: AvIngresoEstado[]
+  estados: AvFacturaEstado[]
+}
+
+export type AvIngresoCaja = {
+  id: string
+  fecha: string | null
+  concepto: string | null
+  valor: number
+  numeroFactura: string | null
+  metodoPago: string | null
+  partes: AvPagoParte[]
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+}
+
+export type AvIngresosCajaResumen = {
+  total: number
+  cantidad: number
 }
 
 async function apiFetch<T>(
@@ -200,6 +248,14 @@ export async function listAvClientes(token: string): Promise<AvCliente[]> {
   return data.clientes
 }
 
+export async function getAvCliente(token: string, id: string): Promise<AvCliente> {
+  const data = await apiFetch<{ cliente: AvCliente }>(
+    `/api/audiovisual/clientes/${encodeURIComponent(id)}`,
+    token,
+  )
+  return data.cliente
+}
+
 export async function createAvCliente(
   token: string,
   payload: AvClienteCreatePayload,
@@ -211,73 +267,184 @@ export async function createAvCliente(
   return data.cliente
 }
 
-export async function listAvIngresos(
+export async function updateAvCliente(
+  token: string,
+  id: string,
+  payload: AvClienteUpdatePayload,
+): Promise<AvCliente> {
+  const data = await apiFetch<{ cliente: AvCliente }>(
+    `/api/audiovisual/clientes/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.cliente
+}
+
+export async function listAvFacturas(
   token: string,
   filters: {
     cliente?: string
-    proyecto?: string
+    clienteId?: string
     estado?: string
     desde?: string
     hasta?: string
   } = {},
 ): Promise<{
-  resumen: AvIngresosResumen
-  ingresos: AvIngreso[]
-  filtros: AvIngresosFiltros
+  resumen: AvFacturasResumen
+  facturas: AvFactura[]
+  filtros: AvFacturasFiltros
 }> {
   const params = new URLSearchParams()
   if (filters.cliente) params.set('cliente', filters.cliente)
-  if (filters.proyecto) params.set('proyecto', filters.proyecto)
+  if (filters.clienteId) params.set('clienteId', filters.clienteId)
   if (filters.estado) params.set('estado', filters.estado)
   if (filters.desde) params.set('desde', filters.desde)
   if (filters.hasta) params.set('hasta', filters.hasta)
   const query = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch(`/api/audiovisual/ingresos${query}`, token)
+  return apiFetch(`/api/audiovisual/facturas${query}`, token)
 }
 
-export async function getAvIngreso(token: string, id: string): Promise<AvIngreso> {
-  const data = await apiFetch<{ ingreso: AvIngreso }>(
-    `/api/audiovisual/ingresos/${encodeURIComponent(id)}`,
+export async function getAvFactura(token: string, id: string): Promise<AvFactura> {
+  const data = await apiFetch<{ factura: AvFactura }>(
+    `/api/audiovisual/facturas/${encodeURIComponent(id)}`,
     token,
   )
-  return data.ingreso
+  return data.factura
 }
 
-export async function createAvIngreso(
+export async function createAvFactura(
   token: string,
   payload: {
     cliente: string
-    proyecto: string
+    clienteId?: string
+    planId: string
+    fechaEmision?: string
+    notas?: string
+  },
+): Promise<AvFactura> {
+  const data = await apiFetch<{ factura: AvFactura }>('/api/audiovisual/facturas', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.factura
+}
+
+export async function updateAvFactura(
+  token: string,
+  id: string,
+  payload: Partial<{
+    cliente: string
+    fechaEmision: string
+    notas: string | null
+  }>,
+): Promise<AvFactura> {
+  const data = await apiFetch<{ factura: AvFactura }>(
+    `/api/audiovisual/facturas/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.factura
+}
+
+export async function deleteAvFactura(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/facturas/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}
+
+export async function createAvFacturaPago(
+  token: string,
+  facturaId: string,
+  payload: {
+    valor: number
+    fecha: string
+    partes: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
+    metodoPago?: string
+    referencia?: string
+    notas?: string
+  },
+): Promise<AvFactura> {
+  const data = await apiFetch<{ factura: AvFactura }>(
+    `/api/audiovisual/facturas/${encodeURIComponent(facturaId)}/pagos`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.factura
+}
+
+export async function deleteAvFacturaPago(
+  token: string,
+  facturaId: string,
+  pagoId: string,
+): Promise<AvFactura> {
+  const data = await apiFetch<{ factura: AvFactura }>(
+    `/api/audiovisual/facturas/${encodeURIComponent(facturaId)}/pagos/${encodeURIComponent(pagoId)}`,
+    token,
+    { method: 'DELETE' },
+  )
+  return data.factura
+}
+
+export async function listAvIngresosCaja(token: string): Promise<{
+  ingresos: AvIngresoCaja[]
+  resumen: AvIngresosCajaResumen
+}> {
+  return apiFetch('/api/audiovisual/ingresos', token)
+}
+
+export async function createAvIngresoCaja(
+  token: string,
+  payload: {
+    fecha?: string
     concepto: string
     valor: number
-    fechaEmision: string
-    fechaVencimiento: string
-    notas?: string
-    planId?: string
-    creditos?: number
+    numeroFactura?: string
+    partes: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
   },
-): Promise<AvIngreso> {
-  const data = await apiFetch<{ ingreso: AvIngreso }>('/api/audiovisual/ingresos', token, {
+): Promise<AvIngresoCaja> {
+  const data = await apiFetch<{ ingreso: AvIngresoCaja }>('/api/audiovisual/ingresos', token, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
   return data.ingreso
 }
 
-export async function updateAvIngreso(
+export async function updateAvIngresoCaja(
   token: string,
   id: string,
   payload: Partial<{
-    cliente: string
-    proyecto: string
+    fecha: string
     concepto: string
     valor: number
-    fechaEmision: string
-    fechaVencimiento: string
-    notas: string | null
+    numeroFactura: string | null
+    partes: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
   }>,
-): Promise<AvIngreso> {
-  const data = await apiFetch<{ ingreso: AvIngreso }>(
+): Promise<AvIngresoCaja> {
+  const data = await apiFetch<{ ingreso: AvIngresoCaja }>(
     `/api/audiovisual/ingresos/${encodeURIComponent(id)}`,
     token,
     {
@@ -288,43 +455,77 @@ export async function updateAvIngreso(
   return data.ingreso
 }
 
-export async function deleteAvIngreso(token: string, id: string): Promise<void> {
+export async function deleteAvIngresoCaja(token: string, id: string): Promise<void> {
   await apiFetch(`/api/audiovisual/ingresos/${encodeURIComponent(id)}`, token, {
     method: 'DELETE',
   })
 }
 
-export async function createAvPago(
+export type AvEgreso = {
+  id: string
+  fecha: string | null
+  concepto: string | null
+  valor: number
+  unidad: 'COP'
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+}
+
+export type AvEgresosResumen = {
+  total: number
+  cantidad: number
+}
+
+export async function listAvEgresos(token: string): Promise<{
+  egresos: AvEgreso[]
+  resumen: AvEgresosResumen
+}> {
+  return apiFetch('/api/audiovisual/egresos', token)
+}
+
+export async function createAvEgreso(
   token: string,
-  ingresoId: string,
-  payload: {
-    valor: number
-    fecha: string
-    metodoPago?: string
-    referencia?: string
-    notas?: string
-  },
-): Promise<AvIngreso> {
-  const data = await apiFetch<{ ingreso: AvIngreso }>(
-    `/api/audiovisual/ingresos/${encodeURIComponent(ingresoId)}/pagos`,
+  payload: { fecha: string; concepto: string; valor: number },
+): Promise<AvEgreso> {
+  const data = await apiFetch<{ egreso: AvEgreso }>('/api/audiovisual/egresos', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.egreso
+}
+
+export async function updateAvEgreso(
+  token: string,
+  id: string,
+  payload: Partial<{ fecha: string; concepto: string; valor: number }>,
+): Promise<AvEgreso> {
+  const data = await apiFetch<{ egreso: AvEgreso }>(
+    `/api/audiovisual/egresos/${encodeURIComponent(id)}`,
     token,
     {
-      method: 'POST',
+      method: 'PATCH',
       body: JSON.stringify(payload),
     },
   )
-  return data.ingreso
+  return data.egreso
 }
 
-export async function deleteAvPago(
-  token: string,
-  ingresoId: string,
-  pagoId: string,
-): Promise<AvIngreso> {
-  const data = await apiFetch<{ ingreso: AvIngreso }>(
-    `/api/audiovisual/ingresos/${encodeURIComponent(ingresoId)}/pagos/${encodeURIComponent(pagoId)}`,
-    token,
-    { method: 'DELETE' },
-  )
-  return data.ingreso
+export async function deleteAvEgreso(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/egresos/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}
+
+export type AvFinanzasResumen = {
+  ingresosTotales: number
+  egresosTotales: number
+  disponible: number
+  cantidadIngresos: number
+  cantidadEgresos: number
+}
+
+export async function getAvFinanzasResumen(token: string): Promise<AvFinanzasResumen> {
+  const data = await apiFetch<{ resumen: AvFinanzasResumen }>('/api/audiovisual/resumen', token)
+  return data.resumen
 }

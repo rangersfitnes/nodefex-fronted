@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ADMIN_ACCIONES,
+  ADMIN_ACCIONES_AUDIOVISUAL,
+  ADMIN_ACCIONES_MEMBRESIA,
   formatCop,
   getAdministrador,
   getAdministradorGanancias,
@@ -14,7 +15,12 @@ import {
   type ProyectoAccesoConfig,
   type ProyectoAccesoNivel,
 } from '../api/administradores'
-import { listProyectos, type Proyecto } from '../api/proyectos'
+import {
+  esProyectoAudiovisual,
+  esProyectoContable,
+  listProyectos,
+  type Proyecto,
+} from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
@@ -38,6 +44,15 @@ function formatFecha(iso: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso))
+}
+
+function accionesDisponiblesParaProyecto(proyectoId: string): {
+  id: AdminAccion
+  label: string
+}[] {
+  if (esProyectoAudiovisual(proyectoId)) return ADMIN_ACCIONES_AUDIOVISUAL
+  if (esProyectoContable(proyectoId)) return []
+  return ADMIN_ACCIONES_MEMBRESIA
 }
 
 export function AdministradorDetail() {
@@ -453,20 +468,30 @@ export function AdministradorDetail() {
 
                       {value === 'custom' ? (
                         <fieldset className="admin-action-options">
-                          <legend>Acciones permitidas</legend>
-                          {ADMIN_ACCIONES.map((accion) => (
-                            <label key={accion.id}>
-                              <input
-                                type="checkbox"
-                                checked={selected.includes(accion.id)}
-                                onChange={(event) =>
-                                  toggleAccion(proyecto.id, accion.id, event.target.checked)
-                                }
-                                disabled={saving}
-                              />
-                              {accion.label}
-                            </label>
-                          ))}
+                          <legend>
+                            {esProyectoAudiovisual(proyecto.id)
+                              ? 'Pestañas permitidas'
+                              : 'Acciones permitidas'}
+                          </legend>
+                          {accionesDisponiblesParaProyecto(proyecto.id).length === 0 ? (
+                            <p className="section-note">
+                              Para este proyecto usa «Solo visualizar» o «Todas las acciones».
+                            </p>
+                          ) : (
+                            accionesDisponiblesParaProyecto(proyecto.id).map((accion) => (
+                              <label key={accion.id}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected.includes(accion.id)}
+                                  onChange={(event) =>
+                                    toggleAccion(proyecto.id, accion.id, event.target.checked)
+                                  }
+                                  disabled={saving}
+                                />
+                                {accion.label}
+                              </label>
+                            ))
+                          )}
                         </fieldset>
                       ) : null}
 

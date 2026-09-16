@@ -6,13 +6,29 @@ export type AdminAccion =
   | 'activate_memberships'
   | 'manage_plans'
   | 'manage_settings'
+  | 'av_finanzas'
+  | 'av_planes'
+  | 'av_equipos'
+  | 'av_clientes'
 
-export const ADMIN_ACCIONES: { id: AdminAccion; label: string }[] = [
+export const ADMIN_ACCIONES_MEMBRESIA: { id: AdminAccion; label: string }[] = [
   { id: 'create_users', label: 'Crear usuarios' },
   { id: 'delete_users', label: 'Eliminar usuarios' },
   { id: 'activate_memberships', label: 'Activar membresías' },
   { id: 'manage_plans', label: 'Crear y eliminar planes' },
   { id: 'manage_settings', label: 'Editar links y WhatsApp' },
+]
+
+export const ADMIN_ACCIONES_AUDIOVISUAL: { id: AdminAccion; label: string }[] = [
+  { id: 'av_finanzas', label: 'Finanzas' },
+  { id: 'av_planes', label: 'Planes' },
+  { id: 'av_equipos', label: 'Equipos' },
+  { id: 'av_clientes', label: 'Clientes' },
+]
+
+export const ADMIN_ACCIONES: { id: AdminAccion; label: string }[] = [
+  ...ADMIN_ACCIONES_MEMBRESIA,
+  ...ADMIN_ACCIONES_AUDIOVISUAL,
 ]
 
 export type ProyectoAccesoNivel = 'view' | 'manage' | 'custom'

@@ -912,7 +912,7 @@ export function ProjectDetail() {
               {esContable ? (
                 <ContablePanel />
               ) : esAudiovisual ? (
-                <AudiovisualPanel />
+                <AudiovisualPanel access={access} />
               ) : soportaUsuarios ? (
                 <>
                   {esVelix ? (
