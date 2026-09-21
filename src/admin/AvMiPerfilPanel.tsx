@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   ADMIN_ACCIONES_AUDIOVISUAL,
   formatCop,
@@ -5,8 +6,22 @@ import {
   type ProyectoAccesoConfig,
   type ProyectoGananciaConfig,
 } from '../api/administradores'
+import {
+  getAvContrato,
+  listAvNotificaciones,
+  type AvContrato,
+  type AvNotificacion,
+} from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
-import { IdCard, Shield, User } from '../icons'
+import {
+  AlertCircle,
+  Bell,
+  FileText,
+  IdCard,
+  LoaderCircle,
+  Shield,
+  User,
+} from '../icons'
 
 const NIVEL_LABEL: Record<string, string> = {
   view: 'Solo visualizar',
@@ -66,6 +81,13 @@ function formatFecha(iso: string | null): string {
   }).format(new Date(iso))
 }
 
+function formatBytes(size: number | null): string {
+  if (!size || size <= 0) return '—'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function capabilityMode(
   access: ProyectoAccesoConfig,
   accion: AdminAccion,
@@ -88,7 +110,44 @@ type AvMiPerfilPanelProps = {
 }
 
 export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
-  const { administrador } = useAuth()
+  const { user, administrador } = useAuth()
+  const [contrato, setContrato] = useState<AvContrato | null>(null)
+  const [notificaciones, setNotificaciones] = useState<AvNotificacion[]>([])
+  const [extraLoading, setExtraLoading] = useState(true)
+  const [extraError, setExtraError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      if (!user) return
+      setExtraLoading(true)
+      setExtraError('')
+      try {
+        const token = await user.getIdToken()
+        const [contratoData, notificacionesData] = await Promise.all([
+          getAvContrato(token),
+          listAvNotificaciones(token),
+        ])
+        if (cancelled) return
+        setContrato(contratoData)
+        setNotificaciones(notificacionesData)
+      } catch (err) {
+        if (!cancelled) {
+          setExtraError(
+            err instanceof Error ? err.message : 'No se pudieron cargar avisos o contrato',
+          )
+        }
+      } finally {
+        if (!cancelled) setExtraLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   if (!administrador) {
     return (
@@ -228,6 +287,84 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
               Las ganancias para este proyecto están apagadas o no están configuradas.
             </p>
           )}
+        </section>
+
+        <section className="av-cliente-section">
+          <h3>Contrato de la sociedad</h3>
+          {extraLoading ? (
+            <div className="proyectos-status">
+              <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
+              Cargando contrato...
+            </div>
+          ) : null}
+          {!extraLoading && extraError ? (
+            <p className="login-error" role="alert">
+              <AlertCircle size={16} strokeWidth={2} aria-hidden />
+              {extraError}
+            </p>
+          ) : null}
+          {!extraLoading && !extraError && contrato ? (
+            <div className="av-contrato-card">
+              <div>
+                <strong>{contrato.fileName || 'Contrato'}</strong>
+                <p className="section-note">
+                  {formatBytes(contrato.size)}
+                  {contrato.uploadedAt ? ` · ${formatFecha(contrato.uploadedAt)}` : ''}
+                </p>
+              </div>
+              {contrato.downloadUrl ? (
+                <a
+                  className="btn-secondary"
+                  href={contrato.downloadUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <FileText size={16} strokeWidth={2} aria-hidden />
+                  Ver / descargar
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+          {!extraLoading && !extraError && !contrato ? (
+            <p className="section-note">Aún no hay un contrato publicado por el propietario.</p>
+          ) : null}
+        </section>
+
+        <section className="av-cliente-section">
+          <h3>
+            <span className="av-mi-perfil-dt-inline">
+              <Bell size={16} strokeWidth={2} aria-hidden />
+              Notificaciones
+            </span>
+          </h3>
+          {extraLoading ? (
+            <div className="proyectos-status">
+              <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
+              Cargando notificaciones...
+            </div>
+          ) : null}
+          {!extraLoading && !extraError && notificaciones.length === 0 ? (
+            <p className="section-note">No tienes notificaciones por ahora.</p>
+          ) : null}
+          {!extraLoading && notificaciones.length > 0 ? (
+            <ul className="av-notif-list">
+              {notificaciones.map((item) => (
+                <li key={item.id} className="av-notif-item">
+                  <div className="av-notif-item-head">
+                    <strong>{item.titulo || 'Aviso'}</strong>
+                    <span>{formatFecha(item.creadoEn)}</span>
+                  </div>
+                  <p>{item.mensaje || '—'}</p>
+                  <p className="section-note">
+                    {item.alcance === 'todos' ? 'Para todos los administradores' : 'Dirigida a ti'}
+                    {item.createdByNombre || item.createdByEmail
+                      ? ` · De ${item.createdByNombre || item.createdByEmail}`
+                      : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       </div>
     </div>

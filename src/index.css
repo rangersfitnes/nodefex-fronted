@@ -2473,6 +2473,139 @@ a {
   color: var(--gray-500);
 }
 
+.av-contrato-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.av-contrato-card strong {
+  display: block;
+  color: var(--blue-950);
+}
+
+.av-contrato-card .section-note {
+  margin: 0.2rem 0 0;
+}
+
+.av-notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-notif-item {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(18, 50, 92, 0.1);
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.av-notif-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.av-notif-item-head strong {
+  color: var(--blue-950);
+}
+
+.av-notif-item-head span {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+
+.av-notif-item p {
+  margin: 0;
+  color: var(--gray-700);
+}
+
+.av-notif-item .section-note {
+  margin-top: 0.45rem;
+}
+
+.av-accesos-group {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.av-accesos-group h4 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: var(--blue-950);
+}
+
+.av-accesos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.av-acceso-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.9));
+}
+
+.av-acceso-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.av-acceso-card-head h5 {
+  margin: 0.15rem 0 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: var(--blue-950);
+}
+
+.av-acceso-fields {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.av-acceso-fields dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.av-acceso-fields dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.av-acceso-clave {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
 .av-cliente-row {
   cursor: pointer;
 }

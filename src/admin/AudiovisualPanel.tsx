@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, FileText, Layers, Package, User, Users, Video } from '../icons'
+import { Banknote, Bell, FileText, Key, Layers, Package, User, Users, Video } from '../icons'
+import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
@@ -9,6 +10,7 @@ import { AvFacturacionPanel } from './AvFacturacionPanel'
 import { AvIngresosPanel } from './AvIngresosPanel'
 import { AvMiPerfilPanel } from './AvMiPerfilPanel'
 import { AvMovimientosPanel } from './AvMovimientosPanel'
+import { AvOwnerGestionPanel } from './AvOwnerGestionPanel'
 import { AvPlanesPanel } from './AvPlanesPanel'
 
 type AudiovisualVista =
@@ -16,8 +18,10 @@ type AudiovisualVista =
   | 'planes'
   | 'equipos'
   | 'clientes'
+  | 'accesos'
   | 'movimientos'
   | 'mi-perfil'
+  | 'contrato-avisos'
 type FinanzasSubvista = 'principal' | 'ingresos' | 'facturacion' | 'egresos'
 
 const TABS: {
@@ -27,15 +31,24 @@ const TABS: {
   action: AdminAccion | null
   ownerOnly?: boolean
   adminOnly?: boolean
+  shared?: boolean
 }[] = [
   { id: 'finanzas', label: 'Finanzas', icon: Banknote, action: 'av_finanzas' },
   { id: 'planes', label: 'Planes', icon: Layers, action: 'av_planes' },
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
+  { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   {
     id: 'movimientos',
     label: 'Movimientos',
     icon: FileText,
+    action: null,
+    ownerOnly: true,
+  },
+  {
+    id: 'contrato-avisos',
+    label: 'Contrato y avisos',
+    icon: Bell,
     action: null,
     ownerOnly: true,
   },
@@ -85,6 +98,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
         if (tab.adminOnly) return isAdmin && !isOwner
+        if (tab.shared) return isOwner || Boolean(access)
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
@@ -226,7 +240,11 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
 
       {vista === 'clientes' ? <AvClientesPanel readOnly={clientesReadOnly} /> : null}
 
+      {vista === 'accesos' ? <AvAccesosPanel canManage={isOwner} /> : null}
+
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
+
+      {vista === 'contrato-avisos' && isOwner ? <AvOwnerGestionPanel /> : null}
 
       {vista === 'mi-perfil' && isAdmin && !isOwner ? (
         <AvMiPerfilPanel access={access} />

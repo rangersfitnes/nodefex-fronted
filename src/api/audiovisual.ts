@@ -530,6 +530,156 @@ export async function getAvFinanzasResumen(token: string): Promise<AvFinanzasRes
   return data.resumen
 }
 
+export type AvContrato = {
+  fileName: string | null
+  mimeType: string | null
+  size: number | null
+  uploadedAt: string | null
+  uploadedBy: string | null
+  uploadedByNombre: string | null
+  uploadedByEmail: string | null
+  downloadUrl: string | null
+}
+
+export type AvNotificacion = {
+  id: string
+  titulo: string | null
+  mensaje: string | null
+  alcance: 'todos' | 'admin'
+  adminUid: string | null
+  adminNombre: string | null
+  adminEmail: string | null
+  creadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+  createdByEmail: string | null
+}
+
+export type AvGestionAdmin = {
+  uid: string
+  nombre: string | null
+  email: string | null
+}
+
+export async function getAvContrato(token: string): Promise<AvContrato | null> {
+  const data = await apiFetch<{ contrato: AvContrato | null }>('/api/audiovisual/contrato', token)
+  return data.contrato
+}
+
+export async function uploadAvContrato(
+  token: string,
+  payload: { fileName: string; mimeType: string; contentBase64: string },
+): Promise<AvContrato> {
+  const data = await apiFetch<{ contrato: AvContrato }>('/api/audiovisual/contrato', token, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+  return data.contrato
+}
+
+export async function listAvNotificaciones(token: string): Promise<AvNotificacion[]> {
+  const data = await apiFetch<{ notificaciones: AvNotificacion[] }>(
+    '/api/audiovisual/notificaciones',
+    token,
+  )
+  return data.notificaciones
+}
+
+export async function createAvNotificacion(
+  token: string,
+  payload: {
+    titulo: string
+    mensaje: string
+    alcance: 'todos' | 'admin'
+    adminUid?: string
+  },
+): Promise<AvNotificacion> {
+  const data = await apiFetch<{ notificacion: AvNotificacion }>(
+    '/api/audiovisual/notificaciones',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.notificacion
+}
+
+export async function listAvGestionAdmins(token: string): Promise<AvGestionAdmin[]> {
+  const data = await apiFetch<{ administradores: AvGestionAdmin[] }>(
+    '/api/audiovisual/gestion/admins',
+    token,
+  )
+  return data.administradores
+}
+
+export type AvAccesoCategoria = 'redes' | 'computadores' | 'otros'
+
+export type AvAccesoCredencial = {
+  id: string
+  nombre: string | null
+  usuario: string | null
+  clave: string | null
+  categoria: AvAccesoCategoria
+  notas: string | null
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+}
+
+export async function listAvAccesos(token: string): Promise<AvAccesoCredencial[]> {
+  const data = await apiFetch<{ accesos: AvAccesoCredencial[] }>(
+    '/api/audiovisual/accesos',
+    token,
+  )
+  return data.accesos
+}
+
+export async function createAvAcceso(
+  token: string,
+  payload: {
+    nombre: string
+    usuario: string
+    clave: string
+    categoria?: AvAccesoCategoria
+    notas?: string
+  },
+): Promise<AvAccesoCredencial> {
+  const data = await apiFetch<{ acceso: AvAccesoCredencial }>('/api/audiovisual/accesos', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.acceso
+}
+
+export async function updateAvAcceso(
+  token: string,
+  id: string,
+  payload: Partial<{
+    nombre: string
+    usuario: string
+    clave: string
+    categoria: AvAccesoCategoria
+    notas: string | null
+  }>,
+): Promise<AvAccesoCredencial> {
+  const data = await apiFetch<{ acceso: AvAccesoCredencial }>(
+    `/api/audiovisual/accesos/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.acceso
+}
+
+export async function deleteAvAcceso(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/accesos/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}
+
 export type AvMovimientoTipo =
   | 'plan'
   | 'cliente'
