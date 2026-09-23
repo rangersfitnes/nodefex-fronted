@@ -1934,6 +1934,8 @@ a {
 .project-detail {
   max-width: 960px;
   margin: 0 auto;
+  min-width: 0;
+  width: 100%;
 }
 
 .project-detail-hero {
@@ -2390,6 +2392,15 @@ a {
 .av-facturacion,
 .av-egresos,
 .av-planes,
+.av-accesos,
+.av-movimientos,
+.av-mi-perfil,
+.av-owner-gestion {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .av-tab-readonly {
   margin-left: 0.35rem;
   padding: 0.1rem 0.4rem;
@@ -2400,6 +2411,27 @@ a {
   text-transform: uppercase;
   color: var(--gray-500);
   background: rgba(148, 163, 184, 0.18);
+  white-space: nowrap;
+}
+
+.audiovisual-panel {
+  min-width: 0;
+}
+
+.audiovisual-panel .contable-page-tabs,
+.audiovisual-panel .contable-period-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.audiovisual-panel .contable-page-tabs button,
+.audiovisual-panel .contable-period-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .av-readonly-banner {
@@ -2912,20 +2944,60 @@ a {
 }
 
 @media (max-width: 960px) {
-  .av-ingresos-filters {
+  .av-ingresos-filters,
+  .av-facturacion-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .av-fact-plan-preview {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
+  .dashboard-main {
+    padding: 1.25rem 0.85rem 2.25rem;
+  }
+
+  .audiovisual-panel .section-heading h2 {
+    font-size: 1.05rem;
+  }
+
+  .audiovisual-panel .section-note {
+    font-size: 0.9rem;
+  }
+
+  .audiovisual-panel .contable-page-tabs {
+    margin-bottom: 0.85rem;
+  }
+
+  .audiovisual-panel .contable-page-tabs button {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.86rem;
+    gap: 0.3rem;
+  }
+
+  .audiovisual-panel .av-tab-readonly {
+    margin-left: 0.2rem;
+    padding: 0.08rem 0.32rem;
+    font-size: 0.62rem;
+  }
+
   .av-ingresos-filters,
+  .av-facturacion-filters,
   .av-ingresos-form-grid,
-  .av-ingresos-meta {
+  .av-ingresos-meta,
+  .av-fact-plan-preview {
     grid-template-columns: 1fr;
   }
 
   .av-ingresos-span-2 {
     grid-column: auto;
+  }
+
+  .av-ingresos-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .av-ingresos-toolbar-actions,
@@ -2937,6 +3009,86 @@ a {
   .av-ingresos-toolbar-actions > *,
   .av-ingresos-form-actions > * {
     flex: 1 1 auto;
+  }
+
+  .av-ingresos-row-actions {
+    justify-content: stretch;
+  }
+
+  .av-ingresos-row-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .audiovisual-panel .pagos-table-wrap {
+    margin-inline: -0.15rem;
+    border-radius: 10px;
+  }
+
+  .audiovisual-panel .pagos-table {
+    font-size: 0.84rem;
+    min-width: 32rem;
+  }
+
+  .audiovisual-panel .pagos-table.av-resumen-table {
+    min-width: 0;
+  }
+
+  .audiovisual-panel .pagos-table th,
+  .audiovisual-panel .pagos-table td {
+    padding: 0.65rem 0.7rem;
+  }
+
+  .av-accesos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .av-acceso-card-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-acceso-card-head .av-ingresos-row-actions,
+  .av-acceso-fields dd .av-ingresos-row-actions {
+    width: 100%;
+  }
+
+  .av-contrato-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-contrato-card .btn-secondary,
+  .av-contrato-card .btn-primary {
+    width: 100%;
+  }
+
+  .av-notif-item-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modal-overlay {
+    padding: 0.65rem;
+    align-items: stretch;
+  }
+
+  .modal-panel,
+  .modal-panel.av-factura-modal,
+  .av-cliente-modal,
+  .av-pago-modal {
+    width: 100%;
+    max-height: min(96vh, 900px);
+    padding: 1rem 0.95rem 1.15rem;
+    border-radius: 12px;
+  }
+
+  .modal-header h2,
+  .modal-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .av-ingresos-form {
+    padding: 0.95rem 0.9rem;
   }
 }
 
