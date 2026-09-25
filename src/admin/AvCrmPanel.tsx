@@ -374,8 +374,7 @@ export function AvCrmPanel() {
     setError('')
     try {
       const token = await user.getIdToken()
-      // Nunca forzar sesión nueva aquí: si hay credenciales, Baileys reanuda.
-      // forceNew solo en "Nuevo QR" / handleRefreshQr (borra la vinculación).
+      // forceNew solo en «Regenerar QR». Aquí reanudamos o pedimos QR si no hay sesión.
       const data = await connectAvCrmWhatsapp(token, { forceNew: false })
       setStatus(data)
     } catch (err) {
