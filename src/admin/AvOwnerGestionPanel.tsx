@@ -2,10 +2,14 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   createAvNotificacion,
   getAvContrato,
+  getAvGenioAdmin,
   listAvGestionAdmins,
   listAvNotificaciones,
+  saveAvContratoEnlace,
+  saveAvGenioAdminEnlace,
   uploadAvContrato,
   type AvContrato,
+  type AvGenioAdmin,
   type AvGestionAdmin,
   type AvNotificacion,
 } from '../api/audiovisual'
@@ -13,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   Check,
-  FileText,
+  Link2,
   LoaderCircle,
   RefreshCw,
   Send,
@@ -57,11 +61,22 @@ export function AvOwnerGestionPanel() {
   const { user } = useAuth()
 
   const [contrato, setContrato] = useState<AvContrato | null>(null)
+  const [genioAdmin, setGenioAdmin] = useState<AvGenioAdmin | null>(null)
   const [admins, setAdmins] = useState<AvGestionAdmin[]>([])
   const [notificaciones, setNotificaciones] = useState<AvNotificacion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+
+  const [sheetsUrl, setSheetsUrl] = useState('')
+  const [savingLink, setSavingLink] = useState(false)
+  const [linkError, setLinkError] = useState('')
+  const [linkSuccess, setLinkSuccess] = useState('')
+
+  const [genioUrl, setGenioUrl] = useState('')
+  const [savingGenio, setSavingGenio] = useState(false)
+  const [genioError, setGenioError] = useState('')
+  const [genioSuccess, setGenioSuccess] = useState('')
 
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -84,13 +99,17 @@ export function AvOwnerGestionPanel() {
       setError('')
       try {
         const token = await user.getIdToken()
-        const [contratoData, adminsData, notificacionesData] = await Promise.all([
+        const [contratoData, genioData, adminsData, notificacionesData] = await Promise.all([
           getAvContrato(token),
+          getAvGenioAdmin(token),
           listAvGestionAdmins(token),
           listAvNotificaciones(token),
         ])
         if (cancelled) return
         setContrato(contratoData)
+        setSheetsUrl(contratoData?.externalUrl || '')
+        setGenioAdmin(genioData)
+        setGenioUrl(genioData?.externalUrl || '')
         setAdmins(adminsData)
         setNotificaciones(notificacionesData)
       } catch (err) {
@@ -107,6 +126,58 @@ export function AvOwnerGestionPanel() {
       cancelled = true
     }
   }, [user, refreshTick])
+
+  async function handleSaveLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user || savingLink) return
+    const cleanUrl = sheetsUrl.trim()
+    if (!cleanUrl) {
+      setLinkError('Pega el enlace de Google Docs del contrato.')
+      return
+    }
+
+    setSavingLink(true)
+    setLinkError('')
+    setLinkSuccess('')
+    setUploadError('')
+    setUploadSuccess('')
+    try {
+      const token = await user.getIdToken()
+      const updated = await saveAvContratoEnlace(token, { externalUrl: cleanUrl })
+      setContrato(updated)
+      setSheetsUrl(updated.externalUrl || cleanUrl)
+      setLinkSuccess('Enlace de contrato guardado. Al pulsar Ver contrato se abrirá Google Docs.')
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'No se pudo guardar el enlace')
+    } finally {
+      setSavingLink(false)
+    }
+  }
+
+  async function handleSaveGenio(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user || savingGenio) return
+    const cleanUrl = genioUrl.trim()
+    if (!cleanUrl) {
+      setGenioError('Pega el enlace de Google Sheets de administración del Genio.')
+      return
+    }
+
+    setSavingGenio(true)
+    setGenioError('')
+    setGenioSuccess('')
+    try {
+      const token = await user.getIdToken()
+      const updated = await saveAvGenioAdminEnlace(token, { externalUrl: cleanUrl })
+      setGenioAdmin(updated)
+      setGenioUrl(updated.externalUrl || cleanUrl)
+      setGenioSuccess('Enlace del Genio guardado. Al pulsar Ver administración se abrirá Google Sheets.')
+    } catch (err) {
+      setGenioError(err instanceof Error ? err.message : 'No se pudo guardar el enlace del Genio')
+    } finally {
+      setSavingGenio(false)
+    }
+  }
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -126,6 +197,8 @@ export function AvOwnerGestionPanel() {
     setUploading(true)
     setUploadError('')
     setUploadSuccess('')
+    setLinkError('')
+    setLinkSuccess('')
     try {
       const token = await user.getIdToken()
       const contentBase64 = await fileToBase64(file)
@@ -135,6 +208,7 @@ export function AvOwnerGestionPanel() {
         contentBase64,
       })
       setContrato(updated)
+      setSheetsUrl('')
       setUploadSuccess('Contrato actualizado correctamente.')
       form.reset()
     } catch (err) {
@@ -187,14 +261,16 @@ export function AvOwnerGestionPanel() {
     }
   }
 
+  const viewUrl = contrato?.downloadUrl || contrato?.externalUrl || null
+
   return (
     <div className="av-owner-gestion" role="tabpanel" aria-label="Contrato y avisos">
       <div className="av-ingresos-toolbar">
         <div>
           <h3>Contrato y avisos</h3>
           <p className="section-note">
-            Sube el contrato de la sociedad y envía notificaciones a los administradores del
-            proyecto.
+            Vincula el contrato en Google Docs (recomendado) o sube un archivo, y envía
+            notificaciones a los administradores.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -230,7 +306,8 @@ export function AvOwnerGestionPanel() {
           <section className="av-cliente-section">
             <h3>Contrato de la sociedad</h3>
             <p className="section-note">
-              Un solo archivo vigente. Al subir uno nuevo se reemplaza el anterior.
+              Pega el enlace de Google Docs. Al pulsar <strong>Ver contrato</strong> se abre ese
+              enlace. Si luego subes un archivo, reemplaza el enlace.
             </p>
 
             {contrato ? (
@@ -238,22 +315,24 @@ export function AvOwnerGestionPanel() {
                 <div>
                   <strong>{contrato.fileName || 'Contrato'}</strong>
                   <p className="section-note">
-                    {formatBytes(contrato.size)}
+                    {contrato.source === 'docs' || contrato.source === 'sheets'
+                      ? 'Google Docs'
+                      : formatBytes(contrato.size)}
                     {contrato.uploadedAt ? ` · ${formatFecha(contrato.uploadedAt)}` : ''}
                     {contrato.uploadedByNombre || contrato.uploadedByEmail
                       ? ` · ${contrato.uploadedByNombre || contrato.uploadedByEmail}`
                       : ''}
                   </p>
                 </div>
-                {contrato.downloadUrl ? (
+                {viewUrl ? (
                   <a
                     className="btn-secondary"
-                    href={contrato.downloadUrl}
+                    href={viewUrl}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <FileText size={16} strokeWidth={2} aria-hidden />
-                    Ver / descargar
+                    <Link2 size={16} strokeWidth={2} aria-hidden />
+                    Ver contrato
                   </a>
                 ) : null}
               </div>
@@ -261,42 +340,171 @@ export function AvOwnerGestionPanel() {
               <p className="section-note">Aún no hay un contrato cargado.</p>
             )}
 
-            <form className="av-cliente-form" onSubmit={(event) => void handleUpload(event)}>
-              <label className="login-field" htmlFor="contrato-file">
-                Archivo (PDF, Word o imagen · máx. 12 MB)
+            <form className="av-cliente-form" onSubmit={(event) => void handleSaveLink(event)}>
+              <label className="login-field" htmlFor="contrato-docs-url">
+                Enlace de Google Docs
                 <input
-                  id="contrato-file"
-                  name="contrato-file"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
-                  disabled={uploading}
+                  id="contrato-docs-url"
+                  name="contrato-docs-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://docs.google.com/document/d/..."
+                  value={sheetsUrl}
+                  onChange={(event) => setSheetsUrl(event.target.value)}
+                  disabled={savingLink}
                   required
                 />
               </label>
 
-              {uploadError ? (
+              {linkError ? (
                 <p className="login-error" role="alert">
                   <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                  {uploadError}
+                  {linkError}
                 </p>
               ) : null}
-              {uploadSuccess ? (
+              {linkSuccess ? (
                 <p className="av-cliente-success">
-                  <Check size={16} strokeWidth={2} aria-hidden /> {uploadSuccess}
+                  <Check size={16} strokeWidth={2} aria-hidden /> {linkSuccess}
                 </p>
               ) : null}
 
               <div className="av-ingresos-form-actions">
-                <button type="submit" className="btn-primary" disabled={uploading}>
-                  {uploading ? (
+                <button type="submit" className="btn-primary" disabled={savingLink}>
+                  {savingLink ? (
                     <>
                       <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Subiendo...
+                      Guardando...
                     </>
                   ) : (
                     <>
-                      <Upload size={16} strokeWidth={2} aria-hidden />
-                      {contrato ? 'Reemplazar contrato' : 'Subir contrato'}
+                      <Link2 size={16} strokeWidth={2} aria-hidden />
+                      {contrato?.source === 'docs' || contrato?.source === 'sheets'
+                        ? 'Actualizar enlace'
+                        : 'Vincular Google Docs'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <details className="av-contrato-file-alt">
+              <summary>Alternativa: subir archivo (PDF, Word o imagen)</summary>
+              <form className="av-cliente-form" onSubmit={(event) => void handleUpload(event)}>
+                <label className="login-field" htmlFor="contrato-file">
+                  Archivo (máx. 12 MB)
+                  <input
+                    id="contrato-file"
+                    name="contrato-file"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                    disabled={uploading}
+                    required
+                  />
+                </label>
+
+                {uploadError ? (
+                  <p className="login-error" role="alert">
+                    <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                    {uploadError}
+                  </p>
+                ) : null}
+                {uploadSuccess ? (
+                  <p className="av-cliente-success">
+                    <Check size={16} strokeWidth={2} aria-hidden /> {uploadSuccess}
+                  </p>
+                ) : null}
+
+                <div className="av-ingresos-form-actions">
+                  <button type="submit" className="btn-secondary" disabled={uploading}>
+                    {uploading ? (
+                      <>
+                        <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} strokeWidth={2} aria-hidden />
+                        {contrato?.source === 'file' ? 'Reemplazar archivo' : 'Subir archivo'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </details>
+          </section>
+
+          <section className="av-cliente-section">
+            <h3>Administración del Genio</h3>
+            <p className="section-note">
+              Vincula el Google Sheets de administración del Genio. Al pulsar{' '}
+              <strong>Ver administración</strong> se abre ese enlace.
+            </p>
+
+            {genioAdmin?.externalUrl ? (
+              <div className="av-contrato-card">
+                <div>
+                  <strong>{genioAdmin.titulo || 'Administración del Genio'}</strong>
+                  <p className="section-note">
+                    Google Sheets
+                    {genioAdmin.updatedAt ? ` · ${formatFecha(genioAdmin.updatedAt)}` : ''}
+                    {genioAdmin.updatedByNombre || genioAdmin.updatedByEmail
+                      ? ` · ${genioAdmin.updatedByNombre || genioAdmin.updatedByEmail}`
+                      : ''}
+                  </p>
+                </div>
+                <a
+                  className="btn-secondary"
+                  href={genioAdmin.externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Link2 size={16} strokeWidth={2} aria-hidden />
+                  Ver administración
+                </a>
+              </div>
+            ) : (
+              <p className="section-note">Aún no hay un enlace del Genio vinculado.</p>
+            )}
+
+            <form className="av-cliente-form" onSubmit={(event) => void handleSaveGenio(event)}>
+              <label className="login-field" htmlFor="genio-sheets-url">
+                Enlace de Google Sheets (Genio)
+                <input
+                  id="genio-sheets-url"
+                  name="genio-sheets-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  value={genioUrl}
+                  onChange={(event) => setGenioUrl(event.target.value)}
+                  disabled={savingGenio}
+                  required
+                />
+              </label>
+
+              {genioError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {genioError}
+                </p>
+              ) : null}
+              {genioSuccess ? (
+                <p className="av-cliente-success">
+                  <Check size={16} strokeWidth={2} aria-hidden /> {genioSuccess}
+                </p>
+              ) : null}
+
+              <div className="av-ingresos-form-actions">
+                <button type="submit" className="btn-primary" disabled={savingGenio}>
+                  {savingGenio ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 size={16} strokeWidth={2} aria-hidden />
+                      {genioAdmin?.externalUrl ? 'Actualizar enlace Genio' : 'Vincular Genio'}
                     </>
                   )}
                 </button>

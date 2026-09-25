@@ -17,6 +17,7 @@ export {
   ChevronRight,
   CircleHelp,
   Code2,
+  Coins,
   Copy,
   Cpu,
   Download,

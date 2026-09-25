@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, FileText, Key, Layers, Package, User, Users, Video } from '../icons'
+import { Banknote, Bell, Coins, FileText, Key, Layers, Package, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvClientesPanel } from './AvClientesPanel'
+import { AvCreditosPanel } from './AvCreditosPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
 import { AvFacturacionPanel } from './AvFacturacionPanel'
@@ -19,6 +20,7 @@ type AudiovisualVista =
   | 'equipos'
   | 'clientes'
   | 'accesos'
+  | 'creditos'
   | 'movimientos'
   | 'mi-perfil'
   | 'contrato-avisos'
@@ -38,6 +40,7 @@ const TABS: {
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
   { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
+  { id: 'creditos', label: 'Créditos', icon: Coins, action: 'av_creditos' },
   {
     id: 'movimientos',
     label: 'Movimientos',
@@ -120,6 +123,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
   const finanzasReadOnly = !canEditAvTab(access, 'av_finanzas')
   const planesReadOnly = !canEditAvTab(access, 'av_planes')
   const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
+  const creditosReadOnly = !canEditAvTab(access, 'av_creditos')
 
   if (allowedTabs.length === 0) {
     return (
@@ -241,6 +245,8 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       {vista === 'clientes' ? <AvClientesPanel readOnly={clientesReadOnly} /> : null}
 
       {vista === 'accesos' ? <AvAccesosPanel canManage={isOwner} /> : null}
+
+      {vista === 'creditos' ? <AvCreditosPanel readOnly={creditosReadOnly} /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

@@ -538,6 +538,8 @@ export type AvContrato = {
   uploadedBy: string | null
   uploadedByNombre: string | null
   uploadedByEmail: string | null
+  externalUrl: string | null
+  source: 'docs' | 'sheets' | 'file' | null
   downloadUrl: string | null
 }
 
@@ -575,6 +577,45 @@ export async function uploadAvContrato(
     body: JSON.stringify(payload),
   })
   return data.contrato
+}
+
+export async function saveAvContratoEnlace(
+  token: string,
+  payload: { externalUrl: string; fileName?: string },
+): Promise<AvContrato> {
+  const data = await apiFetch<{ contrato: AvContrato }>('/api/audiovisual/contrato', token, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+  return data.contrato
+}
+
+export type AvGenioAdmin = {
+  titulo: string | null
+  externalUrl: string | null
+  updatedAt: string | null
+  updatedBy: string | null
+  updatedByNombre: string | null
+  updatedByEmail: string | null
+}
+
+export async function getAvGenioAdmin(token: string): Promise<AvGenioAdmin | null> {
+  const data = await apiFetch<{ genioAdmin: AvGenioAdmin | null }>(
+    '/api/audiovisual/genio-admin',
+    token,
+  )
+  return data.genioAdmin
+}
+
+export async function saveAvGenioAdminEnlace(
+  token: string,
+  payload: { externalUrl: string; titulo?: string },
+): Promise<AvGenioAdmin> {
+  const data = await apiFetch<{ genioAdmin: AvGenioAdmin }>('/api/audiovisual/genio-admin', token, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+  return data.genioAdmin
 }
 
 export async function listAvNotificaciones(token: string): Promise<AvNotificacion[]> {
@@ -725,6 +766,62 @@ export async function listAvMovimientos(
 
 export async function deleteAvCliente(token: string, id: string): Promise<void> {
   await apiFetch(`/api/audiovisual/clientes/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}
+
+export type AvServicioCredito = {
+  id: string
+  nombre: string | null
+  descripcion: string | null
+  creditos: number
+  referencia: string | null
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+}
+
+export async function listAvServiciosCreditos(token: string): Promise<AvServicioCredito[]> {
+  const data = await apiFetch<{ servicios: AvServicioCredito[] }>(
+    '/api/audiovisual/servicios-creditos',
+    token,
+  )
+  return data.servicios
+}
+
+export async function createAvServicioCredito(
+  token: string,
+  payload: { nombre: string; descripcion: string; creditos: number },
+): Promise<AvServicioCredito> {
+  const data = await apiFetch<{ servicio: AvServicioCredito }>(
+    '/api/audiovisual/servicios-creditos',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.servicio
+}
+
+export async function updateAvServicioCredito(
+  token: string,
+  id: string,
+  payload: Partial<{ nombre: string; descripcion: string; creditos: number }>,
+): Promise<AvServicioCredito> {
+  const data = await apiFetch<{ servicio: AvServicioCredito }>(
+    `/api/audiovisual/servicios-creditos/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.servicio
+}
+
+export async function deleteAvServicioCredito(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/servicios-creditos/${encodeURIComponent(id)}`, token, {
     method: 'DELETE',
   })
 }

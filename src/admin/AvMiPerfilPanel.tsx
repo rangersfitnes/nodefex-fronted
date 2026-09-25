@@ -8,8 +8,10 @@ import {
 } from '../api/administradores'
 import {
   getAvContrato,
+  getAvGenioAdmin,
   listAvNotificaciones,
   type AvContrato,
+  type AvGenioAdmin,
   type AvNotificacion,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,6 +20,7 @@ import {
   Bell,
   FileText,
   IdCard,
+  Link2,
   LoaderCircle,
   Shield,
   User,
@@ -112,6 +115,7 @@ type AvMiPerfilPanelProps = {
 export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
   const { user, administrador } = useAuth()
   const [contrato, setContrato] = useState<AvContrato | null>(null)
+  const [genioAdmin, setGenioAdmin] = useState<AvGenioAdmin | null>(null)
   const [notificaciones, setNotificaciones] = useState<AvNotificacion[]>([])
   const [extraLoading, setExtraLoading] = useState(true)
   const [extraError, setExtraError] = useState('')
@@ -125,12 +129,14 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
       setExtraError('')
       try {
         const token = await user.getIdToken()
-        const [contratoData, notificacionesData] = await Promise.all([
+        const [contratoData, genioData, notificacionesData] = await Promise.all([
           getAvContrato(token),
+          getAvGenioAdmin(token),
           listAvNotificaciones(token),
         ])
         if (cancelled) return
         setContrato(contratoData)
+        setGenioAdmin(genioData)
         setNotificaciones(notificacionesData)
       } catch (err) {
         if (!cancelled) {
@@ -308,25 +314,62 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
               <div>
                 <strong>{contrato.fileName || 'Contrato'}</strong>
                 <p className="section-note">
-                  {formatBytes(contrato.size)}
+                  {contrato.source === 'docs' || contrato.source === 'sheets'
+                    ? 'Google Docs'
+                    : formatBytes(contrato.size)}
                   {contrato.uploadedAt ? ` · ${formatFecha(contrato.uploadedAt)}` : ''}
                 </p>
               </div>
-              {contrato.downloadUrl ? (
+              {contrato.downloadUrl || contrato.externalUrl ? (
                 <a
                   className="btn-secondary"
-                  href={contrato.downloadUrl}
+                  href={contrato.downloadUrl || contrato.externalUrl || '#'}
                   target="_blank"
                   rel="noreferrer"
                 >
                   <FileText size={16} strokeWidth={2} aria-hidden />
-                  Ver / descargar
+                  Ver contrato
                 </a>
               ) : null}
             </div>
           ) : null}
           {!extraLoading && !extraError && !contrato ? (
             <p className="section-note">Aún no hay un contrato publicado por el propietario.</p>
+          ) : null}
+        </section>
+
+        <section className="av-cliente-section">
+          <h3>Administración del Genio</h3>
+          {extraLoading ? (
+            <div className="proyectos-status">
+              <LoaderCircle size={18} strokeWidth={2} aria-hidden className="spin" />
+              Cargando enlace...
+            </div>
+          ) : null}
+          {!extraLoading && !extraError && genioAdmin?.externalUrl ? (
+            <div className="av-contrato-card">
+              <div>
+                <strong>{genioAdmin.titulo || 'Administración del Genio'}</strong>
+                <p className="section-note">
+                  Google Sheets
+                  {genioAdmin.updatedAt ? ` · ${formatFecha(genioAdmin.updatedAt)}` : ''}
+                </p>
+              </div>
+              <a
+                className="btn-secondary"
+                href={genioAdmin.externalUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Link2 size={16} strokeWidth={2} aria-hidden />
+                Ver administración
+              </a>
+            </div>
+          ) : null}
+          {!extraLoading && !extraError && !genioAdmin?.externalUrl ? (
+            <p className="section-note">
+              Aún no hay un Google Sheets del Genio publicado por el propietario.
+            </p>
           ) : null}
         </section>
 
