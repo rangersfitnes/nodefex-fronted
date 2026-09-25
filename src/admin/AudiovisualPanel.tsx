@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, Coins, FileText, Key, Layers, Package, User, Users, Video } from '../icons'
+import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvClientesPanel } from './AvClientesPanel'
+import { AvCotizacionesPanel } from './AvCotizacionesPanel'
 import { AvCreditosPanel } from './AvCreditosPanel'
+import { AvCrmPanel } from './AvCrmPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
+import { AvEmpresaGenioForm } from './AvEmpresaGenioForm'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
 import { AvFacturacionPanel } from './AvFacturacionPanel'
 import { AvIngresosPanel } from './AvIngresosPanel'
@@ -21,6 +24,8 @@ type AudiovisualVista =
   | 'clientes'
   | 'accesos'
   | 'creditos'
+  | 'cotizaciones'
+  | 'crm'
   | 'movimientos'
   | 'mi-perfil'
   | 'contrato-avisos'
@@ -41,6 +46,8 @@ const TABS: {
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
   { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   { id: 'creditos', label: 'Créditos', icon: Coins, action: 'av_creditos' },
+  { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
+  { id: 'crm', label: 'CRM', icon: MessageCircle, action: null, ownerOnly: true },
   {
     id: 'movimientos',
     label: 'Movimientos',
@@ -124,6 +131,8 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
   const planesReadOnly = !canEditAvTab(access, 'av_planes')
   const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
   const creditosReadOnly = !canEditAvTab(access, 'av_creditos')
+  const cotizacionesReadOnly = !canEditAvTab(access, 'av_cotizaciones')
+  const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
 
   if (allowedTabs.length === 0) {
     return (
@@ -149,6 +158,8 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       <p className="section-note">
         Panel de operación de Nodefex Audio Visual. Elige una pestaña para gestionar cada área.
       </p>
+
+      <AvEmpresaGenioForm canEdit={canEditEmpresa} />
 
       <div
         className="contable-tabs contable-page-tabs"
@@ -247,6 +258,12 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       {vista === 'accesos' ? <AvAccesosPanel canManage={isOwner} /> : null}
 
       {vista === 'creditos' ? <AvCreditosPanel readOnly={creditosReadOnly} /> : null}
+
+      {vista === 'cotizaciones' ? (
+        <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
+      ) : null}
+
+      {vista === 'crm' && isOwner ? <AvCrmPanel /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

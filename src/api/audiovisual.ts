@@ -825,3 +825,241 @@ export async function deleteAvServicioCredito(token: string, id: string): Promis
     method: 'DELETE',
   })
 }
+
+export type AvCrmWhatsappStatus = {
+  status: 'idle' | 'connecting' | 'qr' | 'open' | 'close' | string
+  connected: boolean
+  hasQr: boolean
+  qrDataUrl: string | null
+  phoneNumber: string | null
+  pushName?: string | null
+  lastError: string | null
+  chatsCount?: number
+}
+
+export async function getAvCrmWhatsappStatus(token: string): Promise<AvCrmWhatsappStatus> {
+  const data = await apiFetch<{ whatsapp: AvCrmWhatsappStatus }>(
+    '/api/audiovisual/crm/whatsapp/status',
+    token,
+  )
+  return data.whatsapp
+}
+
+export async function connectAvCrmWhatsapp(
+  token: string,
+  options: { forceNew?: boolean } = {},
+): Promise<AvCrmWhatsappStatus> {
+  const data = await apiFetch<{ whatsapp: AvCrmWhatsappStatus }>(
+    '/api/audiovisual/crm/whatsapp/connect',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ forceNew: Boolean(options.forceNew) }),
+    },
+  )
+  return data.whatsapp
+}
+
+export async function disconnectAvCrmWhatsapp(token: string): Promise<AvCrmWhatsappStatus> {
+  const data = await apiFetch<{ whatsapp: AvCrmWhatsappStatus }>(
+    '/api/audiovisual/crm/whatsapp/disconnect',
+    token,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+  return data.whatsapp
+}
+
+export type AvCrmChatPresence = {
+  presence: string
+  lastSeen: number | null
+  label: string
+}
+
+export type AvCrmChatLastMessage = {
+  id: string | null
+  fromMe: boolean
+  text: string
+  status: string | null
+  timestamp: number | null
+}
+
+export type AvCrmChat = {
+  id: string
+  name: string
+  isGroup: boolean
+  unreadCount: number
+  archived: boolean
+  pinned: boolean
+  muted: boolean
+  conversationTimestamp: number | null
+  lastMessage: AvCrmChatLastMessage | null
+  presence: AvCrmChatPresence
+  profilePicUrl: string | null
+}
+
+export type AvCrmMessage = {
+  id: string | null
+  chatId: string | null
+  fromMe: boolean
+  participant: string | null
+  pushName: string | null
+  timestamp: number | null
+  type: string
+  text: string
+  status: string | null
+  starred: boolean
+  hasAudio?: boolean
+  isPtt?: boolean
+  audioSeconds?: number | null
+  audioMimetype?: string | null
+}
+
+export async function listAvCrmChats(
+  token: string,
+  options: { q?: string; limit?: number } = {},
+): Promise<AvCrmChat[]> {
+  const params = new URLSearchParams()
+  if (options.q) params.set('q', options.q)
+  if (options.limit) params.set('limit', String(options.limit))
+  const query = params.toString() ? `?${params.toString()}` : ''
+  const data = await apiFetch<{ chats: AvCrmChat[] }>(
+    `/api/audiovisual/crm/whatsapp/chats${query}`,
+    token,
+  )
+  return data.chats
+}
+
+export async function getAvCrmChat(
+  token: string,
+  jid: string,
+  options: { limit?: number } = {},
+): Promise<{ chat: AvCrmChat; messages: AvCrmMessage[] }> {
+  const params = new URLSearchParams()
+  if (options.limit) params.set('limit', String(options.limit))
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<{ chat: AvCrmChat; messages: AvCrmMessage[] }>(
+    `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}${query}`,
+    token,
+  )
+}
+
+export async function sendAvCrmMessage(
+  token: string,
+  jid: string,
+  text: string,
+): Promise<AvCrmMessage> {
+  const data = await apiFetch<{ message: AvCrmMessage }>(
+    `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/messages`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    },
+  )
+  return data.message
+}
+
+export async function fetchAvCrmMessageAudio(
+  token: string,
+  jid: string,
+  messageId: string,
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_URL}/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/messages/${encodeURIComponent(messageId)}/audio`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(data.error || 'No se pudo cargar el audio')
+  }
+  return response.blob()
+}
+
+export type AvEmpresaGenio = {
+  nit: string | null
+  razonSocial: string | null
+  nombreComercial: string | null
+  correo: string | null
+  telefono: string | null
+  direccion: string | null
+  ciudad: string | null
+  sitioWeb: string | null
+  regimen: string | null
+  actualizadoEn: string | null
+  updatedBy: string | null
+  updatedByNombre: string | null
+}
+
+export type AvCotizacionItem = {
+  concepto: string
+  valor: number
+}
+
+export type AvCotizacion = {
+  id: string
+  numero: string | null
+  clienteNombre: string | null
+  clienteDocumento: string | null
+  clienteCorreo: string | null
+  clienteTelefono: string | null
+  items: AvCotizacionItem[]
+  subtotal: number
+  resumen: string | null
+  empresaSnapshot: AvEmpresaGenio | null
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+}
+
+export async function getAvEmpresaGenio(token: string): Promise<AvEmpresaGenio> {
+  const data = await apiFetch<{ empresa: AvEmpresaGenio }>('/api/audiovisual/empresa-genio', token)
+  return data.empresa
+}
+
+export async function saveAvEmpresaGenio(
+  token: string,
+  payload: Partial<AvEmpresaGenio>,
+): Promise<AvEmpresaGenio> {
+  const data = await apiFetch<{ empresa: AvEmpresaGenio }>('/api/audiovisual/empresa-genio', token, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+  return data.empresa
+}
+
+export async function listAvCotizaciones(token: string): Promise<AvCotizacion[]> {
+  const data = await apiFetch<{ cotizaciones: AvCotizacion[] }>(
+    '/api/audiovisual/cotizaciones',
+    token,
+  )
+  return data.cotizaciones
+}
+
+export async function createAvCotizacion(
+  token: string,
+  payload: {
+    clienteNombre: string
+    clienteDocumento?: string
+    clienteCorreo?: string
+    clienteTelefono?: string
+    items: AvCotizacionItem[]
+    resumen: string
+  },
+): Promise<AvCotizacion> {
+  const data = await apiFetch<{ cotizacion: AvCotizacion }>('/api/audiovisual/cotizaciones', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.cotizacion
+}
+
+export async function deleteAvCotizacion(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/cotizaciones/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}

@@ -12,6 +12,7 @@ export type AdminAccion =
   | 'av_clientes'
   | 'av_accesos'
   | 'av_creditos'
+  | 'av_cotizaciones'
 
 export const ADMIN_ACCIONES_MEMBRESIA: { id: AdminAccion; label: string }[] = [
   { id: 'create_users', label: 'Crear usuarios' },
@@ -28,6 +29,7 @@ export const ADMIN_ACCIONES_AUDIOVISUAL: { id: AdminAccion; label: string }[] = 
   { id: 'av_clientes', label: 'Clientes' },
   { id: 'av_accesos', label: 'Accesos' },
   { id: 'av_creditos', label: 'Créditos' },
+  { id: 'av_cotizaciones', label: 'Cotizaciones' },
 ]
 
 export const ADMIN_ACCIONES: { id: AdminAccion; label: string }[] = [
