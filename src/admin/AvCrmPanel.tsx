@@ -239,7 +239,7 @@ export function AvCrmPanel() {
   const [sending, setSending] = useState(false)
   const [mobileShowChat, setMobileShowChat] = useState(false)
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const connected = status.connected
 
   useEffect(() => {
@@ -358,7 +358,10 @@ export function AvCrmPanel() {
   }, [connected, user, selectedId])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const container = messagesContainerRef.current
+    if (!container) return
+    // Scroll solo dentro del panel de mensajes (no mueve la página ni oculta el composer).
+    container.scrollTop = container.scrollHeight
   }, [messages.length, selectedId])
 
   const selectedFromList = useMemo(
@@ -620,7 +623,12 @@ export function AvCrmPanel() {
                   </div>
                 </header>
 
-                <div className="av-wa-messages" role="log" aria-live="polite">
+                <div
+                  className="av-wa-messages"
+                  role="log"
+                  aria-live="polite"
+                  ref={messagesContainerRef}
+                >
                   {chatLoading && messages.length === 0 ? (
                     <div className="av-wa-messages-loading">
                       <LoaderCircle className="spin" size={20} strokeWidth={2} aria-hidden />
@@ -646,7 +654,6 @@ export function AvCrmPanel() {
                       </span>
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <form className="av-wa-composer" onSubmit={(event) => void handleSend(event)}>
