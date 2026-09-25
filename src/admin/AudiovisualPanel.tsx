@@ -47,7 +47,7 @@ const TABS: {
   { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   { id: 'creditos', label: 'Créditos', icon: Coins, action: 'av_creditos' },
   { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
-  { id: 'crm', label: 'CRM', icon: MessageCircle, action: null, ownerOnly: true },
+  { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
   {
     id: 'movimientos',
     label: 'Movimientos',
@@ -132,6 +132,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
   const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
   const creditosReadOnly = !canEditAvTab(access, 'av_creditos')
   const cotizacionesReadOnly = !canEditAvTab(access, 'av_cotizaciones')
+  const crmReadOnly = !canEditAvTab(access, 'av_crm')
   const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
 
   if (allowedTabs.length === 0) {
@@ -263,7 +264,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
         <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
       ) : null}
 
-      {vista === 'crm' && isOwner ? <AvCrmPanel /> : null}
+      {vista === 'crm' ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

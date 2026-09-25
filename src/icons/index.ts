@@ -27,6 +27,7 @@ export {
   Eye,
   EyeOff,
   FileText,
+  Filter,
   Globe,
   Hexagon,
   Home,

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   createAdministrador,
@@ -7,10 +7,12 @@ import {
   listAdministradores,
   type Administrador,
 } from '../api/administradores'
+import { listProyectos, type Proyecto } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   ArrowRight,
+  Filter,
   Hexagon,
   LoaderCircle,
   Link2,
@@ -24,12 +26,20 @@ import {
   X,
 } from '../icons'
 
+type ProyectoFilter = 'all' | 'none' | string
+
+function adminProjectIds(admin: Administrador): string[] {
+  return Object.keys(admin.accesos || {})
+}
+
 export function Administradores() {
   const { user, administrador, logout } = useAuth()
   const navigate = useNavigate()
   const [admins, setAdmins] = useState<Administrador[]>([])
+  const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [proyectoFilter, setProyectoFilter] = useState<ProyectoFilter>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -48,8 +58,13 @@ export function Administradores() {
       setError('')
       try {
         const token = await user.getIdToken()
-        const data = await listAdministradores(token)
-        if (!cancelled) setAdmins(data)
+        const [adminsData, proyectosData] = await Promise.all([
+          listAdministradores(token),
+          listProyectos(token),
+        ])
+        if (cancelled) return
+        setAdmins(adminsData)
+        setProyectos(proyectosData)
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -66,6 +81,26 @@ export function Administradores() {
       cancelled = true
     }
   }, [user])
+
+  const proyectoNombreById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const proyecto of proyectos) {
+      map.set(proyecto.id, proyecto.nombre || proyecto.id)
+    }
+    return map
+  }, [proyectos])
+
+  const filteredAdmins = useMemo(() => {
+    return admins.filter((item) => {
+      if (item.rol === 'owner') {
+        return proyectoFilter === 'all'
+      }
+      const ids = adminProjectIds(item)
+      if (proyectoFilter === 'all') return true
+      if (proyectoFilter === 'none') return ids.length === 0
+      return ids.includes(proyectoFilter)
+    })
+  }, [admins, proyectoFilter])
 
   async function handleLogout() {
     await logout()
@@ -191,6 +226,44 @@ export function Administradores() {
         </section>
 
         <section className="usuarios-section" aria-label="Lista de administradores">
+          {!loading && !error && admins.length > 0 ? (
+            <div className="admins-filters" role="group" aria-label="Filtrar por proyecto">
+              <div className="admins-filters-label">
+                <Filter size={16} strokeWidth={2} aria-hidden />
+                <span>Proyecto</span>
+              </div>
+              <div className="admins-filter-chips">
+                <button
+                  type="button"
+                  className={proyectoFilter === 'all' ? 'is-active' : ''}
+                  onClick={() => setProyectoFilter('all')}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  className={proyectoFilter === 'none' ? 'is-active' : ''}
+                  onClick={() => setProyectoFilter('none')}
+                >
+                  Sin proyectos
+                </button>
+                {proyectos.map((proyecto) => (
+                  <button
+                    key={proyecto.id}
+                    type="button"
+                    className={proyectoFilter === proyecto.id ? 'is-active' : ''}
+                    onClick={() => setProyectoFilter(proyecto.id)}
+                  >
+                    {proyecto.nombre || proyecto.id}
+                  </button>
+                ))}
+              </div>
+              <p className="admins-filters-count section-note">
+                {filteredAdmins.length} de {admins.length}
+              </p>
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="proyectos-status">
               <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
@@ -212,66 +285,94 @@ export function Administradores() {
             </div>
           ) : null}
 
-          {!loading && !error && admins.length > 0 ? (
+          {!loading && !error && admins.length > 0 && filteredAdmins.length === 0 ? (
+            <div className="proyectos-empty">
+              <Filter size={28} strokeWidth={1.75} aria-hidden />
+              <p>Ningún administrador coincide con este filtro de proyecto.</p>
+              <button type="button" className="btn-secondary" onClick={() => setProyectoFilter('all')}>
+                Ver todos
+              </button>
+            </div>
+          ) : null}
+
+          {!loading && !error && filteredAdmins.length > 0 ? (
             <div className="usuarios-list">
-              {admins.map((item) => (
-                <article
-                  key={item.uid}
-                  className={`usuario-row ${item.rol === 'admin' ? 'usuario-row-clickable' : ''}`}
-                  onClick={() => {
-                    if (item.rol === 'admin') {
-                      navigate(`/admin/administradores/${encodeURIComponent(item.uid)}`)
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (item.rol !== 'admin') return
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      navigate(`/admin/administradores/${encodeURIComponent(item.uid)}`)
-                    }
-                  }}
-                  role={item.rol === 'admin' ? 'link' : undefined}
-                  tabIndex={item.rol === 'admin' ? 0 : undefined}
-                >
-                  <div className="usuario-avatar" aria-hidden>
-                    <Mail size={18} strokeWidth={1.75} />
-                  </div>
-                  <div className="usuario-info">
-                    <h3>{item.nombre || item.email || 'Sin correo'}</h3>
-                    <p>
-                      {item.rol === 'admin'
-                        ? [
-                            item.nombre ? item.email : null,
-                            item.cedula ? `C.C. ${item.cedula}` : null,
-                            `Ganancia ${formatCop(item.gananciaTotal || 0)}`,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')
-                        : 'UID: ' + item.uid}
-                    </p>
-                  </div>
-                  <div
-                    className="usuario-actions"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
+              {filteredAdmins.map((item) => {
+                const projectIds = adminProjectIds(item)
+                return (
+                  <article
+                    key={item.uid}
+                    className={`usuario-row ${item.rol === 'admin' ? 'usuario-row-clickable' : ''}`}
+                    onClick={() => {
+                      if (item.rol === 'admin') {
+                        navigate(`/admin/administradores/${encodeURIComponent(item.uid)}`)
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (item.rol !== 'admin') return
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        navigate(`/admin/administradores/${encodeURIComponent(item.uid)}`)
+                      }
+                    }}
+                    role={item.rol === 'admin' ? 'link' : undefined}
+                    tabIndex={item.rol === 'admin' ? 0 : undefined}
                   >
-                    <span className={`admin-role-badge ${item.rol === 'owner' ? 'is-owner' : 'is-admin'}`}>
-                      <Shield size={14} strokeWidth={2} aria-hidden />
-                      {item.rol === 'owner' ? 'Owner' : 'Admin'}
-                    </span>
-                    {item.rol === 'admin' ? (
-                      <button
-                        type="button"
-                        className="proyecto-delete"
-                        onClick={() => openDeleteConfirm(item)}
-                        aria-label={`Eliminar administrador ${item.email || item.nombre || item.uid}`}
+                    <div className="usuario-avatar" aria-hidden>
+                      <Mail size={18} strokeWidth={1.75} />
+                    </div>
+                    <div className="usuario-info">
+                      <h3>{item.nombre || item.email || 'Sin correo'}</h3>
+                      <p>
+                        {item.rol === 'admin'
+                          ? [
+                              item.nombre ? item.email : null,
+                              item.cedula ? `C.C. ${item.cedula}` : null,
+                              `Ganancia ${formatCop(item.gananciaTotal || 0)}`,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
+                          : 'UID: ' + item.uid}
+                      </p>
+                      {item.rol === 'admin' ? (
+                        <div className="admin-project-tags">
+                          {projectIds.length === 0 ? (
+                            <span className="admin-project-tag is-empty">Sin proyectos</span>
+                          ) : (
+                            projectIds.map((id) => (
+                              <span key={id} className="admin-project-tag">
+                                {proyectoNombreById.get(id) || id}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div
+                      className="usuario-actions"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <span
+                        className={`admin-role-badge ${item.rol === 'owner' ? 'is-owner' : 'is-admin'}`}
                       >
-                        <Trash2 size={16} strokeWidth={2} />
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
+                        <Shield size={14} strokeWidth={2} aria-hidden />
+                        {item.rol === 'owner' ? 'Owner' : 'Admin'}
+                      </span>
+                      {item.rol === 'admin' ? (
+                        <button
+                          type="button"
+                          className="proyecto-delete"
+                          onClick={() => openDeleteConfirm(item)}
+                          aria-label={`Eliminar administrador ${item.email || item.nombre || item.uid}`}
+                        >
+                          <Trash2 size={16} strokeWidth={2} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           ) : null}
         </section>
@@ -347,13 +448,10 @@ export function Administradores() {
                   {submitting ? (
                     <>
                       <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Guardando...
+                      Creando…
                     </>
                   ) : (
-                    <>
-                      <Plus size={16} strokeWidth={2} aria-hidden />
-                      Crear
-                    </>
+                    'Crear'
                   )}
                 </button>
               </div>
@@ -383,20 +481,16 @@ export function Administradores() {
                 <X size={18} strokeWidth={2} />
               </button>
             </div>
-
-            <p className="modal-confirm-text">
-              ¿Seguro que quieres eliminar a{' '}
-              <strong>{adminAEliminar.nombre || adminAEliminar.email}</strong>? Se borrará de
-              Firebase Auth y de Firestore. Esta acción no se puede deshacer.
+            <p className="section-note">
+              ¿Eliminar a <strong>{adminAEliminar.email || adminAEliminar.nombre}</strong>? Esta
+              acción no se puede deshacer.
             </p>
-
             {deleteError ? (
               <p className="login-error" role="alert">
                 <AlertCircle size={16} strokeWidth={2} aria-hidden />
                 {deleteError}
               </p>
             ) : null}
-
             <div className="modal-actions">
               <button
                 type="button"
@@ -408,20 +502,17 @@ export function Administradores() {
               </button>
               <button
                 type="button"
-                className="btn-danger"
+                className="btn-primary"
                 onClick={() => void handleDeleteConfirm()}
                 disabled={deleting}
               >
                 {deleting ? (
                   <>
                     <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                    Eliminando...
+                    Eliminando…
                   </>
                 ) : (
-                  <>
-                    <Trash2 size={16} strokeWidth={2} aria-hidden />
-                    Eliminar
-                  </>
+                  'Eliminar'
                 )}
               </button>
             </div>

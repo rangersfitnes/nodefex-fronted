@@ -221,7 +221,7 @@ function Avatar({
   )
 }
 
-export function AvCrmPanel() {
+export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
@@ -264,8 +264,24 @@ export function AvCrmPanel() {
     }
 
     void load()
+
+    // Mantener estado al día tras recargas / reconexión del backend.
+    const id = window.setInterval(() => {
+      if (!user) return
+      void (async () => {
+        try {
+          const token = await user.getIdToken()
+          const data = await getAvCrmWhatsappStatus(token)
+          if (!cancelled) setStatus(data)
+        } catch {
+          // ignore
+        }
+      })()
+    }, 4000)
+
     return () => {
       cancelled = true
+      window.clearInterval(id)
     }
   }, [user])
 
@@ -371,7 +387,7 @@ export function AvCrmPanel() {
   const headerChat = activeChat || selectedFromList
 
   async function openLinkModal() {
-    if (!user || busy) return
+    if (!user || busy || readOnly) return
     setModalOpen(true)
     setBusy(true)
     setError('')
@@ -388,7 +404,7 @@ export function AvCrmPanel() {
   }
 
   async function handleRefreshQr() {
-    if (!user || busy) return
+    if (!user || busy || readOnly) return
     setBusy(true)
     setError('')
     try {
@@ -403,7 +419,7 @@ export function AvCrmPanel() {
   }
 
   async function handleDisconnect() {
-    if (!user || busy) return
+    if (!user || busy || readOnly) return
     const ok = window.confirm('¿Desvincular WhatsApp de este CRM?')
     if (!ok) return
     setBusy(true)
@@ -431,7 +447,7 @@ export function AvCrmPanel() {
 
   async function handleSend(event: FormEvent) {
     event.preventDefault()
-    if (!user || !selectedId || sending) return
+    if (!user || !selectedId || sending || readOnly) return
     const text = draft.trim()
     if (!text) return
     setSending(true)
@@ -477,16 +493,18 @@ export function AvCrmPanel() {
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => void openLinkModal()}
-            disabled={busy || loading}
-          >
-            <Link2 size={16} strokeWidth={2} aria-hidden />
-            {connected ? 'Sesión' : 'Vincular WhatsApp'}
-          </button>
-          {connected ? (
+          {!readOnly ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void openLinkModal()}
+              disabled={busy || loading}
+            >
+              <Link2 size={16} strokeWidth={2} aria-hidden />
+              {connected ? 'Sesión' : 'Vincular WhatsApp'}
+            </button>
+          ) : null}
+          {!readOnly && connected ? (
             <button
               type="button"
               className="btn-secondary"
@@ -498,6 +516,12 @@ export function AvCrmPanel() {
           ) : null}
         </div>
       </div>
+
+      {readOnly ? (
+        <p className="section-note av-readonly-banner">
+          Modo solo visualización: puedes consultar chats, pero no vincular ni enviar mensajes.
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="proyectos-status">
@@ -516,11 +540,17 @@ export function AvCrmPanel() {
       {!loading && !connected ? (
         <div className="proyectos-empty">
           <MessageCircle size={28} strokeWidth={1.75} aria-hidden />
-          <p>Vincula WhatsApp para ver la bandeja de chats como en WhatsApp Web.</p>
-          <button type="button" className="btn-primary" onClick={() => void openLinkModal()}>
-            <Link2 size={16} strokeWidth={2} aria-hidden />
-            Vincular WhatsApp
-          </button>
+          <p>
+            {readOnly
+              ? 'WhatsApp aún no está vinculado. Pide a quien gestione el CRM que lo conecte.'
+              : 'Vincula WhatsApp para ver la bandeja de chats como en WhatsApp Web.'}
+          </p>
+          {!readOnly ? (
+            <button type="button" className="btn-primary" onClick={() => void openLinkModal()}>
+              <Link2 size={16} strokeWidth={2} aria-hidden />
+              Vincular WhatsApp
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -659,13 +689,18 @@ export function AvCrmPanel() {
                 <form className="av-wa-composer" onSubmit={(event) => void handleSend(event)}>
                   <input
                     type="text"
-                    placeholder="Escribe un mensaje"
+                    placeholder={readOnly ? 'Solo lectura' : 'Escribe un mensaje'}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
-                    disabled={sending}
+                    disabled={sending || readOnly}
                     aria-label="Mensaje"
+                    readOnly={readOnly}
                   />
-                  <button type="submit" className="av-wa-send" disabled={sending || !draft.trim()}>
+                  <button
+                    type="submit"
+                    className="av-wa-send"
+                    disabled={readOnly || sending || !draft.trim()}
+                  >
                     {sending ? (
                       <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
                     ) : (
