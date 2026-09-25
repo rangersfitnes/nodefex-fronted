@@ -374,7 +374,9 @@ export function AvCrmPanel() {
     setError('')
     try {
       const token = await user.getIdToken()
-      const data = await connectAvCrmWhatsapp(token, { forceNew: !status.connected })
+      // Nunca forzar sesión nueva aquí: si hay credenciales, Baileys reanuda.
+      // forceNew solo en "Nuevo QR" / handleRefreshQr (borra la vinculación).
+      const data = await connectAvCrmWhatsapp(token, { forceNew: false })
       setStatus(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar la vinculación')
@@ -593,7 +595,7 @@ export function AvCrmPanel() {
                 <p>Selecciona un chat para ver mensajes, ticks de envío y si el contacto está en línea.</p>
               </div>
             ) : (
-              <>
+              <div className="av-wa-conversation">
                 <header className="av-wa-pane-head">
                   <button
                     type="button"
@@ -619,7 +621,7 @@ export function AvCrmPanel() {
                   </div>
                 </header>
 
-                <div className="av-wa-messages">
+                <div className="av-wa-messages" role="log" aria-live="polite">
                   {chatLoading && messages.length === 0 ? (
                     <div className="av-wa-messages-loading">
                       <LoaderCircle className="spin" size={20} strokeWidth={2} aria-hidden />
@@ -665,7 +667,7 @@ export function AvCrmPanel() {
                     )}
                   </button>
                 </form>
-              </>
+              </div>
             )}
           </section>
         </div>
