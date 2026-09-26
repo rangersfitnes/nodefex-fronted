@@ -1055,18 +1055,30 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  useEffect(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-    // Scroll solo dentro del panel de mensajes (no mueve la página ni oculta el composer).
-    container.scrollTop = container.scrollHeight
-  }, [messages.length, selectedId])
-
   const selectedFromList = useMemo(
     () => chats.find((chat) => chat.id === selectedId) || null,
     [chats, selectedId],
   )
   const headerChat = activeChat || selectedFromList
+
+  // Orden cronológico estable (como WhatsApp): antiguos arriba, recientes abajo.
+  const sortedMessages = useMemo(() => {
+    return [...messages].sort((a, b) => {
+      const ta = a.timestamp || 0
+      const tb = b.timestamp || 0
+      if (ta !== tb) return ta - tb
+      const ida = String(a.id || '')
+      const idb = String(b.id || '')
+      return ida < idb ? -1 : ida > idb ? 1 : 0
+    })
+  }, [messages])
+
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    // Scroll solo dentro del panel de mensajes (no mueve la página ni oculta el composer).
+    container.scrollTop = container.scrollHeight
+  }, [sortedMessages.length, selectedId])
 
   async function openLinkModal() {
     if (!user || busy || readOnly) return
@@ -1533,13 +1545,13 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                   aria-live="polite"
                   ref={messagesContainerRef}
                 >
-                  {chatLoading && messages.length === 0 ? (
+                  {chatLoading && sortedMessages.length === 0 ? (
                     <div className="av-wa-messages-loading">
                       <LoaderCircle className="spin" size={20} strokeWidth={2} aria-hidden />
                       Cargando mensajes…
                     </div>
                   ) : null}
-                  {messages.map((message) => (
+                  {sortedMessages.map((message) => (
                     <div
                       key={message.id || `${message.timestamp}-${message.text}`}
                       className={`av-wa-bubble ${message.fromMe ? 'is-out' : 'is-in'}`}
