@@ -4287,9 +4287,15 @@ a {
 }
 
 .av-wa-bubble-author {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
-  font-weight: 650;
-  color: var(--wa-green-deep);
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 0.1rem;
 }
 
 .av-wa-bubble-meta {
@@ -4331,6 +4337,10 @@ a {
   border-top: 1px solid var(--wa-border);
   z-index: 2;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .av-wa-canned-wrap {
@@ -4463,6 +4473,8 @@ a {
   width: min(26rem, 86vw);
   max-height: min(70vh, 520px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .av-wa-resource-search {
@@ -4473,6 +4485,7 @@ a {
   border-radius: 0.55rem;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   background: color-mix(in srgb, currentColor 4%, transparent);
+  min-width: 0;
 }
 
 .av-wa-resource-search input {
@@ -4510,6 +4523,7 @@ a {
   color: inherit;
   padding: 0.55rem 0.65rem;
   cursor: pointer;
+  min-width: 0;
 }
 
 .av-wa-cotizacion-item:hover:not(:disabled) {
@@ -4526,10 +4540,14 @@ a {
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+  flex: 1;
 }
 
 .av-wa-cotizacion-item-main strong {
   font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .av-wa-cotizacion-item-main span {
@@ -4555,6 +4573,7 @@ a {
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.65rem 0.15rem 0.25rem;
+  min-width: 0;
 }
 
 .av-wa-resource-card-head {
@@ -4562,11 +4581,16 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .av-wa-resource-card-head strong {
   font-size: 0.92rem;
   color: var(--wa-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .av-wa-resource-status {
@@ -4574,6 +4598,7 @@ a {
   font-weight: 700;
   padding: 0.12rem 0.45rem;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .av-wa-resource-status.is-awaiting {
@@ -4591,22 +4616,30 @@ a {
   font-size: 0.78rem;
   color: var(--wa-muted, #667781);
   line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .av-wa-resource-preview,
 .av-wa-resource-edit {
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   font-size: 0.84rem;
   line-height: 1.4;
   color: var(--wa-text);
   background: #f6f7f8;
   border-radius: 10px;
   padding: 0.65rem 0.7rem;
+  max-height: 9rem;
+  overflow: auto;
+  box-sizing: border-box;
 }
 
 .av-wa-resource-edit {
   width: 100%;
+  max-width: 100%;
   border: 1px solid var(--wa-border, #e9edef);
   font: inherit;
   resize: vertical;
@@ -4619,6 +4652,7 @@ a {
   padding: 0;
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .av-wa-resource-fields li {
@@ -4629,6 +4663,7 @@ a {
   border-radius: 8px;
   background: rgba(11, 31, 58, 0.04);
   font-size: 0.78rem;
+  min-width: 0;
 }
 
 .av-wa-resource-fields li span {
@@ -4636,8 +4671,10 @@ a {
 }
 
 .av-wa-resource-fields li strong {
+  color: var(--wa-text);
   font-weight: 650;
-  color: #0b1f3a;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .av-wa-resource-fields li.is-done {
@@ -4648,13 +4685,20 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+  align-items: center;
   justify-content: flex-end;
+}
+
+.av-wa-resource-actions .btn-primary,
+.av-wa-resource-actions .btn-secondary {
+  min-width: 0;
 }
 
 .av-wa-composer input,
 .av-wa-composer-input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  max-width: 100%;
   border: 0;
   border-radius: 1.15rem;
   padding: 0.7rem 1rem;
@@ -4664,8 +4708,13 @@ a {
   line-height: 1.35;
   outline: none;
   resize: none;
+  overflow-x: hidden;
   overflow-y: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
   max-height: calc(1.35em * 4 + 1.4rem);
+  box-sizing: border-box;
 }
 
 .av-wa-send {
@@ -4686,14 +4735,29 @@ a {
 }
 
 @media (max-width: 860px) {
+  .av-crm {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   .av-wa {
     grid-template-columns: 1fr;
-    height: min(78dvh, 720px);
-    max-height: min(78dvh, 720px);
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    height: min(68dvh, 640px);
+    max-height: min(68dvh, 640px);
+  }
+
+  .av-wa.is-chat-open {
+    height: min(72dvh, 680px);
+    max-height: min(72dvh, 680px);
   }
 
   .av-wa-pane {
     display: none;
+    min-height: 0;
+    max-height: 100%;
   }
 
   .av-wa.is-chat-open .av-wa-sidebar {
@@ -4702,10 +4766,98 @@ a {
 
   .av-wa.is-chat-open .av-wa-pane {
     display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .av-wa-back {
     display: inline-grid;
+  }
+
+  /* Recursos / mensajes rápidos: panel fijo para no desbordar en móvil. */
+  .av-wa-canned-panel,
+  .av-wa-resources-panel {
+    position: fixed;
+    left: 0.55rem;
+    right: 0.55rem;
+    bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+    max-height: min(58dvh, 26rem);
+    z-index: 60;
+    box-sizing: border-box;
+  }
+
+  .av-wa-resources-panel {
+    max-height: min(64dvh, 30rem);
+  }
+
+  .av-wa-cotizacion-list {
+    max-height: min(28dvh, 11rem);
+  }
+
+  .av-wa-resource-preview,
+  .av-wa-resource-edit {
+    max-height: min(22dvh, 7.5rem);
+  }
+
+  .av-wa-conversation {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .av-wa-pane-head {
+    flex-shrink: 0;
+  }
+
+  .av-wa-messages {
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem 0.7rem 0.85rem;
+  }
+
+  .av-wa-bubble {
+    max-width: min(88%, 20rem);
+  }
+
+  .av-wa-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    gap: 0.4rem;
+    padding: 0.45rem 0.55rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--wa-panel);
+  }
+
+  .av-wa-canned-wrap,
+  .av-wa-send {
+    flex: 0 0 auto;
+  }
+
+  .av-wa-canned-toggle,
+  .av-wa-send {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex-shrink: 0;
+  }
+
+  /* 16px evita zoom automático en iOS que desborda todo el chat. */
+  .av-wa-composer-input {
+    font-size: 16px;
+    line-height: 1.3;
+    padding: 0.55rem 0.8rem;
+    max-height: calc(1.3em * 2 + 1.1rem);
   }
 }
 

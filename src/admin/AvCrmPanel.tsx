@@ -210,6 +210,58 @@ function MessageTicks({ status }: { status: string | null }) {
   return null
 }
 
+/** Paleta estilo WhatsApp para nombres en grupos (estable por participante). */
+const GROUP_AUTHOR_COLORS = [
+  '#02a698',
+  '#e0742f',
+  '#c45654',
+  '#55b8c2',
+  '#d93b7b',
+  '#6d7c59',
+  '#ba33d6',
+  '#a56238',
+  '#4e7af0',
+  '#06cf9c',
+  '#7c5cff',
+  '#c27c0e',
+] as const
+
+function hashString(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+function groupAuthorKey(message: {
+  participant?: string | null
+  pushName?: string | null
+  id?: string | null
+}): string {
+  return String(message.participant || message.pushName || message.id || 'participante').trim()
+}
+
+function groupAuthorLabel(message: {
+  participant?: string | null
+  pushName?: string | null
+}): string {
+  const name = String(message.pushName || '').trim()
+  if (name) return name
+  const participant = String(message.participant || '')
+  const user = participant.split('@')[0]?.split(':')[0] || ''
+  return user || 'Participante'
+}
+
+function groupAuthorColor(message: {
+  participant?: string | null
+  pushName?: string | null
+  id?: string | null
+}): string {
+  const key = groupAuthorKey(message)
+  return GROUP_AUTHOR_COLORS[hashString(key) % GROUP_AUTHOR_COLORS.length]
+}
+
 function formatAudioDuration(seconds: number | null | undefined): string {
   if (!seconds || seconds <= 0) return ''
   const m = Math.floor(seconds / 60)
@@ -1004,6 +1056,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [vendedorAccesosSaving, setVendedorAccesosSaving] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const waShellRef = useRef<HTMLDivElement | null>(null)
   const selectedIdRef = useRef<string | null>(null)
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
@@ -1015,6 +1068,54 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     selectedIdRef.current = selectedId
   }, [selectedId])
 
+  // Mobile: mantener el shell del chat dentro del viewport visible (teclado incluido).
+  useEffect(() => {
+    const shell = waShellRef.current
+    if (!shell || !mobileShowChat) {
+      if (shell) {
+        shell.style.removeProperty('height')
+        shell.style.removeProperty('max-height')
+      }
+      return
+    }
+
+    const mq = window.matchMedia('(max-width: 860px)')
+
+    function syncShellHeight() {
+      const el = waShellRef.current
+      if (!el) return
+      if (!mq.matches) {
+        el.style.removeProperty('height')
+        el.style.removeProperty('max-height')
+        return
+      }
+      const vv = window.visualViewport
+      const rect = el.getBoundingClientRect()
+      const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+      const top = Math.max(0, rect.top)
+      const available = Math.floor(viewportBottom - top - 6)
+      const height = Math.max(260, Math.min(available, Math.floor((vv?.height || window.innerHeight) - 12)))
+      el.style.height = `${height}px`
+      el.style.maxHeight = `${height}px`
+    }
+
+    syncShellHeight()
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', syncShellHeight)
+    vv?.addEventListener('scroll', syncShellHeight)
+    window.addEventListener('resize', syncShellHeight)
+    mq.addEventListener('change', syncShellHeight)
+
+    return () => {
+      vv?.removeEventListener('resize', syncShellHeight)
+      vv?.removeEventListener('scroll', syncShellHeight)
+      window.removeEventListener('resize', syncShellHeight)
+      mq.removeEventListener('change', syncShellHeight)
+      shell.style.removeProperty('height')
+      shell.style.removeProperty('max-height')
+    }
+  }, [mobileShowChat, selectedId])
+
   function resizeComposer() {
     const el = composerInputRef.current
     if (!el) return
@@ -1023,7 +1124,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     const lineHeight = Number.parseFloat(styles.lineHeight) || 20
     const paddingY =
       Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom)
-    const maxHeight = lineHeight * 4 + paddingY
+    const isMobile = window.matchMedia('(max-width: 860px)').matches
+    const maxLines = isMobile ? 2 : 4
+    const maxHeight = lineHeight * maxLines + paddingY
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
   }
 
@@ -1928,7 +2031,10 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       ) : null}
 
       {!loading && (connected || chats.length > 0) ? (
-        <div className={`av-wa ${mobileShowChat ? 'is-chat-open' : ''}`}>
+        <div
+          ref={waShellRef}
+          className={`av-wa ${mobileShowChat ? 'is-chat-open' : ''}`}
+        >
           <aside className="av-wa-sidebar" aria-label="Lista de chats">
             <div className="av-wa-sidebar-head">
               <LinkedWhatsappCard status={status} variant="sidebar" />
@@ -2090,8 +2196,13 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       key={message.id || `${message.timestamp}-${message.text}`}
                       className={`av-wa-bubble ${message.fromMe ? 'is-out' : 'is-in'}`}
                     >
-                      {!message.fromMe && headerChat.isGroup && message.pushName ? (
-                        <span className="av-wa-bubble-author">{message.pushName}</span>
+                      {!message.fromMe && headerChat.isGroup ? (
+                        <span
+                          className="av-wa-bubble-author"
+                          style={{ color: groupAuthorColor(message) }}
+                        >
+                          {groupAuthorLabel(message)}
+                        </span>
                       ) : null}
                       {message.hasImage ||
                       message.type === 'image' ||
