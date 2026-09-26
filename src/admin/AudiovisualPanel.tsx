@@ -54,8 +54,7 @@ const TABS: {
     id: 'mensajes-rapidos',
     label: 'Mensajes rápidos',
     icon: StickyNote,
-    action: null,
-    ownerOnly: true,
+    action: 'av_crm',
   },
   {
     id: 'movimientos',
@@ -110,7 +109,7 @@ type AudiovisualPanelProps = {
 }
 
 export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
-  const { isOwner, isAdmin } = useAuth()
+  const { isOwner, isAdmin, isVendedor } = useAuth()
 
   const allowedTabs = useMemo(
     () =>
@@ -273,10 +272,18 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
         <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
       ) : null}
 
-      {vista === 'crm' ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
+      {vista === 'crm' ? (
+        <AvCrmPanel
+          readOnly={crmReadOnly && !isOwner}
+          onOpenMensajesRapidos={() => setVista('mensajes-rapidos')}
+        />
+      ) : null}
 
-      {vista === 'mensajes-rapidos' && isOwner ? (
-        <AvCrmMensajesPanel canManage={isOwner} />
+      {vista === 'mensajes-rapidos' ? (
+        <AvCrmMensajesPanel
+          canManageGlobal={isOwner}
+          canManagePersonal={isVendedor}
+        />
       ) : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}

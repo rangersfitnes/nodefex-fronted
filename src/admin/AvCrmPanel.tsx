@@ -5,6 +5,8 @@ import {
   deleteAvCrmVendedor,
   disconnectAvCrmWhatsapp,
   fetchAvCrmMessageAudio,
+  fetchAvCrmMessageDocument,
+  fetchAvCrmMessageImage,
   getAvCrmChat,
   getAvCrmWhatsappStatus,
   listAvCrmChats,
@@ -30,6 +32,7 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
+  FileText,
   Link2,
   LoaderCircle,
   MessageCircle,
@@ -39,7 +42,6 @@ import {
   RefreshCw,
   Search,
   Send,
-  Smartphone,
   StickyNote,
   Trash2,
   Users,
@@ -118,11 +120,33 @@ function formatChatTime(ts: number | null | undefined): string {
 
 function formatMessageTime(ts: number | null | undefined): string {
   if (!ts) return ''
+  const date = new Date(ts)
+  const now = new Date()
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  if (sameDay) {
+    return new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date)
+  }
   return new Intl.DateTimeFormat('es-CO', {
     timeZone: 'America/Bogota',
+    day: '2-digit',
+    month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(ts))
+  }).format(date)
+}
+
+function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function initials(name: string): string {
@@ -231,6 +255,233 @@ function CrmAudioPlayer({
   )
 }
 
+function CrmImageMessage({
+  chatId,
+  message,
+}: {
+  chatId: string
+  message: AvCrmMessage
+}) {
+  const { user } = useAuth()
+  const [src, setSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [lightbox, setLightbox] = useState(false)
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!user || !message.id || src) return
+      setLoading(true)
+      setError('')
+      try {
+        const token = await user.getIdToken()
+        const blob = await fetchAvCrmMessageImage(token, chatId, message.id)
+        if (cancelled) return
+        const url = URL.createObjectURL(blob)
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = url
+        setSrc(url)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'No se pudo cargar la imagen')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [user, chatId, message.id, src])
+
+  const caption = message.imageCaption?.trim() || null
+
+  return (
+    <div className={`av-wa-image ${message.imageKind === 'sticker' ? 'is-sticker' : ''}`}>
+      {loading && !src ? (
+        <div className="av-wa-image-loading">
+          <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
+          Cargando imagen…
+        </div>
+      ) : null}
+      {src ? (
+        <button
+          type="button"
+          className="av-wa-image-btn"
+          onClick={() => setLightbox(true)}
+          aria-label="Ver imagen ampliada"
+        >
+          <img src={src} alt={caption || 'Imagen del chat'} />
+        </button>
+      ) : null}
+      {error ? <span className="av-wa-image-error">{error}</span> : null}
+      {caption ? <p className="av-wa-image-caption">{caption}</p> : null}
+
+      {lightbox && src ? (
+        <div
+          className="av-wa-image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Imagen ampliada"
+          onClick={() => setLightbox(false)}
+        >
+          <img src={src} alt={caption || 'Imagen ampliada'} onClick={(e) => e.stopPropagation()} />
+          <button
+            type="button"
+            className="av-wa-image-lightbox-close"
+            aria-label="Cerrar"
+            onClick={() => setLightbox(false)}
+          >
+            <X size={20} strokeWidth={2} aria-hidden />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function CrmDocumentMessage({
+  chatId,
+  message,
+}: {
+  chatId: string
+  message: AvCrmMessage
+}) {
+  const { user } = useAuth()
+  const [src, setSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const objectUrlRef = useRef<string | null>(null)
+
+  const fileName = message.documentFileName || (message.isPdf ? 'documento.pdf' : 'documento')
+  const metaBits = [
+    message.isPdf ? 'PDF' : message.documentMimetype || 'Documento',
+    formatFileSize(message.documentFileLength),
+    message.documentPageCount ? `${message.documentPageCount} pág.` : '',
+  ].filter(Boolean)
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!viewerOpen) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setViewerOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewerOpen])
+
+  async function ensureLoaded() {
+    if (!user || !message.id || src || loading) return src
+    setLoading(true)
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const blob = await fetchAvCrmMessageDocument(token, chatId, message.id)
+      const typed =
+        message.isPdf || /pdf/i.test(message.documentMimetype || '')
+          ? new Blob([blob], { type: 'application/pdf' })
+          : blob
+      const url = URL.createObjectURL(typed)
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = url
+      setSrc(url)
+      return url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar el documento')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleOpen() {
+    const url = src || (await ensureLoaded())
+    if (!url) return
+    if (message.isPdf || /pdf/i.test(message.documentMimetype || '')) {
+      setViewerOpen(true)
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  return (
+    <div className={`av-wa-doc ${message.isPdf ? 'is-pdf' : ''}`}>
+      <button
+        type="button"
+        className="av-wa-doc-card"
+        onClick={() => void handleOpen()}
+        disabled={loading}
+      >
+        <span className="av-wa-doc-icon" aria-hidden>
+          <FileText size={22} strokeWidth={1.75} />
+        </span>
+        <span className="av-wa-doc-meta">
+          <strong>{fileName}</strong>
+          <span>{loading ? 'Cargando…' : metaBits.join(' · ')}</span>
+        </span>
+        <span className="av-wa-doc-action">{message.isPdf ? 'Ver' : 'Abrir'}</span>
+      </button>
+      {message.documentCaption ? (
+        <p className="av-wa-doc-caption">{message.documentCaption}</p>
+      ) : null}
+      {error ? <span className="av-wa-doc-error">{error}</span> : null}
+
+      {viewerOpen && src ? (
+        <div
+          className="av-wa-doc-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={fileName}
+        >
+          <div className="av-wa-doc-lightbox-bar">
+            <strong>{fileName}</strong>
+            <div className="av-wa-doc-lightbox-actions">
+              <a
+                className="btn-secondary"
+                href={src}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir en pestaña
+              </a>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setViewerOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          </div>
+          <iframe title={fileName} src={src} className="av-wa-doc-frame" />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function Avatar({
   name,
   url,
@@ -249,6 +500,7 @@ function Avatar({
         width={size}
         height={size}
         style={{ width: size, height: size }}
+        referrerPolicy="no-referrer"
       />
     )
   }
@@ -259,7 +511,44 @@ function Avatar({
   )
 }
 
-export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
+function LinkedWhatsappCard({
+  status,
+  variant = 'sidebar',
+}: {
+  status: AvCrmWhatsappStatus
+  variant?: 'sidebar' | 'modal'
+}) {
+  const name = status.pushName || 'WhatsApp'
+  const phone =
+    status.phoneDisplay ||
+    (status.phoneNumber ? `+${String(status.phoneNumber).replace(/\D/g, '')}` : null)
+  const size = variant === 'modal' ? 72 : 48
+
+  return (
+    <div className={`av-wa-linked av-wa-linked-${variant}`}>
+      <div className="av-wa-linked-avatar-wrap">
+        <Avatar name={name} url={status.profilePicUrl} size={size} />
+        <span className="av-wa-linked-online" title="Conectado" aria-hidden />
+      </div>
+      <div className="av-wa-linked-meta">
+        <strong>{name}</strong>
+        {phone ? <span className="av-wa-linked-phone">{phone}</span> : null}
+        <span className="av-wa-linked-status">
+          <span className="av-wa-linked-status-dot" aria-hidden />
+          Vinculado y en línea
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export function AvCrmPanel({
+  readOnly = false,
+  onOpenMensajesRapidos,
+}: {
+  readOnly?: boolean
+  onOpenMensajesRapidos?: () => void
+}) {
   const { user, isOwner } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
@@ -281,6 +570,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [cannedMessages, setCannedMessages] = useState<AvCrmMensajePredeterminado[]>([])
   const [cannedLoading, setCannedLoading] = useState(false)
   const [cannedError, setCannedError] = useState('')
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
 
   const [vendedoresOpen, setVendedoresOpen] = useState(false)
   const [vendedores, setVendedores] = useState<AvCrmVendedor[]>([])
@@ -300,6 +590,23 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
   const canManageVendedores = isOwner && !readOnly
+  const canManageMensajesGlobales = isOwner && !readOnly && Boolean(onOpenMensajesRapidos)
+
+  function resizeComposer() {
+    const el = composerInputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const styles = window.getComputedStyle(el)
+    const lineHeight = Number.parseFloat(styles.lineHeight) || 20
+    const paddingY =
+      Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom)
+    const maxHeight = lineHeight * 4 + paddingY
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+  }
+
+  useEffect(() => {
+    resizeComposer()
+  }, [draft])
 
   useEffect(() => {
     let cancelled = false
@@ -379,11 +686,22 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       try {
         const token = await user!.getIdToken()
         const data = await listAvCrmChats(token, { q: chatQuery, limit: 250 })
-        if (!cancelled) setChats(data)
+        if (cancelled) return
+        setChats(data)
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudieron cargar los chats')
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'No se pudieron cargar los chats'
+        if (/no está vinculado|no vinculado|409/i.test(message)) {
+          setStatus((current) => ({
+            ...current,
+            connected: false,
+            status: current.status === 'open' ? 'close' : current.status,
+            lastError: message,
+          }))
+          setChats([])
+          return
         }
+        setError(message)
       }
     }
 
@@ -413,9 +731,21 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         setActiveChat(data.chat)
         setMessages(data.messages)
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'No se pudo abrir el chat')
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'No se pudo abrir el chat'
+        if (/no está vinculado|no vinculado|409/i.test(message)) {
+          setStatus((current) => ({
+            ...current,
+            connected: false,
+            status: current.status === 'open' ? 'close' : current.status,
+            lastError: message,
+          }))
+          setSelectedId(null)
+          setActiveChat(null)
+          setMessages([])
+          return
         }
+        setError(message)
       } finally {
         if (!cancelled) setChatLoading(false)
       }
@@ -643,39 +973,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  async function handleSendCanned(mensaje: AvCrmMensajePredeterminado) {
-    if (!user || !selectedId || sending || readOnly) return
-    setSending(true)
-    setError('')
+  function handleSelectCanned(mensaje: AvCrmMensajePredeterminado) {
+    if (readOnly) return
+    setDraft(mensaje.texto || '')
     setCannedOpen(false)
-    try {
-      const token = await user.getIdToken()
-      const message = await sendAvCrmMessage(token, selectedId, mensaje.texto)
-      setMessages((current) => [...current, message])
-      setChats((current) =>
-        current
-          .map((chat) =>
-            chat.id === selectedId
-              ? {
-                  ...chat,
-                  conversationTimestamp: message.timestamp || Date.now(),
-                  lastMessage: {
-                    id: message.id,
-                    fromMe: true,
-                    text: message.text,
-                    status: message.status,
-                    timestamp: message.timestamp,
-                  },
-                }
-              : chat,
-          )
-          .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje predeterminado')
-    } finally {
-      setSending(false)
-    }
+    requestAnimationFrame(() => {
+      const el = composerInputRef.current
+      if (!el) return
+      el.focus()
+      resizeComposer()
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
   }
 
   function selectChat(chat: AvCrmChat) {
@@ -753,6 +1061,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               Desvincular
             </button>
           ) : null}
+          {canManageMensajesGlobales ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onOpenMensajesRapidos}
+              disabled={busy || loading}
+            >
+              <StickyNote size={16} strokeWidth={2} aria-hidden />
+              Mensajes rápidos
+            </button>
+          ) : null}
           {canManageVendedores ? (
             <button
               type="button"
@@ -793,7 +1112,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
           <p>
             {readOnly
               ? 'WhatsApp aún no está vinculado. Pide a quien gestione el CRM que lo conecte.'
-              : 'Vincula WhatsApp para ver la bandeja de chats como en WhatsApp Web.'}
+              : status.lastError
+                ? status.lastError
+                : 'Vincula WhatsApp para ver la bandeja de chats como en WhatsApp Web.'}
           </p>
           {!readOnly ? (
             <button type="button" className="btn-primary" onClick={() => void openLinkModal()}>
@@ -804,18 +1125,18 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       ) : null}
 
+      {!loading && connected && chats.length === 0 ? (
+        <p className="section-note av-readonly-banner">
+          Conectado, pero aún no hay chats sincronizados. Espera unos segundos o escribe/recibe un
+          mensaje en el teléfono para llenar la bandeja.
+        </p>
+      ) : null}
+
       {!loading && connected ? (
         <div className={`av-wa ${mobileShowChat ? 'is-chat-open' : ''}`}>
           <aside className="av-wa-sidebar" aria-label="Lista de chats">
             <div className="av-wa-sidebar-head">
-              <div className="av-wa-me">
-                <Avatar name={status.pushName || status.phoneNumber || 'Yo'} size={40} />
-                <div>
-                  <strong>{status.pushName || 'WhatsApp'}</strong>
-                  <span>{status.phoneNumber || 'Conectado'}</span>
-                </div>
-              </div>
-              <span className="av-wa-online-dot" title="Conectado" />
+              <LinkedWhatsappCard status={status} variant="sidebar" />
             </div>
 
             <label className="av-wa-search" htmlFor="av-wa-search">
@@ -853,6 +1174,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       </span>
                       <span className="av-wa-chat-bottom">
                         <span className="av-wa-preview">
+                          {!chat.isGroup && chat.phoneDisplay && chat.phoneDisplay !== `+${chat.name}` && chat.name !== chat.phoneNumber ? (
+                            <span className="av-wa-phone-inline">{chat.phoneDisplay} · </span>
+                          ) : null}
                           {chat.lastMessage?.fromMe ? (
                             <MessageTicks status={chat.lastMessage.status} />
                           ) : null}
@@ -893,7 +1217,12 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                     <span>
                       {headerChat.isGroup
                         ? 'Grupo'
-                        : headerChat.presence?.label || 'estado desconocido'}
+                        : [
+                            headerChat.phoneDisplay,
+                            headerChat.presence?.label || null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'estado desconocido'}
                     </span>
                   </div>
                   <div className="av-wa-pane-actions" aria-hidden>
@@ -923,13 +1252,28 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       {!message.fromMe && headerChat.isGroup && message.pushName ? (
                         <span className="av-wa-bubble-author">{message.pushName}</span>
                       ) : null}
+                      {message.hasImage || message.type === 'image' || message.type === 'sticker' ? (
+                        <CrmImageMessage chatId={selectedId} message={message} />
+                      ) : null}
+                      {message.hasDocument || message.type === 'document' ? (
+                        <CrmDocumentMessage chatId={selectedId} message={message} />
+                      ) : null}
                       {message.hasAudio || message.type === 'audio' ? (
                         <CrmAudioPlayer chatId={selectedId} message={message} />
-                      ) : (
+                      ) : null}
+                      {!message.hasImage &&
+                      !message.hasDocument &&
+                      !message.hasAudio &&
+                      message.type !== 'image' &&
+                      message.type !== 'sticker' &&
+                      message.type !== 'document' &&
+                      message.type !== 'audio' ? (
                         <p>{message.text || `[${message.type}]`}</p>
-                      )}
+                      ) : null}
                       <span className="av-wa-bubble-meta">
-                        <time>{formatMessageTime(message.timestamp)}</time>
+                        <time dateTime={message.timestamp ? new Date(message.timestamp).toISOString() : undefined}>
+                          {formatMessageTime(message.timestamp) || '—'}
+                        </time>
                         {message.fromMe ? <MessageTicks status={message.status} /> : null}
                       </span>
                     </div>
@@ -964,32 +1308,71 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                         ) : null}
                         {!cannedLoading && cannedMessages.length === 0 ? (
                           <p className="section-note">
-                            Aún no hay mensajes. El owner los crea en la pestaña Mensajes rápidos.
+                            Aún no hay mensajes. Configúralos en la pestaña Mensajes rápidos.
                           </p>
                         ) : null}
-                        <ul className="av-wa-canned-list">
-                          {cannedMessages.map((mensaje) => (
-                            <li key={mensaje.id}>
-                              <button
-                                type="button"
-                                className="av-wa-canned-item"
-                                disabled={readOnly || sending}
-                                onClick={() => void handleSendCanned(mensaje)}
-                              >
-                                <strong>{mensaje.titulo}</strong>
-                                <span>{mensaje.texto}</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                        {!cannedLoading && cannedMessages.some((m) => m.alcance !== 'personal') ? (
+                          <>
+                            <p className="av-wa-canned-group-label">Globales</p>
+                            <ul className="av-wa-canned-list">
+                              {cannedMessages
+                                .filter((mensaje) => mensaje.alcance !== 'personal')
+                                .map((mensaje) => (
+                                  <li key={mensaje.id}>
+                                    <button
+                                      type="button"
+                                      className="av-wa-canned-item"
+                                      disabled={readOnly || sending}
+                                      onClick={() => handleSelectCanned(mensaje)}
+                                    >
+                                      <strong>{mensaje.titulo}</strong>
+                                      <span>{mensaje.texto}</span>
+                                    </button>
+                                  </li>
+                                ))}
+                            </ul>
+                          </>
+                        ) : null}
+                        {!cannedLoading && cannedMessages.some((m) => m.alcance === 'personal') ? (
+                          <>
+                            <p className="av-wa-canned-group-label">Mis mensajes</p>
+                            <ul className="av-wa-canned-list">
+                              {cannedMessages
+                                .filter((mensaje) => mensaje.alcance === 'personal')
+                                .map((mensaje) => (
+                                  <li key={mensaje.id}>
+                                    <button
+                                      type="button"
+                                      className="av-wa-canned-item"
+                                      disabled={readOnly || sending}
+                                      onClick={() => handleSelectCanned(mensaje)}
+                                    >
+                                      <strong>{mensaje.titulo}</strong>
+                                      <span>{mensaje.texto}</span>
+                                    </button>
+                                  </li>
+                                ))}
+                            </ul>
+                          </>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
-                  <input
-                    type="text"
+                  <textarea
+                    ref={composerInputRef}
+                    className="av-wa-composer-input"
+                    rows={1}
                     placeholder={readOnly ? 'Solo lectura' : 'Escribe un mensaje'}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault()
+                        if (!sending && !readOnly && draft.trim()) {
+                          event.currentTarget.form?.requestSubmit()
+                        }
+                      }
+                    }}
                     disabled={sending || readOnly}
                     aria-label="Mensaje"
                     readOnly={readOnly}
@@ -1048,10 +1431,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
               {status.connected ? (
                 <div className="av-crm-whatsapp-ok">
-                  <Smartphone size={28} strokeWidth={1.75} aria-hidden />
-                  <strong>WhatsApp vinculado</strong>
-                  <p className="section-note">
-                    {status.phoneNumber ? `Número: ${status.phoneNumber}` : 'Sesión abierta'}
+                  <LinkedWhatsappCard status={status} variant="modal" />
+                  <p className="av-crm-whatsapp-ok-note">
+                    La sesión está activa. Los chats y mensajes se sincronizan en esta pestaña.
                   </p>
                 </div>
               ) : null}

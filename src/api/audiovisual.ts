@@ -832,7 +832,9 @@ export type AvCrmWhatsappStatus = {
   hasQr: boolean
   qrDataUrl: string | null
   phoneNumber: string | null
+  phoneDisplay?: string | null
   pushName?: string | null
+  profilePicUrl?: string | null
   lastError: string | null
   chatsCount?: number
 }
@@ -886,6 +888,8 @@ export type AvCrmChatLastMessage = {
 export type AvCrmChat = {
   id: string
   name: string
+  phoneNumber?: string | null
+  phoneDisplay?: string | null
   isGroup: boolean
   unreadCount: number
   archived: boolean
@@ -912,6 +916,17 @@ export type AvCrmMessage = {
   isPtt?: boolean
   audioSeconds?: number | null
   audioMimetype?: string | null
+  hasImage?: boolean
+  imageKind?: 'image' | 'sticker' | null
+  imageCaption?: string | null
+  imageMimetype?: string | null
+  hasDocument?: boolean
+  documentFileName?: string | null
+  documentMimetype?: string | null
+  documentCaption?: string | null
+  documentPageCount?: number | null
+  documentFileLength?: number | null
+  isPdf?: boolean
 }
 
 export async function listAvCrmChats(
@@ -979,11 +994,55 @@ export async function fetchAvCrmMessageAudio(
   return response.blob()
 }
 
+export async function fetchAvCrmMessageImage(
+  token: string,
+  jid: string,
+  messageId: string,
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_URL}/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/messages/${encodeURIComponent(messageId)}/image`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(data.error || 'No se pudo cargar la imagen')
+  }
+  return response.blob()
+}
+
+export async function fetchAvCrmMessageDocument(
+  token: string,
+  jid: string,
+  messageId: string,
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_URL}/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/messages/${encodeURIComponent(messageId)}/document`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(data.error || 'No se pudo cargar el documento')
+  }
+  return response.blob()
+}
+
+export type AvCrmMensajeAlcance = 'global' | 'personal'
+
 export type AvCrmMensajePredeterminado = {
   id: string
   titulo: string
   texto: string
   orden: number
+  alcance: AvCrmMensajeAlcance
+  ownerUid: string | null
   creadoEn: string | null
   actualizadoEn: string | null
 }

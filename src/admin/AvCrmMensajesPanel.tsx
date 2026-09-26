@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createAvCrmMensajePredeterminado,
   deleteAvCrmMensajePredeterminado,
   listAvCrmMensajesPredeterminados,
   updateAvCrmMensajePredeterminado,
+  type AvCrmMensajeAlcance,
   type AvCrmMensajePredeterminado,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,7 +21,15 @@ import {
 
 type ModalMode = 'crear' | 'editar'
 
-export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean }) {
+type AvCrmMensajesPanelProps = {
+  canManageGlobal?: boolean
+  canManagePersonal?: boolean
+}
+
+export function AvCrmMensajesPanel({
+  canManageGlobal = false,
+  canManagePersonal = false,
+}: AvCrmMensajesPanelProps) {
   const { user } = useAuth()
   const [mensajes, setMensajes] = useState<AvCrmMensajePredeterminado[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,10 +40,22 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<ModalMode>('crear')
   const [editing, setEditing] = useState<AvCrmMensajePredeterminado | null>(null)
+  const [createAlcance, setCreateAlcance] = useState<AvCrmMensajeAlcance>('global')
   const [titulo, setTitulo] = useState('')
   const [texto, setTexto] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const globales = useMemo(
+    () => mensajes.filter((item) => item.alcance !== 'personal'),
+    [mensajes],
+  )
+  const personales = useMemo(
+    () => mensajes.filter((item) => item.alcance === 'personal'),
+    [mensajes],
+  )
+
+  const canCreate = canManageGlobal || canManagePersonal
 
   useEffect(() => {
     let cancelled = false
@@ -65,9 +86,17 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
     }
   }, [user, refreshTick])
 
-  function openCreate() {
+  function canEditMensaje(mensaje: AvCrmMensajePredeterminado): boolean {
+    if (mensaje.alcance === 'personal') return canManagePersonal
+    return canManageGlobal
+  }
+
+  function openCreate(alcance: AvCrmMensajeAlcance) {
+    if (alcance === 'global' && !canManageGlobal) return
+    if (alcance === 'personal' && !canManagePersonal) return
     setModalMode('crear')
     setEditing(null)
+    setCreateAlcance(alcance)
     setTitulo('')
     setTexto('')
     setFormError('')
@@ -75,8 +104,10 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
   }
 
   function openEdit(mensaje: AvCrmMensajePredeterminado) {
+    if (!canEditMensaje(mensaje)) return
     setModalMode('editar')
     setEditing(mensaje)
+    setCreateAlcance(mensaje.alcance === 'personal' ? 'personal' : 'global')
     setTitulo(mensaje.titulo || '')
     setTexto(mensaje.texto || '')
     setFormError('')
@@ -90,7 +121,10 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!user || !canManage || submitting) return
+    if (!user || submitting) return
+    if (modalMode === 'crear' && !canCreate) return
+    if (modalMode === 'editar' && editing && !canEditMensaje(editing)) return
+
     const cleanTitulo = titulo.trim()
     const cleanTexto = texto.trim()
     if (!cleanTitulo || !cleanTexto) {
@@ -126,7 +160,7 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
   }
 
   async function handleDelete(mensaje: AvCrmMensajePredeterminado) {
-    if (!user || !canManage || deletingId) return
+    if (!user || !canEditMensaje(mensaje) || deletingId) return
     const ok = window.confirm(`¿Eliminar el mensaje «${mensaje.titulo}»?`)
     if (!ok) return
     setDeletingId(mensaje.id)
@@ -142,74 +176,41 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
     }
   }
 
-  return (
-    <div className="av-ingresos" role="tabpanel" aria-label="Mensajes rápidos">
-      <div className="av-ingresos-toolbar">
-        <div>
-          <h3>Mensajes rápidos</h3>
-          <p className="section-note">
-            Plantillas con título y mensaje para enviarlas desde el CRM con un clic.
-          </p>
-        </div>
-        <div className="av-ingresos-toolbar-actions">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setRefreshTick((n) => n + 1)}
-            disabled={loading}
-          >
-            <RefreshCw size={16} strokeWidth={2} aria-hidden />
-            Actualizar
-          </button>
-          {canManage ? (
-            <button type="button" className="btn-primary" onClick={openCreate}>
+  function renderList(
+    items: AvCrmMensajePredeterminado[],
+    emptyText: string,
+    manage: boolean,
+    createAlcanceTarget: AvCrmMensajeAlcance,
+  ) {
+    if (items.length === 0) {
+      return (
+        <div className="av-mensajes-rapidos-empty">
+          <p>{emptyText}</p>
+          {manage ? (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => openCreate(createAlcanceTarget)}
+            >
               <Plus size={16} strokeWidth={2} aria-hidden />
               Agregar mensaje
             </button>
           ) : null}
         </div>
-      </div>
+      )
+    }
 
-      {loading ? (
-        <div className="proyectos-status">
-          <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-          Cargando mensajes...
-        </div>
-      ) : null}
-
-      {!loading && error ? (
-        <div className="proyectos-status proyectos-status-error" role="alert">
-          <AlertCircle size={18} strokeWidth={2} aria-hidden />
-          {error}
-        </div>
-      ) : null}
-
-      {!loading && !error && mensajes.length === 0 ? (
-        <div className="proyectos-empty">
-          <StickyNote size={28} strokeWidth={1.75} aria-hidden />
-          <p>
-            {canManage
-              ? 'Aún no hay mensajes predeterminados. Crea el primero con un título y el texto a enviar.'
-              : 'Aún no hay mensajes predeterminados configurados.'}
-          </p>
-          {canManage ? (
-            <button type="button" className="btn-primary" onClick={openCreate}>
-              <Plus size={16} strokeWidth={2} aria-hidden />
-              Agregar mensaje
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!loading && !error && mensajes.length > 0 ? (
-        <ul className="av-mensajes-rapidos-list">
-          {mensajes.map((mensaje) => (
+    return (
+      <ul className="av-mensajes-rapidos-list">
+        {items.map((mensaje) => {
+          const editable = canEditMensaje(mensaje)
+          return (
             <li key={mensaje.id}>
               <div className="av-mensajes-rapidos-body">
                 <strong>{mensaje.titulo}</strong>
                 <p>{mensaje.texto}</p>
               </div>
-              {canManage ? (
+              {editable ? (
                 <div className="av-mensajes-rapidos-actions">
                   <button
                     type="button"
@@ -236,8 +237,99 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
                 </div>
               ) : null}
             </li>
-          ))}
-        </ul>
+          )
+        })}
+      </ul>
+    )
+  }
+
+  const modalTitle =
+    modalMode === 'editar'
+      ? 'Editar mensaje rápido'
+      : createAlcance === 'personal'
+        ? 'Nuevo mensaje personal'
+        : 'Nuevo mensaje global'
+
+  return (
+    <div className="av-ingresos" role="tabpanel" aria-label="Mensajes rápidos">
+      <div className="av-ingresos-toolbar">
+        <div>
+          <h3>Mensajes rápidos</h3>
+        </div>
+        <div className="av-ingresos-toolbar-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setRefreshTick((n) => n + 1)}
+            disabled={loading}
+          >
+            <RefreshCw size={16} strokeWidth={2} aria-hidden />
+            Actualizar
+          </button>
+          {canManageGlobal ? (
+            <button type="button" className="btn-primary" onClick={() => openCreate('global')}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Agregar global
+            </button>
+          ) : null}
+          {canManagePersonal ? (
+            <button type="button" className="btn-primary" onClick={() => openCreate('personal')}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+              Agregar mío
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="proyectos-status">
+          <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+          Cargando mensajes...
+        </div>
+      ) : null}
+
+      {!loading && error ? (
+        <div className="proyectos-status proyectos-status-error" role="alert">
+          <AlertCircle size={18} strokeWidth={2} aria-hidden />
+          {error}
+        </div>
+      ) : null}
+
+      {!loading && !error && mensajes.length === 0 && !canCreate ? (
+        <div className="proyectos-empty">
+          <StickyNote size={28} strokeWidth={1.75} aria-hidden />
+          <p>No hay mensajes predeterminados.</p>
+        </div>
+      ) : null}
+
+      {!loading && !error ? (
+        <div className="av-mensajes-rapidos-sections">
+          <section className="av-mensajes-rapidos-section" aria-label="Mensajes globales">
+            <div className="av-mensajes-rapidos-section-head">
+              <h4>Globales</h4>
+            </div>
+            {renderList(
+              globales,
+              'No hay mensajes globales.',
+              canManageGlobal,
+              'global',
+            )}
+          </section>
+
+          {canManagePersonal || personales.length > 0 ? (
+            <section className="av-mensajes-rapidos-section" aria-label="Mensajes personales">
+              <div className="av-mensajes-rapidos-section-head">
+                <h4>Mis mensajes</h4>
+              </div>
+              {renderList(
+                personales,
+                'No tienes mensajes personales.',
+                canManagePersonal,
+                'personal',
+              )}
+            </section>
+          ) : null}
+        </div>
       ) : null}
 
       {modalOpen ? (
@@ -250,9 +342,7 @@ export function AvCrmMensajesPanel({ canManage = false }: { canManage?: boolean 
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="av-mensaje-rapido-title">
-                {modalMode === 'editar' ? 'Editar mensaje rápido' : 'Nuevo mensaje rápido'}
-              </h2>
+              <h2 id="av-mensaje-rapido-title">{modalTitle}</h2>
               <button
                 type="button"
                 className="modal-close"
