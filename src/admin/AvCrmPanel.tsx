@@ -676,7 +676,7 @@ export function AvCrmPanel({
   }, [modalOpen, user])
 
   useEffect(() => {
-    if (!connected || !user) {
+    if (!user) {
       setChats([])
       return
     }
@@ -698,7 +698,6 @@ export function AvCrmPanel({
             status: current.status === 'open' ? 'close' : current.status,
             lastError: message,
           }))
-          setChats([])
           return
         }
         setError(message)
@@ -713,10 +712,10 @@ export function AvCrmPanel({
       cancelled = true
       window.clearInterval(id)
     }
-  }, [connected, user, chatQuery])
+  }, [user, chatQuery])
 
   useEffect(() => {
-    if (!connected || !user || !selectedId) {
+    if (!user || !selectedId) {
       setActiveChat(null)
       setMessages([])
       return
@@ -740,9 +739,6 @@ export function AvCrmPanel({
             status: current.status === 'open' ? 'close' : current.status,
             lastError: message,
           }))
-          setSelectedId(null)
-          setActiveChat(null)
-          setMessages([])
           return
         }
         setError(message)
@@ -760,7 +756,7 @@ export function AvCrmPanel({
       cancelled = true
       window.clearInterval(id)
     }
-  }, [connected, user, selectedId])
+  }, [user, selectedId])
 
   useEffect(() => {
     if (!connected || !user) {
@@ -994,7 +990,7 @@ export function AvCrmPanel({
 
   async function handleSend(event: FormEvent) {
     event.preventDefault()
-    if (!user || !selectedId || sending || readOnly) return
+    if (!user || !selectedId || sending || readOnly || !connected) return
     const text = draft.trim()
     if (!text) return
     setSending(true)
@@ -1106,7 +1102,7 @@ export function AvCrmPanel({
         </div>
       ) : null}
 
-      {!loading && !connected ? (
+      {!loading && !connected && chats.length === 0 ? (
         <div className="proyectos-empty">
           <MessageCircle size={28} strokeWidth={1.75} aria-hidden />
           <p>
@@ -1132,7 +1128,14 @@ export function AvCrmPanel({
         </p>
       ) : null}
 
-      {!loading && connected ? (
+      {!loading && !connected && chats.length > 0 ? (
+        <p className="section-note av-readonly-banner">
+          Reconectando WhatsApp… Se muestran los chats guardados; el envío vuelve al restaurar la
+          sesión.
+        </p>
+      ) : null}
+
+      {!loading && (connected || chats.length > 0) ? (
         <div className={`av-wa ${mobileShowChat ? 'is-chat-open' : ''}`}>
           <aside className="av-wa-sidebar" aria-label="Lista de chats">
             <div className="av-wa-sidebar-head">
@@ -1368,19 +1371,19 @@ export function AvCrmPanel({
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault()
-                        if (!sending && !readOnly && draft.trim()) {
+                        if (!sending && !readOnly && connected && draft.trim()) {
                           event.currentTarget.form?.requestSubmit()
                         }
                       }
                     }}
-                    disabled={sending || readOnly}
+                    disabled={sending || readOnly || !connected}
                     aria-label="Mensaje"
                     readOnly={readOnly}
                   />
                   <button
                     type="submit"
                     className="av-wa-send"
-                    disabled={readOnly || sending || !draft.trim()}
+                    disabled={readOnly || sending || !connected || !draft.trim()}
                   >
                     {sending ? (
                       <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
