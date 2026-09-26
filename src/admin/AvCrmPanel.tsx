@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   connectAvCrmWhatsapp,
-  createAvCrmMensajePredeterminado,
   createAvCrmVendedor,
-  deleteAvCrmMensajePredeterminado,
   deleteAvCrmVendedor,
   disconnectAvCrmWhatsapp,
   fetchAvCrmMessageAudio,
@@ -14,7 +12,6 @@ import {
   listAvCrmVendedores,
   saveAvCrmVendedorAccesos,
   sendAvCrmMessage,
-  updateAvCrmMensajePredeterminado,
   type AvCrmChat,
   type AvCrmMensajePredeterminado,
   type AvCrmMessage,
@@ -284,11 +281,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [cannedMessages, setCannedMessages] = useState<AvCrmMensajePredeterminado[]>([])
   const [cannedLoading, setCannedLoading] = useState(false)
   const [cannedError, setCannedError] = useState('')
-  const [manageCannedOpen, setManageCannedOpen] = useState(false)
-  const [cannedTitulo, setCannedTitulo] = useState('')
-  const [cannedTexto, setCannedTexto] = useState('')
-  const [editingCannedId, setEditingCannedId] = useState<string | null>(null)
-  const [cannedSaving, setCannedSaving] = useState(false)
 
   const [vendedoresOpen, setVendedoresOpen] = useState(false)
   const [vendedores, setVendedores] = useState<AvCrmVendedor[]>([])
@@ -307,7 +299,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
-  const canManageCanned = isOwner && !readOnly
   const canManageVendedores = isOwner && !readOnly
 
   useEffect(() => {
@@ -687,62 +678,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  function openManageCanned(mensaje?: AvCrmMensajePredeterminado) {
-    if (!canManageCanned) return
-    setEditingCannedId(mensaje?.id || null)
-    setCannedTitulo(mensaje?.titulo || '')
-    setCannedTexto(mensaje?.texto || '')
-    setCannedError('')
-    setManageCannedOpen(true)
-    setCannedOpen(false)
-  }
-
-  async function handleSaveCanned(event: FormEvent) {
-    event.preventDefault()
-    if (!user || !canManageCanned || cannedSaving) return
-    const titulo = cannedTitulo.trim()
-    const texto = cannedTexto.trim()
-    if (!titulo || !texto) {
-      setCannedError('Título y texto son obligatorios')
-      return
-    }
-    setCannedSaving(true)
-    setCannedError('')
-    try {
-      const token = await user.getIdToken()
-      if (editingCannedId) {
-        const updated = await updateAvCrmMensajePredeterminado(token, editingCannedId, {
-          titulo,
-          texto,
-        })
-        setCannedMessages((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        )
-      } else {
-        const created = await createAvCrmMensajePredeterminado(token, { titulo, texto })
-        setCannedMessages((current) => [...current, created])
-      }
-      setManageCannedOpen(false)
-    } catch (err) {
-      setCannedError(err instanceof Error ? err.message : 'No se pudo guardar el mensaje')
-    } finally {
-      setCannedSaving(false)
-    }
-  }
-
-  async function handleDeleteCanned(id: string) {
-    if (!user || !canManageCanned) return
-    const ok = window.confirm('¿Eliminar este mensaje predeterminado?')
-    if (!ok) return
-    try {
-      const token = await user.getIdToken()
-      await deleteAvCrmMensajePredeterminado(token, id)
-      setCannedMessages((current) => current.filter((item) => item.id !== id))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar el mensaje')
-    }
-  }
-
   function selectChat(chat: AvCrmChat) {
     setSelectedId(chat.id)
     setMobileShowChat(true)
@@ -1017,13 +952,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                     {cannedOpen ? (
                       <div className="av-wa-canned-panel" role="listbox" aria-label="Mensajes predeterminados">
                         <div className="av-wa-canned-panel-head">
-                          <strong>Mensajes predeterminados</strong>
-                          {canManageCanned ? (
-                            <button type="button" className="btn-secondary" onClick={() => openManageCanned()}>
-                              <Plus size={14} strokeWidth={2} aria-hidden />
-                              Nuevo
-                            </button>
-                          ) : null}
+                          <strong>Mensajes rápidos</strong>
                         </div>
                         {cannedLoading ? (
                           <p className="section-note">Cargando…</p>
@@ -1034,7 +963,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                           </p>
                         ) : null}
                         {!cannedLoading && cannedMessages.length === 0 ? (
-                          <p className="section-note">Aún no hay mensajes predeterminados.</p>
+                          <p className="section-note">
+                            Aún no hay mensajes. El owner los crea en la pestaña Mensajes rápidos.
+                          </p>
                         ) : null}
                         <ul className="av-wa-canned-list">
                           {cannedMessages.map((mensaje) => (
@@ -1048,25 +979,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                 <strong>{mensaje.titulo}</strong>
                                 <span>{mensaje.texto}</span>
                               </button>
-                              {canManageCanned ? (
-                                <div className="av-wa-canned-item-actions">
-                                  <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={() => openManageCanned(mensaje)}
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={() => void handleDeleteCanned(mensaje.id)}
-                                    aria-label={`Eliminar ${mensaje.titulo}`}
-                                  >
-                                    <Trash2 size={14} strokeWidth={2} aria-hidden />
-                                  </button>
-                                </div>
-                              ) : null}
                             </li>
                           ))}
                         </ul>
@@ -1173,88 +1085,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
-
-      {manageCannedOpen ? (
-        <div
-          className="modal-overlay"
-          role="presentation"
-          onClick={() => !cannedSaving && setManageCannedOpen(false)}
-        >
-          <div
-            className="modal-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="av-crm-canned-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2 id="av-crm-canned-title">
-                {editingCannedId ? 'Editar mensaje predeterminado' : 'Nuevo mensaje predeterminado'}
-              </h2>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setManageCannedOpen(false)}
-                disabled={cannedSaving}
-                aria-label="Cerrar"
-              >
-                <X size={18} strokeWidth={2} aria-hidden />
-              </button>
-            </div>
-            <form className="modal-form" onSubmit={(event) => void handleSaveCanned(event)}>
-              <label className="login-field" htmlFor="av-crm-canned-titulo">
-                Título
-                <input
-                  id="av-crm-canned-titulo"
-                  value={cannedTitulo}
-                  onChange={(event) => setCannedTitulo(event.target.value)}
-                  disabled={cannedSaving}
-                  required
-                  maxLength={80}
-                />
-              </label>
-              <label className="login-field" htmlFor="av-crm-canned-texto">
-                Mensaje
-                <textarea
-                  id="av-crm-canned-texto"
-                  value={cannedTexto}
-                  onChange={(event) => setCannedTexto(event.target.value)}
-                  disabled={cannedSaving}
-                  required
-                  rows={5}
-                  maxLength={2000}
-                />
-              </label>
-              {cannedError ? (
-                <p className="login-error" role="alert">
-                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                  {cannedError}
-                </p>
-              ) : null}
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setManageCannedOpen(false)}
-                  disabled={cannedSaving}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary" disabled={cannedSaving}>
-                  {cannedSaving ? (
-                    <>
-                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Guardando…
-                    </>
-                  ) : (
-                    'Guardar'
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       ) : null}

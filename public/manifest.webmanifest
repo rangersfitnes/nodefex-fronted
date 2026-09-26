@@ -1,8 +1,9 @@
 {
-  "name": "Nodefex Tecnology",
+  "name": "Nodefex Admin",
   "short_name": "Nodefex",
-  "description": "Panel Nodefex Tecnology",
-  "start_url": "/",
+  "description": "Panel administrativo de Nodefex Tecnology",
+  "id": "/admin",
+  "start_url": "/admin",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
