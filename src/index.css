@@ -2465,12 +2465,24 @@ a {
 .av-facturacion,
 .av-egresos,
 .av-planes,
+.av-accesos,
+.av-creditos,
+.av-cotizaciones,
+.av-crm,
+.av-movimientos,
+.av-mi-perfil,
+.av-owner-gestion {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .av-crm-presence {
   display: grid;
   gap: 0.45rem;
   margin: 0;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(11, 31, 58, 0.1);
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(2, 122, 90, 0.22);
   border-radius: 12px;
   background: linear-gradient(180deg, #f7faf8 0%, #eef3f0 100%);
 }
@@ -2572,18 +2584,6 @@ a {
   font-size: 0.68rem;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.av-accesos,
-.av-creditos,
-.av-cotizaciones,
-.av-crm,
-.av-movimientos,
-.av-mi-perfil,
-.av-owner-gestion {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
 }
 
 .av-tab-readonly {

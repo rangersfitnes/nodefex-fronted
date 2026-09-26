@@ -1038,13 +1038,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       return
     }
 
+    const activeUser = user
     let cancelled = false
     let timer: number | null = null
     const sessionId = presenceSessionIdRef.current
 
     async function notifyLeave() {
       try {
-        const token = await user.getIdToken()
+        const token = await activeUser.getIdToken()
         await leaveAvCrmPresence(token, { sessionId })
       } catch {
         // ignore
@@ -1052,9 +1053,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
 
     async function syncPresence() {
-      if (!user || cancelled) return
+      if (cancelled) return
       try {
-        const token = await user.getIdToken()
+        const token = await activeUser.getIdToken()
         if (document.visibilityState === 'hidden') {
           const snapshot = await getAvCrmPresence(token)
           if (!cancelled) {
