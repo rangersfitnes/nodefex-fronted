@@ -25,8 +25,10 @@ import {
   Users,
   X,
 } from '../icons'
+import { AvClientesCrmPanel } from './AvClientesCrmPanel'
 
 type VistaClientes = 'lista' | 'detalle'
+type SubtabClientes = 'registro' | 'crm'
 
 type ClienteFormState = {
   tipoPersona: AvTipoPersona
@@ -461,6 +463,7 @@ function ClienteFormFields({
 
 export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
+  const [subtab, setSubtab] = useState<SubtabClientes>('registro')
   const [vista, setVista] = useState<VistaClientes>('lista')
   const [clientes, setClientes] = useState<AvCliente[]>([])
   const [loading, setLoading] = useState(true)
@@ -759,7 +762,7 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  if (vista === 'detalle' && detalle) {
+  if (vista === 'detalle' && detalle && subtab === 'registro') {
     return (
       <div className="av-clientes" role="tabpanel" aria-label="Detalle de cliente">
         <div className="av-ingresos-toolbar">
@@ -956,6 +959,38 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <div className="av-clientes" role="tabpanel" aria-label="Clientes">
+      <div className="contable-tabs contable-period-tabs av-clientes-subtabs" role="tablist" aria-label="Secciones de clientes">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subtab === 'registro'}
+          className={subtab === 'registro' ? 'is-active' : undefined}
+          onClick={() => {
+            setSubtab('registro')
+            setVista('lista')
+          }}
+        >
+          Registro
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subtab === 'crm'}
+          className={subtab === 'crm' ? 'is-active' : undefined}
+          onClick={() => {
+            setSubtab('crm')
+            setVista('lista')
+            setDetalle(null)
+          }}
+        >
+          Clientes CRM
+        </button>
+      </div>
+
+      {subtab === 'crm' ? <AvClientesCrmPanel /> : null}
+
+      {subtab === 'registro' ? (
+        <>
       <div className="av-ingresos-toolbar">
         <div>
           <h3>Clientes</h3>
@@ -1115,6 +1150,8 @@ export function AvClientesPanel({ readOnly = false }: { readOnly?: boolean }) {
             </form>
           </div>
         </div>
+      ) : null}
+        </>
       ) : null}
     </div>
   )

@@ -3245,6 +3245,109 @@ a {
   font-weight: 650;
 }
 
+.av-crm-mensajes-modal {
+  max-width: min(720px, 96vw);
+  max-height: min(88vh, 860px);
+  display: flex;
+  flex-direction: column;
+}
+
+.av-crm-mensajes-modal-body {
+  overflow: auto;
+  padding: 0 1.1rem 1.1rem;
+}
+
+.av-crm-mensajes-modal-body .av-ingresos-toolbar {
+  padding-top: 0;
+}
+
+.av-crm-mensajes-modal-body .av-ingresos-toolbar h3 {
+  display: none;
+}
+
+.av-crm-auto-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.av-crm-auto-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.av-crm-auto-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.av-crm-auto-card header h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--blue-950, #0b1f3a);
+}
+
+.av-crm-auto-card header span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--muted, #64748b);
+}
+
+.av-crm-auto-card textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  line-height: 1.4;
+  background: #fff;
+}
+
+.av-crm-auto-inline {
+  max-width: 11rem;
+}
+
+.av-crm-auto-hours {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.av-crm-auto-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.av-crm-auto-day {
+  min-width: 2.6rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted, #64748b);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.av-crm-auto-day.is-on {
+  border-color: rgba(2, 122, 90, 0.35);
+  background: rgba(2, 122, 90, 0.1);
+  color: #027a5a;
+}
+
 .av-wa {
   --wa-green: #00a884;
   --wa-green-deep: #008069;
@@ -3397,6 +3500,78 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.98rem;
+}
+
+.av-wa-chat-agent {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 0.05rem;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(2, 122, 90, 0.12);
+  color: #027a5a;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-wa-chat-agents {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  z-index: 2;
+}
+
+.av-wa-chat-agents-toggle {
+  gap: 0.2rem;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.av-wa-chat-agents-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-wa-chat-agents.is-open .av-wa-chat-agents-toggle svg {
+  transform: rotate(180deg);
+}
+
+.av-wa-chat-agents-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 8;
+  min-width: 9.5rem;
+  max-width: min(14rem, 70vw);
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border-radius: 10px;
+  border: 1px solid rgba(11, 31, 58, 0.1);
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(11, 20, 26, 0.14);
+}
+
+.av-wa-chat-agents-menu li {
+  padding: 0.35rem 0.45rem;
+  border-radius: 7px;
+  color: #0b1f3a;
+  font-size: 0.78rem;
+}
+
+.av-wa-chat-agents-menu li strong {
+  font-weight: 650;
+}
+
+.av-wa-chat-agents-menu li + li {
+  margin-top: 0.1rem;
 }
 
 .av-wa-chat-top time,
@@ -4039,6 +4214,198 @@ a {
 .av-wa-canned-item-actions .btn-secondary {
   padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
+}
+
+.av-wa-resources-panel {
+  width: min(26rem, 86vw);
+  max-height: min(70vh, 520px);
+  overflow: auto;
+}
+
+.av-wa-resource-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+.av-wa-resource-search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  min-width: 0;
+}
+
+.av-wa-cotizacion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.av-wa-cotizacion-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+}
+
+.av-wa-cotizacion-item:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.av-wa-cotizacion-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.av-wa-cotizacion-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.av-wa-cotizacion-item-main strong {
+  font-size: 0.86rem;
+}
+
+.av-wa-cotizacion-item-main span {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-wa-cotizacion-item-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.av-wa-resource-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem 0.15rem 0.25rem;
+}
+
+.av-wa-resource-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.av-wa-resource-card-head strong {
+  font-size: 0.92rem;
+  color: var(--wa-text);
+}
+
+.av-wa-resource-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+}
+
+.av-wa-resource-status.is-awaiting {
+  background: rgba(180, 120, 20, 0.12);
+  color: #9a6700;
+}
+
+.av-wa-resource-status.is-complete {
+  background: rgba(2, 122, 90, 0.12);
+  color: #027a5a;
+}
+
+.av-wa-resource-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--wa-muted, #667781);
+  line-height: 1.35;
+}
+
+.av-wa-resource-preview,
+.av-wa-resource-edit {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--wa-text);
+  background: #f6f7f8;
+  border-radius: 10px;
+  padding: 0.65rem 0.7rem;
+}
+
+.av-wa-resource-edit {
+  width: 100%;
+  border: 1px solid var(--wa-border, #e9edef);
+  font: inherit;
+  resize: vertical;
+  background: #fff;
+}
+
+.av-wa-resource-fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.av-wa-resource-fields li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(11, 31, 58, 0.04);
+  font-size: 0.78rem;
+}
+
+.av-wa-resource-fields li span {
+  color: var(--wa-muted, #667781);
+}
+
+.av-wa-resource-fields li strong {
+  font-weight: 650;
+  color: #0b1f3a;
+}
+
+.av-wa-resource-fields li.is-done {
+  background: rgba(2, 122, 90, 0.08);
+}
+
+.av-wa-resource-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
 }
 
 .av-wa-composer input,
@@ -5354,6 +5721,37 @@ a.btn-secondary {
   font-family: Outfit, 'DM Sans', sans-serif;
   font-size: 1rem;
   color: var(--blue-950);
+}
+
+.av-clientes-subtabs {
+  margin-bottom: 1rem;
+}
+
+.av-cliente-crm-intereses-meta {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.av-cliente-crm-intereses-meta p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.av-cliente-crm-stats {
+  margin: 0 0 0.75rem;
+}
+
+.av-cliente-crm-resumen {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 0.95rem;
+  max-height: min(55vh, 420px);
+  overflow: auto;
+  padding: 0.75rem 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  margin-bottom: 1rem;
 }
 
 .av-cliente-fieldset {

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, StickyNote, User, Users, Video } from '../icons'
+import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvCotizacionesPanel } from './AvCotizacionesPanel'
 import { AvCreditosPanel } from './AvCreditosPanel'
-import { AvCrmMensajesPanel } from './AvCrmMensajesPanel'
 import { AvCrmPanel } from './AvCrmPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvEmpresaGenioForm } from './AvEmpresaGenioForm'
@@ -27,7 +26,6 @@ type AudiovisualVista =
   | 'creditos'
   | 'cotizaciones'
   | 'crm'
-  | 'mensajes-rapidos'
   | 'movimientos'
   | 'mi-perfil'
   | 'contrato-avisos'
@@ -50,12 +48,6 @@ const TABS: {
   { id: 'creditos', label: 'Créditos', icon: Coins, action: 'av_creditos' },
   { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
   { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
-  {
-    id: 'mensajes-rapidos',
-    label: 'Mensajes rápidos',
-    icon: StickyNote,
-    action: 'av_crm',
-  },
   {
     id: 'movimientos',
     label: 'Movimientos',
@@ -109,7 +101,7 @@ type AudiovisualPanelProps = {
 }
 
 export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
-  const { isOwner, isAdmin, isVendedor } = useAuth()
+  const { isOwner, isAdmin } = useAuth()
 
   const allowedTabs = useMemo(
     () =>
@@ -272,19 +264,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
         <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
       ) : null}
 
-      {vista === 'crm' ? (
-        <AvCrmPanel
-          readOnly={crmReadOnly && !isOwner}
-          onOpenMensajesRapidos={() => setVista('mensajes-rapidos')}
-        />
-      ) : null}
-
-      {vista === 'mensajes-rapidos' ? (
-        <AvCrmMensajesPanel
-          canManageGlobal={isOwner}
-          canManagePersonal={isVendedor}
-        />
-      ) : null}
+      {vista === 'crm' ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

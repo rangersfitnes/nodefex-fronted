@@ -885,6 +885,25 @@ export type AvCrmChatLastMessage = {
   timestamp: number | null
 }
 
+export type AvCrmChatLastResponder = {
+  uid: string | null
+  nombre: string
+  rol: string | null
+  at: number | null
+}
+
+export type AvCrmRecursoSolicitarDatosState = {
+  status: 'idle' | 'awaiting' | 'complete'
+  datos: {
+    nombreContacto: string | null
+    nombreEmpresa: string | null
+  }
+  activatedAt: number | null
+  completedAt: number | null
+  updatedAt: number | null
+  activatedByNombre?: string | null
+}
+
 export type AvCrmChat = {
   id: string
   name: string
@@ -899,6 +918,9 @@ export type AvCrmChat = {
   lastMessage: AvCrmChatLastMessage | null
   presence: AvCrmChatPresence
   profilePicUrl: string | null
+  lastResponder?: AvCrmChatLastResponder | null
+  responders?: AvCrmChatLastResponder[]
+  recursoSolicitarDatos?: AvCrmRecursoSolicitarDatosState | null
 }
 
 export type AvCrmMessage = {
@@ -962,16 +984,52 @@ export async function sendAvCrmMessage(
   token: string,
   jid: string,
   text: string,
-): Promise<AvCrmMessage> {
-  const data = await apiFetch<{ message: AvCrmMessage }>(
+  options?: { resourceId?: string | null },
+): Promise<{ message: AvCrmMessage; chat: AvCrmChat | null }> {
+  return apiFetch<{ message: AvCrmMessage; chat: AvCrmChat | null }>(
     `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/messages`,
     token,
     {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        text,
+        resourceId: options?.resourceId || undefined,
+      }),
     },
   )
-  return data.message
+}
+
+export async function sendAvCrmDocument(
+  token: string,
+  jid: string,
+  payload: {
+    fileName: string
+    mimetype?: string
+    dataBase64: string
+    caption?: string
+  },
+): Promise<{ message: AvCrmMessage; chat: AvCrmChat | null }> {
+  return apiFetch<{ message: AvCrmMessage; chat: AvCrmChat | null }>(
+    `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/document`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: payload.fileName,
+        mimetype: payload.mimetype || 'application/pdf',
+        dataBase64: payload.dataBase64,
+        caption: payload.caption || undefined,
+      }),
+    },
+  )
+}
+
+export async function listAvCrmCotizaciones(token: string): Promise<AvCotizacion[]> {
+  const data = await apiFetch<{ cotizaciones: AvCotizacion[] }>(
+    '/api/audiovisual/crm/cotizaciones',
+    token,
+  )
+  return data.cotizaciones
 }
 
 export async function fetchAvCrmMessageAudio(
@@ -1096,6 +1154,136 @@ export async function deleteAvCrmMensajePredeterminado(
     `/api/audiovisual/crm/mensajes-predeterminados/${encodeURIComponent(id)}`,
     token,
     { method: 'DELETE', body: JSON.stringify({}) },
+  )
+}
+
+export type AvCrmAutoMensajeBase = {
+  activo: boolean
+  titulo: string
+  texto: string
+}
+
+export type AvCrmAutoMensajesConfig = {
+  primerContacto: AvCrmAutoMensajeBase
+  reapertura: AvCrmAutoMensajeBase & { horasInactividad: number }
+  fueraHorario: AvCrmAutoMensajeBase & {
+    horaInicio: string
+    horaFin: string
+    dias: number[]
+    zona: string
+  }
+  modoAusente: AvCrmAutoMensajeBase
+}
+
+export async function getAvCrmMensajesAutomaticos(
+  token: string,
+): Promise<AvCrmAutoMensajesConfig> {
+  const data = await apiFetch<{ config: AvCrmAutoMensajesConfig }>(
+    '/api/audiovisual/crm/mensajes-automaticos',
+    token,
+  )
+  return data.config
+}
+
+export async function saveAvCrmMensajesAutomaticos(
+  token: string,
+  config: AvCrmAutoMensajesConfig,
+): Promise<AvCrmAutoMensajesConfig> {
+  const data = await apiFetch<{ config: AvCrmAutoMensajesConfig }>(
+    '/api/audiovisual/crm/mensajes-automaticos',
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    },
+  )
+  return data.config
+}
+
+export type AvCrmRecurso = {
+  id: string
+  titulo: string
+  descripcion: string
+  texto: string
+  campos: Array<{ key: string; label: string }>
+}
+
+export async function listAvCrmRecursos(token: string): Promise<AvCrmRecurso[]> {
+  const data = await apiFetch<{ recursos: AvCrmRecurso[] }>(
+    '/api/audiovisual/crm/recursos',
+    token,
+  )
+  return data.recursos
+}
+
+export async function saveAvCrmRecursoSolicitarDatos(
+  token: string,
+  texto: string,
+): Promise<AvCrmRecurso> {
+  const data = await apiFetch<{ recurso: AvCrmRecurso }>(
+    '/api/audiovisual/crm/recursos/solicitar-datos',
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ texto }),
+    },
+  )
+  return data.recurso
+}
+
+export type AvCrmCliente = {
+  id: string
+  chatId: string | null
+  phoneNumber: string | null
+  phoneDisplay: string | null
+  nombreContacto: string | null
+  nombreEmpresa: string | null
+  activatedByUid: string | null
+  activatedByNombre: string | null
+  recopiladoEn: string | null
+  actualizadoEn: string | null
+  interesResumen: string | null
+  interesGeneradoEn: string | null
+  interesMessageCount: number | null
+}
+
+export type AvCrmClienteIntereses = {
+  cliente: {
+    id: string
+    chatId: string | null
+    nombreContacto: string | null
+    nombreEmpresa: string | null
+    phoneDisplay: string | null
+  }
+  resumen: string
+  generadoEn: string | null
+  cached: boolean
+  stats: {
+    mensajesCliente: number
+    mensajesAsesor: number
+    frecuenciaRespuesta: string
+    promedioMinutosEntreMensajesCliente?: number
+  }
+  messageCount: number
+}
+
+export async function listAvCrmClientes(token: string): Promise<AvCrmCliente[]> {
+  const data = await apiFetch<{ clientes: AvCrmCliente[] }>(
+    '/api/audiovisual/crm/clientes-crm',
+    token,
+  )
+  return data.clientes
+}
+
+export async function getAvCrmClienteIntereses(
+  token: string,
+  id: string,
+  options: { refresh?: boolean } = {},
+): Promise<AvCrmClienteIntereses> {
+  const qs = options.refresh ? '?refresh=1' : ''
+  return apiFetch<AvCrmClienteIntereses>(
+    `/api/audiovisual/crm/clientes-crm/${encodeURIComponent(id)}/intereses${qs}`,
+    token,
   )
 }
 

@@ -10,18 +10,26 @@ import {
   getAvCrmChat,
   getAvCrmWhatsappStatus,
   listAvCrmChats,
+  listAvCrmCotizaciones,
   listAvCrmMensajesPredeterminados,
+  listAvCrmRecursos,
   listAvCrmVendedores,
+  saveAvCrmRecursoSolicitarDatos,
   saveAvCrmVendedorAccesos,
+  sendAvCrmDocument,
   sendAvCrmMessage,
+  type AvCotizacion,
   type AvCrmChat,
+  type AvCrmChatLastResponder,
   type AvCrmMensajePredeterminado,
   type AvCrmMessage,
+  type AvCrmRecurso,
   type AvCrmVendedor,
   type AvCrmWhatsappStatus,
 } from '../api/audiovisual'
 import {
   ADMIN_ACCIONES_AUDIOVISUAL,
+  formatCop,
   type AdminAccion,
 } from '../api/administradores'
 import { esProyectoAudiovisual } from '../api/proyectos'
@@ -42,12 +50,16 @@ import {
   RefreshCw,
   Search,
   Send,
+  Settings,
   StickyNote,
   Trash2,
   Users,
   Video,
   X,
 } from '../icons'
+import { buildAvCotizacionPdf } from './avCotizacionPdf'
+import { AvCrmAutoMensajesPanel } from './AvCrmAutoMensajesPanel'
+import { AvCrmMensajesPanel } from './AvCrmMensajesPanel'
 
 const VENDEDOR_ACCIONES = ADMIN_ACCIONES_AUDIOVISUAL.filter(
   (item) => item.id !== 'av_accesos',
@@ -511,6 +523,71 @@ function Avatar({
   )
 }
 
+function normalizeResponders(chat: AvCrmChat): AvCrmChatLastResponder[] {
+  const list = Array.isArray(chat.responders) ? chat.responders : []
+  if (list.length > 0) {
+    return [...list]
+      .filter((item) => Boolean(item?.nombre))
+      .sort((a, b) => (b.at || 0) - (a.at || 0))
+  }
+  if (chat.lastResponder?.nombre) return [chat.lastResponder]
+  return []
+}
+
+function ChatRespondersBadge({ responders }: { responders: AvCrmChatLastResponder[] }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDocClick(event: MouseEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  if (responders.length === 0) return null
+
+  if (responders.length === 1) {
+    return (
+      <span className="av-wa-chat-agent" title="Vendedor que respondió">
+        {responders[0].nombre}
+      </span>
+    )
+  }
+
+  const latest = responders[0]
+  return (
+    <div className={`av-wa-chat-agents ${open ? 'is-open' : ''}`} ref={wrapRef}>
+      <button
+        type="button"
+        className="av-wa-chat-agent av-wa-chat-agents-toggle"
+        aria-expanded={open}
+        aria-label={`Vendedores que gestionaron este chat (${responders.length})`}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((value) => !value)
+        }}
+      >
+        <span>
+          {latest.nombre} · {responders.length}
+        </span>
+        <ChevronDown size={12} strokeWidth={2.25} aria-hidden />
+      </button>
+      {open ? (
+        <ul className="av-wa-chat-agents-menu" role="list">
+          {responders.map((item) => (
+            <li key={item.uid || `${item.nombre}-${item.at || 0}`}>
+              <strong>{item.nombre}</strong>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
 function LinkedWhatsappCard({
   status,
   variant = 'sidebar',
@@ -542,14 +619,8 @@ function LinkedWhatsappCard({
   )
 }
 
-export function AvCrmPanel({
-  readOnly = false,
-  onOpenMensajesRapidos,
-}: {
-  readOnly?: boolean
-  onOpenMensajesRapidos?: () => void
-}) {
-  const { user, isOwner } = useAuth()
+export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
+  const { user, isOwner, isVendedor } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -567,12 +638,27 @@ export function AvCrmPanel({
   const [mobileShowChat, setMobileShowChat] = useState(false)
 
   const [cannedOpen, setCannedOpen] = useState(false)
+  const [resourcesOpen, setResourcesOpen] = useState(false)
+  const [recursos, setRecursos] = useState<AvCrmRecurso[]>([])
+  const [recursosLoading, setRecursosLoading] = useState(false)
+  const [recursosError, setRecursosError] = useState('')
+  const [recursoEditTexto, setRecursoEditTexto] = useState('')
+  const [recursoEditing, setRecursoEditing] = useState(false)
+  const [recursoSaving, setRecursoSaving] = useState(false)
+  const [recursoSending, setRecursoSending] = useState(false)
+  const [cotizacionesCrm, setCotizacionesCrm] = useState<AvCotizacion[]>([])
+  const [cotizacionesCrmLoading, setCotizacionesCrmLoading] = useState(false)
+  const [cotizacionQuery, setCotizacionQuery] = useState('')
+  const [cotizacionSendingId, setCotizacionSendingId] = useState<string | null>(null)
   const [cannedMessages, setCannedMessages] = useState<AvCrmMensajePredeterminado[]>([])
   const [cannedLoading, setCannedLoading] = useState(false)
   const [cannedError, setCannedError] = useState('')
+  const [cannedRefreshTick, setCannedRefreshTick] = useState(0)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
 
   const [vendedoresOpen, setVendedoresOpen] = useState(false)
+  const [mensajesRapidosOpen, setMensajesRapidosOpen] = useState(false)
+  const [autoMensajesOpen, setAutoMensajesOpen] = useState(false)
   const [vendedores, setVendedores] = useState<AvCrmVendedor[]>([])
   const [vendedoresLoading, setVendedoresLoading] = useState(false)
   const [vendedoresError, setVendedoresError] = useState('')
@@ -590,7 +676,8 @@ export function AvCrmPanel({
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
   const canManageVendedores = isOwner && !readOnly
-  const canManageMensajesGlobales = isOwner && !readOnly && Boolean(onOpenMensajesRapidos)
+  const canOpenMensajesRapidos = !readOnly && (isOwner || isVendedor)
+  const canManageAutoMensajes = isOwner && !readOnly
 
   function resizeComposer() {
     const el = composerInputRef.current
@@ -785,7 +872,188 @@ export function AvCrmPanel({
     return () => {
       cancelled = true
     }
-  }, [connected, user])
+  }, [connected, user, cannedRefreshTick])
+
+  useEffect(() => {
+    if (!resourcesOpen || !user) return
+    let cancelled = false
+    async function loadRecursos() {
+      setRecursosLoading(true)
+      setRecursosError('')
+      setCotizacionesCrmLoading(true)
+      try {
+        const token = await user!.getIdToken()
+        const [list, cotizaciones] = await Promise.all([
+          listAvCrmRecursos(token),
+          listAvCrmCotizaciones(token).catch(() => [] as AvCotizacion[]),
+        ])
+        if (cancelled) return
+        setRecursos(list)
+        setCotizacionesCrm(cotizaciones)
+        const solicitar = list.find((item) => item.id === 'solicitar_datos')
+        if (solicitar) setRecursoEditTexto(solicitar.texto)
+      } catch (err) {
+        if (!cancelled) {
+          setRecursosError(err instanceof Error ? err.message : 'No se pudieron cargar los recursos')
+        }
+      } finally {
+        if (!cancelled) {
+          setRecursosLoading(false)
+          setCotizacionesCrmLoading(false)
+        }
+      }
+    }
+    void loadRecursos()
+    return () => {
+      cancelled = true
+    }
+  }, [resourcesOpen, user])
+
+  const cotizacionesFiltradas = useMemo(() => {
+    const q = cotizacionQuery.trim().toLowerCase()
+    if (!q) return cotizacionesCrm.slice(0, 12)
+    return cotizacionesCrm
+      .filter((item) => {
+        const haystack = [
+          item.numero,
+          item.clienteNombre,
+          item.clienteDocumento,
+          item.clienteTelefono,
+          item.resumen,
+          item.id,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(q)
+      })
+      .slice(0, 20)
+  }, [cotizacionesCrm, cotizacionQuery])
+
+  function closeMensajesRapidos() {
+    setMensajesRapidosOpen(false)
+    setCannedRefreshTick((n) => n + 1)
+  }
+
+  async function handleSaveRecursoSolicitarDatos() {
+    if (!user || !isOwner || recursoSaving) return
+    const texto = recursoEditTexto.trim()
+    if (!texto) {
+      setRecursosError('El mensaje no puede estar vacío')
+      return
+    }
+    setRecursoSaving(true)
+    setRecursosError('')
+    try {
+      const token = await user.getIdToken()
+      const saved = await saveAvCrmRecursoSolicitarDatos(token, texto)
+      setRecursos((current) =>
+        current.map((item) => (item.id === saved.id ? saved : item)),
+      )
+      setRecursoEditing(false)
+    } catch (err) {
+      setRecursosError(err instanceof Error ? err.message : 'No se pudo guardar')
+    } finally {
+      setRecursoSaving(false)
+    }
+  }
+
+  function applySentMessageToChat(
+    message: AvCrmMessage,
+    updatedChat: AvCrmChat | null | undefined,
+  ) {
+    if (!selectedId || !message) return
+    setMessages((current) => [...current, message])
+    setChats((current) =>
+      current
+        .map((chat) =>
+          chat.id === selectedId
+            ? {
+                ...chat,
+                ...(updatedChat || {}),
+                conversationTimestamp:
+                  updatedChat?.conversationTimestamp || message.timestamp || Date.now(),
+                lastMessage: updatedChat?.lastMessage || {
+                  id: message.id,
+                  fromMe: true,
+                  text: message.text,
+                  status: message.status,
+                  timestamp: message.timestamp,
+                },
+                lastResponder: updatedChat?.lastResponder ?? chat.lastResponder ?? null,
+                responders: updatedChat?.responders ?? chat.responders ?? [],
+                recursoSolicitarDatos:
+                  updatedChat?.recursoSolicitarDatos ?? chat.recursoSolicitarDatos ?? null,
+              }
+            : chat,
+        )
+        .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
+    )
+    if (updatedChat) setActiveChat(updatedChat)
+  }
+
+  async function handleSendRecursoSolicitarDatos(recurso: AvCrmRecurso) {
+    if (!user || !selectedId || readOnly || !connected || recursoSending || sending) return
+    const texto = recurso.texto.trim()
+    if (!texto) return
+    setRecursoSending(true)
+    setError('')
+    setResourcesOpen(false)
+    try {
+      const token = await user.getIdToken()
+      const { message, chat: updatedChat } = await sendAvCrmMessage(token, selectedId, texto, {
+        resourceId: 'solicitar_datos',
+      })
+      applySentMessageToChat(message, updatedChat)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar el recurso')
+    } finally {
+      setRecursoSending(false)
+    }
+  }
+
+  async function handleSendCotizacion(cotizacion: AvCotizacion) {
+    if (
+      !user ||
+      !selectedId ||
+      readOnly ||
+      !connected ||
+      recursoSending ||
+      sending ||
+      cotizacionSendingId
+    ) {
+      return
+    }
+    setCotizacionSendingId(cotizacion.id)
+    setRecursosError('')
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const pdf = await buildAvCotizacionPdf(cotizacion)
+      const caption = [
+        `Cotización ${cotizacion.numero || ''}`.trim(),
+        cotizacion.clienteNombre ? `Cliente: ${cotizacion.clienteNombre}` : null,
+        `Total: ${formatCop(cotizacion.subtotal || 0)}`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+      const { message, chat: updatedChat } = await sendAvCrmDocument(token, selectedId, {
+        fileName: pdf.fileName,
+        mimetype: 'application/pdf',
+        dataBase64: pdf.base64,
+        caption,
+      })
+      applySentMessageToChat(message, updatedChat)
+      setResourcesOpen(false)
+      setCotizacionQuery('')
+    } catch (err) {
+      setRecursosError(
+        err instanceof Error ? err.message : 'No se pudo enviar la cotización',
+      )
+    } finally {
+      setCotizacionSendingId(null)
+    }
+  }
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -997,7 +1265,7 @@ export function AvCrmPanel({
     setError('')
     try {
       const token = await user.getIdToken()
-      const message = await sendAvCrmMessage(token, selectedId, text)
+      const { message, chat: updatedChat } = await sendAvCrmMessage(token, selectedId, text)
       setDraft('')
       setMessages((current) => [...current, message])
       setChats((current) =>
@@ -1006,19 +1274,26 @@ export function AvCrmPanel({
             chat.id === selectedId
               ? {
                   ...chat,
-                  conversationTimestamp: message.timestamp || Date.now(),
-                  lastMessage: {
+                  ...(updatedChat || {}),
+                  conversationTimestamp:
+                    updatedChat?.conversationTimestamp || message.timestamp || Date.now(),
+                  lastMessage: updatedChat?.lastMessage || {
                     id: message.id,
                     fromMe: true,
                     text: message.text,
                     status: message.status,
                     timestamp: message.timestamp,
                   },
+                  lastResponder: updatedChat?.lastResponder ?? chat.lastResponder ?? null,
+                  responders: updatedChat?.responders ?? chat.responders ?? [],
+                  recursoSolicitarDatos:
+                    updatedChat?.recursoSolicitarDatos ?? chat.recursoSolicitarDatos ?? null,
                 }
               : chat,
           )
           .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
       )
+      if (updatedChat) setActiveChat(updatedChat)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje')
     } finally {
@@ -1057,15 +1332,26 @@ export function AvCrmPanel({
               Desvincular
             </button>
           ) : null}
-          {canManageMensajesGlobales ? (
+          {canOpenMensajesRapidos ? (
             <button
               type="button"
               className="btn-secondary"
-              onClick={onOpenMensajesRapidos}
+              onClick={() => setMensajesRapidosOpen(true)}
               disabled={busy || loading}
             >
               <StickyNote size={16} strokeWidth={2} aria-hidden />
               Mensajes rápidos
+            </button>
+          ) : null}
+          {canManageAutoMensajes ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAutoMensajesOpen(true)}
+              disabled={busy || loading}
+            >
+              <Settings size={16} strokeWidth={2} aria-hidden />
+              Automáticos
             </button>
           ) : null}
           {canManageVendedores ? (
@@ -1175,6 +1461,12 @@ export function AvCrmPanel({
                         <strong>{chat.name}</strong>
                         <time>{formatChatTime(chat.lastMessage?.timestamp || chat.conversationTimestamp)}</time>
                       </span>
+                      {(() => {
+                        const responders = normalizeResponders(chat)
+                        return responders.length > 0 ? (
+                          <ChatRespondersBadge responders={responders} />
+                        ) : null
+                      })()}
                       <span className="av-wa-chat-bottom">
                         <span className="av-wa-preview">
                           {!chat.isGroup && chat.phoneDisplay && chat.phoneDisplay !== `+${chat.name}` && chat.name !== chat.phoneNumber ? (
@@ -1288,8 +1580,11 @@ export function AvCrmPanel({
                     <button
                       type="button"
                       className="av-wa-canned-toggle"
-                      onClick={() => setCannedOpen((open) => !open)}
-                      disabled={readOnly || sending}
+                      onClick={() => {
+                        setResourcesOpen(false)
+                        setCannedOpen((open) => !open)
+                      }}
+                      disabled={readOnly || sending || recursoSending}
                       aria-expanded={cannedOpen}
                       aria-label="Mensajes predeterminados"
                       title="Mensajes predeterminados"
@@ -1311,7 +1606,7 @@ export function AvCrmPanel({
                         ) : null}
                         {!cannedLoading && cannedMessages.length === 0 ? (
                           <p className="section-note">
-                            Aún no hay mensajes. Configúralos en la pestaña Mensajes rápidos.
+                            Aún no hay mensajes. Usa «Mensajes rápidos» arriba para crearlos.
                           </p>
                         ) : null}
                         {!cannedLoading && cannedMessages.some((m) => m.alcance !== 'personal') ? (
@@ -1358,6 +1653,227 @@ export function AvCrmPanel({
                             </ul>
                           </>
                         ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="av-wa-canned-wrap">
+                    <button
+                      type="button"
+                      className="av-wa-canned-toggle"
+                      onClick={() => {
+                        setCannedOpen(false)
+                        setResourcesOpen((open) => !open)
+                        setRecursoEditing(false)
+                      }}
+                      disabled={readOnly || sending || recursoSending}
+                      aria-expanded={resourcesOpen}
+                      aria-label="Recursos"
+                      title="Recursos"
+                    >
+                      <Plus size={18} strokeWidth={2} aria-hidden />
+                    </button>
+                    {resourcesOpen ? (
+                      <div className="av-wa-canned-panel av-wa-resources-panel" role="dialog" aria-label="Recursos">
+                        <div className="av-wa-canned-panel-head">
+                          <strong>Recursos</strong>
+                        </div>
+                        {recursosLoading ? (
+                          <p className="section-note">Cargando…</p>
+                        ) : null}
+                        {recursosError ? (
+                          <p className="login-error" role="alert">
+                            {recursosError}
+                          </p>
+                        ) : null}
+                        {!recursosLoading
+                          ? recursos.map((recurso) => {
+                              if (recurso.id === 'enviar_cotizacion') {
+                                return (
+                                  <div key={recurso.id} className="av-wa-resource-card">
+                                    <div className="av-wa-resource-card-head">
+                                      <strong>{recurso.titulo}</strong>
+                                    </div>
+                                    <p className="av-wa-resource-desc">{recurso.descripcion}</p>
+                                    <label className="av-wa-resource-search">
+                                      <Search size={14} strokeWidth={2} aria-hidden />
+                                      <input
+                                        type="search"
+                                        value={cotizacionQuery}
+                                        onChange={(event) => setCotizacionQuery(event.target.value)}
+                                        placeholder="Buscar por número, cliente…"
+                                        disabled={
+                                          readOnly ||
+                                          !connected ||
+                                          Boolean(cotizacionSendingId) ||
+                                          cotizacionesCrmLoading
+                                        }
+                                        aria-label="Buscar cotización"
+                                      />
+                                    </label>
+                                    {cotizacionesCrmLoading ? (
+                                      <p className="section-note">Cargando cotizaciones…</p>
+                                    ) : null}
+                                    {!cotizacionesCrmLoading && cotizacionesFiltradas.length === 0 ? (
+                                      <p className="section-note">
+                                        {cotizacionQuery.trim()
+                                          ? 'Sin resultados para esa búsqueda.'
+                                          : 'No hay cotizaciones creadas.'}
+                                      </p>
+                                    ) : null}
+                                    {!cotizacionesCrmLoading && cotizacionesFiltradas.length > 0 ? (
+                                      <ul className="av-wa-cotizacion-list">
+                                        {cotizacionesFiltradas.map((cotizacion) => {
+                                          const busy = cotizacionSendingId === cotizacion.id
+                                          return (
+                                            <li key={cotizacion.id}>
+                                              <button
+                                                type="button"
+                                                className="av-wa-cotizacion-item"
+                                                disabled={
+                                                  readOnly ||
+                                                  !connected ||
+                                                  sending ||
+                                                  recursoSending ||
+                                                  Boolean(cotizacionSendingId)
+                                                }
+                                                onClick={() => void handleSendCotizacion(cotizacion)}
+                                              >
+                                                <span className="av-wa-cotizacion-item-main">
+                                                  <strong>
+                                                    {cotizacion.numero || 'Cotización'}
+                                                  </strong>
+                                                  <span>
+                                                    {cotizacion.clienteNombre || 'Sin cliente'}
+                                                  </span>
+                                                </span>
+                                                <span className="av-wa-cotizacion-item-meta">
+                                                  {formatCop(cotizacion.subtotal || 0)}
+                                                  {busy ? (
+                                                    <LoaderCircle
+                                                      className="spin"
+                                                      size={14}
+                                                      strokeWidth={2}
+                                                      aria-hidden
+                                                    />
+                                                  ) : (
+                                                    <FileText size={14} strokeWidth={2} aria-hidden />
+                                                  )}
+                                                </span>
+                                              </button>
+                                            </li>
+                                          )
+                                        })}
+                                      </ul>
+                                    ) : null}
+                                  </div>
+                                )
+                              }
+
+                              const state =
+                                headerChat?.recursoSolicitarDatos ||
+                                activeChat?.recursoSolicitarDatos ||
+                                null
+                              const datos = state?.datos
+                              return (
+                                <div key={recurso.id} className="av-wa-resource-card">
+                                  <div className="av-wa-resource-card-head">
+                                    <strong>{recurso.titulo}</strong>
+                                    {state?.status === 'awaiting' ? (
+                                      <span className="av-wa-resource-status is-awaiting">
+                                        Recopilando…
+                                      </span>
+                                    ) : null}
+                                    {state?.status === 'complete' ? (
+                                      <span className="av-wa-resource-status is-complete">
+                                        Completo
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p className="av-wa-resource-desc">{recurso.descripcion}</p>
+
+                                  {isOwner && recursoEditing ? (
+                                    <textarea
+                                      className="av-wa-resource-edit"
+                                      rows={5}
+                                      value={recursoEditTexto}
+                                      disabled={recursoSaving}
+                                      onChange={(event) => setRecursoEditTexto(event.target.value)}
+                                    />
+                                  ) : (
+                                    <p className="av-wa-resource-preview">{recurso.texto}</p>
+                                  )}
+
+                                  {(state?.status === 'awaiting' || state?.status === 'complete') && (
+                                    <ul className="av-wa-resource-fields">
+                                      <li className={datos?.nombreContacto ? 'is-done' : ''}>
+                                        <span>Nombre de contacto</span>
+                                        <strong>{datos?.nombreContacto || 'Pendiente'}</strong>
+                                      </li>
+                                      <li className={datos?.nombreEmpresa ? 'is-done' : ''}>
+                                        <span>Empresa / emprendimiento</span>
+                                        <strong>{datos?.nombreEmpresa || 'Pendiente'}</strong>
+                                      </li>
+                                    </ul>
+                                  )}
+
+                                  <div className="av-wa-resource-actions">
+                                    {isOwner ? (
+                                      recursoEditing ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="btn-secondary"
+                                            disabled={recursoSaving}
+                                            onClick={() => {
+                                              setRecursoEditing(false)
+                                              setRecursoEditTexto(recurso.texto)
+                                            }}
+                                          >
+                                            Cancelar
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn-primary"
+                                            disabled={recursoSaving}
+                                            onClick={() => void handleSaveRecursoSolicitarDatos()}
+                                          >
+                                            {recursoSaving ? 'Guardando…' : 'Guardar'}
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="btn-secondary"
+                                          onClick={() => {
+                                            setRecursoEditTexto(recurso.texto)
+                                            setRecursoEditing(true)
+                                          }}
+                                        >
+                                          Editar
+                                        </button>
+                                      )
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="btn-primary"
+                                      disabled={
+                                        readOnly ||
+                                        !connected ||
+                                        sending ||
+                                        recursoSending ||
+                                        recursoEditing ||
+                                        Boolean(cotizacionSendingId)
+                                      }
+                                      onClick={() => void handleSendRecursoSolicitarDatos(recurso)}
+                                    >
+                                      {recursoSending ? 'Enviando…' : 'Enviar'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })
+                          : null}
                       </div>
                     ) : null}
                   </div>
@@ -1698,6 +2214,67 @@ export function AvCrmPanel({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {mensajesRapidosOpen ? (
+        <div className="modal-overlay" role="presentation" onClick={closeMensajesRapidos}>
+          <div
+            className="modal-panel modal-panel-wide av-crm-mensajes-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-crm-mensajes-rapidos-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-crm-mensajes-rapidos-title">Mensajes rápidos</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeMensajesRapidos}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="av-crm-mensajes-modal-body">
+              <AvCrmMensajesPanel
+                canManageGlobal={isOwner}
+                canManagePersonal={isVendedor}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {autoMensajesOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setAutoMensajesOpen(false)}
+        >
+          <div
+            className="modal-panel modal-panel-wide av-crm-mensajes-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-crm-auto-mensajes-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-crm-auto-mensajes-title">Mensajes automáticos</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setAutoMensajesOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="av-crm-mensajes-modal-body">
+              <AvCrmAutoMensajesPanel />
+            </div>
           </div>
         </div>
       ) : null}

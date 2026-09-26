@@ -40,10 +40,16 @@ async function loadBrandImage(path: string): Promise<string | null> {
   }
 }
 
-export async function downloadAvCotizacionPdf(
+export type AvCotizacionPdfBuilt = {
+  fileName: string
+  blob: Blob
+  base64: string
+}
+
+async function buildAvCotizacionPdfDoc(
   cotizacion: AvCotizacion,
   empresaFallback?: AvEmpresaGenio | null,
-): Promise<void> {
+): Promise<{ doc: jsPDF; fileName: string }> {
   const empresa = cotizacion.empresaSnapshot || empresaFallback || null
   const [logoData, iconWhite, iconBlue] = await Promise.all([
     loadBrandImage('/genio/logo-elgenio.png'),
@@ -263,5 +269,26 @@ export async function downloadAvCotizacionPdf(
   const safeClient = (cotizacion.clienteNombre || 'cliente')
     .replace(/[^\w\-]+/g, '_')
     .slice(0, 40)
-  doc.save(`${cotizacion.numero || 'COT'}_${safeClient}.pdf`)
+  const fileName = `${cotizacion.numero || 'COT'}_${safeClient}.pdf`
+  return { doc, fileName }
+}
+
+export async function buildAvCotizacionPdf(
+  cotizacion: AvCotizacion,
+  empresaFallback?: AvEmpresaGenio | null,
+): Promise<AvCotizacionPdfBuilt> {
+  const { doc, fileName } = await buildAvCotizacionPdfDoc(cotizacion, empresaFallback)
+  const dataUri = doc.output('datauristring') as string
+  const base64 = dataUri.includes(',') ? dataUri.split(',')[1] : dataUri
+  const ab = doc.output('arraybuffer') as ArrayBuffer
+  const blob = new Blob([ab], { type: 'application/pdf' })
+  return { fileName, blob, base64 }
+}
+
+export async function downloadAvCotizacionPdf(
+  cotizacion: AvCotizacion,
+  empresaFallback?: AvEmpresaGenio | null,
+): Promise<void> {
+  const { doc, fileName } = await buildAvCotizacionPdfDoc(cotizacion, empresaFallback)
+  doc.save(fileName)
 }
