@@ -503,7 +503,12 @@ function Avatar({
   url?: string | null
   size?: number
 }) {
-  if (url) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => {
+    setBroken(false)
+  }, [url])
+
+  if (url && !broken) {
     return (
       <img
         className="av-wa-avatar"
@@ -513,6 +518,7 @@ function Avatar({
         height={size}
         style={{ width: size, height: size }}
         referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
       />
     )
   }
@@ -1063,9 +1069,16 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   // Orden cronológico estable (como WhatsApp): antiguos arriba, recientes abajo.
   const sortedMessages = useMemo(() => {
+    const toSortTs = (ts: number | null | undefined) => {
+      if (!ts || !Number.isFinite(ts)) return 0
+      // Segundos residuales del API → ms
+      if (ts < 1e10) return Math.floor(ts * 1000)
+      if (ts > 1e14) return Math.floor(ts / 1000)
+      return Math.floor(ts)
+    }
     return [...messages].sort((a, b) => {
-      const ta = a.timestamp || 0
-      const tb = b.timestamp || 0
+      const ta = toSortTs(a.timestamp)
+      const tb = toSortTs(b.timestamp)
       if (ta !== tb) return ta - tb
       const ida = String(a.id || '')
       const idb = String(b.id || '')
@@ -1076,9 +1089,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
-    // Scroll solo dentro del panel de mensajes (no mueve la página ni oculta el composer).
-    container.scrollTop = container.scrollHeight
-  }, [sortedMessages.length, selectedId])
+    // Tras pintar, anclar abajo (mensajes más recientes visibles).
+    const pin = () => {
+      container.scrollTop = container.scrollHeight
+    }
+    pin()
+    const id = window.requestAnimationFrame(pin)
+    return () => window.cancelAnimationFrame(id)
+  }, [sortedMessages.length, selectedId, sortedMessages[sortedMessages.length - 1]?.id])
 
   async function openLinkModal() {
     if (!user || busy || readOnly) return
@@ -1551,6 +1569,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       Cargando mensajes…
                     </div>
                   ) : null}
+                  <div className="av-wa-messages-spacer" aria-hidden />
                   {sortedMessages.map((message) => (
                     <div
                       key={message.id || `${message.timestamp}-${message.text}`}

@@ -3719,18 +3719,24 @@ a {
   min-height: 0;
   height: 100%;
   padding: 1rem 1.1rem 1.25rem;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 0.35rem;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+.av-wa-messages-spacer {
+  flex: 1 1 auto;
+  min-height: 0;
+  pointer-events: none;
 }
 
 .av-wa-messages-loading {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  justify-self: center;
+  align-self: center;
   margin: 1rem 0;
   color: var(--wa-muted);
   font-size: 0.9rem;
@@ -3743,16 +3749,17 @@ a {
   box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   display: grid;
   gap: 0.15rem;
+  flex-shrink: 0;
 }
 
 .av-wa-bubble.is-in {
-  justify-self: start;
+  align-self: flex-start;
   background: var(--wa-in);
   border-top-left-radius: 0;
 }
 
 .av-wa-bubble.is-out {
-  justify-self: end;
+  align-self: flex-end;
   background: var(--wa-out);
   border-top-right-radius: 0;
 }
