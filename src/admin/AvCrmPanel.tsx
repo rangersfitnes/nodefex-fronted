@@ -825,13 +825,36 @@ function rolPresenceLabel(rol: string | null | undefined) {
 function CrmPresenceBar({
   presence,
   selfUid,
+  selfNombre,
+  selfRol,
+  error,
 }: {
   presence: AvCrmPresenceSnapshot | null
   selfUid: string | null
+  selfNombre?: string | null
+  selfRol?: string | null
+  error?: string
 }) {
-  const online = presence?.online || []
+  const onlineRaw = presence?.online || []
   const recentlyLeft = presence?.recentlyLeft || []
   const now = presence?.serverTime || Date.now()
+
+  // Garantizar que el usuario actual se vea aunque el poll aún no haya respondido.
+  const online = (() => {
+    if (!selfUid) return onlineRaw
+    if (onlineRaw.some((item) => item.uid === selfUid)) return onlineRaw
+    return [
+      {
+        uid: selfUid,
+        nombre: selfNombre || 'Tú',
+        email: null,
+        rol: selfRol || null,
+        connectedAt: now,
+        lastSeenAt: now,
+      },
+      ...onlineRaw,
+    ]
+  })()
 
   return (
     <div className="av-crm-presence" aria-live="polite" aria-label="Vendedores conectados al CRM">
@@ -846,6 +869,12 @@ function CrmPresenceBar({
               : `${online.length} conectados`}
         </span>
       </div>
+
+      {error ? (
+        <p className="av-crm-presence-error" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       {online.length === 0 && recentlyLeft.length === 0 ? (
         <p className="av-crm-presence-empty">Los vendedores aparecen aquí al abrir esta pestaña.</p>
@@ -864,13 +893,18 @@ function CrmPresenceBar({
               </li>
             )
           })}
-          {recentlyLeft.map((item: AvCrmPresenceUser) => (
-            <li key={`off-${item.uid}-${item.leftAt || 0}`} className="av-crm-presence-chip is-offline">
-              <span className="av-crm-presence-dot" aria-hidden />
-              <span className="av-crm-presence-name">{item.nombre}</span>
-              <span className="av-crm-presence-left">{formatLeftAgo(item.leftAt, now)}</span>
-            </li>
-          ))}
+          {recentlyLeft
+            .filter((item) => !online.some((on) => on.uid === item.uid))
+            .map((item: AvCrmPresenceUser) => (
+              <li
+                key={`off-${item.uid}-${item.leftAt || 0}`}
+                className="av-crm-presence-chip is-offline"
+              >
+                <span className="av-crm-presence-dot" aria-hidden />
+                <span className="av-crm-presence-name">{item.nombre}</span>
+                <span className="av-crm-presence-left">{formatLeftAgo(item.leftAt, now)}</span>
+              </li>
+            ))}
         </ul>
       )}
     </div>
@@ -916,6 +950,10 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [presence, setPresence] = useState<AvCrmPresenceSnapshot | null>(null)
+  const [presenceError, setPresenceError] = useState('')
+  const presenceSessionIdRef = useRef(
+    `crm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+  )
 
   const [chats, setChats] = useState<AvCrmChat[]>([])
   const [crmClientesByChatId, setCrmClientesByChatId] = useState<Record<string, AvCrmCliente>>(
@@ -996,16 +1034,18 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     if (!user) {
       setPresence(null)
+      setPresenceError('')
       return
     }
 
     let cancelled = false
     let timer: number | null = null
+    const sessionId = presenceSessionIdRef.current
 
     async function notifyLeave() {
       try {
         const token = await user.getIdToken()
-        await leaveAvCrmPresence(token)
+        await leaveAvCrmPresence(token, { sessionId })
       } catch {
         // ignore
       }
@@ -1015,24 +1055,32 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (!user || cancelled) return
       try {
         const token = await user.getIdToken()
-        // Si la pestaña está oculta: solo leer (el TTL marca offline si no hay heartbeat).
-        // No hacer leave inmediato: en móvil "hidden" es muy frecuente y borraba la presencia.
         if (document.visibilityState === 'hidden') {
           const snapshot = await getAvCrmPresence(token)
-          if (!cancelled) setPresence(snapshot)
+          if (!cancelled) {
+            setPresence(snapshot)
+            setPresenceError('')
+          }
           return
         }
-        const data = await heartbeatAvCrmPresence(token)
-        if (!cancelled) setPresence(data)
+        const data = await heartbeatAvCrmPresence(token, { sessionId })
+        if (!cancelled) {
+          setPresence(data)
+          setPresenceError('')
+        }
       } catch (err) {
-        console.warn('[crm-presence]', err instanceof Error ? err.message : err)
+        if (!cancelled) {
+          setPresenceError(
+            err instanceof Error ? err.message : 'No se pudo sincronizar quién está en línea',
+          )
+        }
       }
     }
 
     void syncPresence()
     timer = window.setInterval(() => {
       void syncPresence()
-    }, 8000)
+    }, 5000)
 
     function onVisibility() {
       if (document.visibilityState === 'visible') {
@@ -1051,7 +1099,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (timer != null) window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('pagehide', onPageHide)
-      void notifyLeave()
+      // No leave aquí: Strict Mode / cambio de subvista lo disparaba y borraba la presencia.
+      // pagehide + TTL cubren cierre real de pestaña.
     }
   }, [user])
 
@@ -1819,6 +1868,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       <CrmPresenceBar
         presence={presence}
         selfUid={administrador?.uid || user?.uid || null}
+        selfNombre={administrador?.nombre || user?.email || null}
+        selfRol={administrador?.rol || null}
+        error={presenceError}
       />
 
       {readOnly ? (

@@ -1313,17 +1313,23 @@ export async function getAvCrmPresence(token: string): Promise<AvCrmPresenceSnap
   return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence', token)
 }
 
-export async function heartbeatAvCrmPresence(token: string): Promise<AvCrmPresenceSnapshot> {
+export async function heartbeatAvCrmPresence(
+  token: string,
+  options: { sessionId?: string } = {},
+): Promise<AvCrmPresenceSnapshot> {
   return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence/heartbeat', token, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ sessionId: options.sessionId || undefined }),
   })
 }
 
-export async function leaveAvCrmPresence(token: string): Promise<AvCrmPresenceSnapshot> {
+export async function leaveAvCrmPresence(
+  token: string,
+  options: { sessionId?: string } = {},
+): Promise<AvCrmPresenceSnapshot> {
   return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence/leave', token, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ sessionId: options.sessionId || undefined }),
   })
 }
 

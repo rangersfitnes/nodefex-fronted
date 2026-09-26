@@ -2500,6 +2500,13 @@ a {
   font-size: 0.78rem;
 }
 
+.av-crm-presence-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .av-crm-presence-list {
   display: flex;
   flex-wrap: wrap;
