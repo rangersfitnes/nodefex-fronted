@@ -18,11 +18,19 @@ import {
   saveAvCrmVendedorAccesos,
   sendAvCrmDocument,
   sendAvCrmMessage,
+  listAvCrmClientes,
+  getAvCrmClienteIntereses,
+  heartbeatAvCrmPresence,
+  leaveAvCrmPresence,
+  getAvCrmPresence,
   type AvCotizacion,
   type AvCrmChat,
   type AvCrmChatLastResponder,
+  type AvCrmCliente,
   type AvCrmMensajePredeterminado,
   type AvCrmMessage,
+  type AvCrmPresenceSnapshot,
+  type AvCrmPresenceUser,
   type AvCrmRecurso,
   type AvCrmVendedor,
   type AvCrmWhatsappStatus,
@@ -51,6 +59,7 @@ import {
   Search,
   Send,
   Settings,
+  Sparkles,
   StickyNote,
   Trash2,
   Users,
@@ -166,6 +175,22 @@ function initials(name: string): string {
   if (!parts.length) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
+}
+
+/** Evita mostrar el id @lid (27952…) como título del chat. */
+function chatDisplayName(chat: {
+  name?: string | null
+  phoneDisplay?: string | null
+  phoneNumber?: string | null
+  isGroup?: boolean
+}): string {
+  const name = String(chat.name || '').trim()
+  const digits = name.replace(/\D/g, '')
+  const looksLikeLid = /^\d{13,}$/.test(digits) && digits === name.replace(/\D/g, '')
+  if (looksLikeLid) return chat.phoneDisplay || 'Chat'
+  if (name) return name
+  if (chat.isGroup) return 'Grupo'
+  return chat.phoneDisplay || chat.phoneNumber || 'Chat'
 }
 
 function MessageTicks({ status }: { status: string | null }) {
@@ -594,6 +619,264 @@ function ChatRespondersBadge({ responders }: { responders: AvCrmChatLastResponde
   )
 }
 
+function ChatClienteCrmDropdown({
+  chat,
+  cliente,
+  onClientePatch,
+}: {
+  chat: AvCrmChat
+  cliente: AvCrmCliente | null
+  onClientePatch: (next: AvCrmCliente) => void
+}) {
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [resumen, setResumen] = useState(cliente?.interesResumen || '')
+  const [statsLabel, setStatsLabel] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const loadedRef = useRef(false)
+
+  const datos = chat.recursoSolicitarDatos?.datos
+  const nombreContacto = cliente?.nombreContacto || datos?.nombreContacto || null
+  const nombreEmpresa = cliente?.nombreEmpresa || datos?.nombreEmpresa || null
+  const phoneDisplay = cliente?.phoneDisplay || chat.phoneDisplay || null
+  const clienteKey = cliente?.id || chat.id
+
+  useEffect(() => {
+    setResumen(cliente?.interesResumen || '')
+    loadedRef.current = Boolean(cliente?.interesResumen)
+  }, [cliente?.id, cliente?.interesResumen])
+
+  useEffect(() => {
+    if (!open) return
+    function onDocClick(event: MouseEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  async function loadIntereses(refresh = false) {
+    if (!user || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const data = await getAvCrmClienteIntereses(token, clienteKey, { refresh })
+      if (data.cliente?.chatId && data.cliente.chatId !== chat.id) {
+        throw new Error('El resumen no corresponde a este chat')
+      }
+      setResumen(data.resumen || '')
+      setStatsLabel(data.stats?.frecuenciaRespuesta || '')
+      loadedRef.current = true
+      onClientePatch({
+        id: data.cliente.id || cliente?.id || clienteKey,
+        chatId: data.cliente.chatId || chat.id,
+        phoneNumber: cliente?.phoneNumber || null,
+        phoneDisplay: data.cliente.phoneDisplay || cliente?.phoneDisplay || phoneDisplay,
+        nombreContacto:
+          data.cliente.nombreContacto || cliente?.nombreContacto || nombreContacto,
+        nombreEmpresa:
+          data.cliente.nombreEmpresa || cliente?.nombreEmpresa || nombreEmpresa,
+        activatedByUid: cliente?.activatedByUid || null,
+        activatedByNombre: cliente?.activatedByNombre || null,
+        recopiladoEn: cliente?.recopiladoEn || null,
+        actualizadoEn: cliente?.actualizadoEn || null,
+        interesResumen: data.resumen || null,
+        interesGeneradoEn: data.generadoEn,
+        interesMessageCount: data.messageCount,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar el resumen')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open || !user) return
+    if (loadedRef.current && resumen) return
+    void loadIntereses(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir
+  }, [open, user, clienteKey])
+
+  return (
+    <div className={`av-wa-chat-crm ${open ? 'is-open' : ''}`} ref={wrapRef}>
+      <button
+        type="button"
+        className="av-wa-chat-crm-toggle"
+        aria-expanded={open}
+        aria-label="Datos e intereses del cliente"
+        title="Datos e intereses del cliente"
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((value) => !value)
+        }}
+      >
+        <Sparkles size={12} strokeWidth={2.25} aria-hidden />
+        <span>Cliente CRM</span>
+        <ChevronDown size={12} strokeWidth={2.25} aria-hidden />
+      </button>
+      {open ? (
+        <div
+          className="av-wa-chat-crm-panel"
+          role="dialog"
+          aria-label="Contexto del cliente"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="av-wa-chat-crm-section">
+            <strong>Datos del cliente</strong>
+            <p>
+              <span>Nombre del cliente</span>
+              <b>{nombreContacto || '—'}</b>
+            </p>
+            <p>
+              <span>Empresa</span>
+              <b>{nombreEmpresa || '—'}</b>
+            </p>
+            <p>
+              <span>Teléfono</span>
+              <b>{phoneDisplay || '—'}</b>
+            </p>
+          </div>
+
+          <div className="av-wa-chat-crm-section">
+            <div className="av-wa-chat-crm-section-head">
+              <strong>Intereses / resumen IA</strong>
+              <button
+                type="button"
+                className="btn-secondary av-wa-chat-crm-refresh"
+                disabled={loading || !user}
+                onClick={() => void loadIntereses(true)}
+              >
+                {loading ? (
+                  <LoaderCircle className="spin" size={13} strokeWidth={2} aria-hidden />
+                ) : (
+                  <RefreshCw size={13} strokeWidth={2} aria-hidden />
+                )}
+                Actualizar
+              </button>
+            </div>
+            {statsLabel ? <p className="av-wa-chat-crm-stats">{statsLabel}</p> : null}
+            {error ? (
+              <p className="login-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            {loading && !resumen ? (
+              <p className="section-note">Analizando este chat…</p>
+            ) : (
+              <div className="av-wa-chat-crm-resumen">
+                {resumen || 'Sin resumen aún. Pulsa Actualizar para generar el contexto con IA.'}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function messagePreviewLabel(message: {
+  text?: string | null
+  type?: string | null
+  hasImage?: boolean
+  hasAudio?: boolean
+  hasDocument?: boolean
+  isPtt?: boolean
+  imageKind?: string | null
+}) {
+  const type = String(message.type || '').toLowerCase()
+  const text = String(message.text || '').trim()
+  const looksGeneric = !text || text === 'Mensaje' || /^\[.+\]$/.test(text)
+
+  if (message.hasImage || type === 'image' || type === 'sticker') {
+    if (type === 'sticker' || message.imageKind === 'sticker') return text && !looksGeneric ? text : '🎭 Sticker'
+    return text && !looksGeneric ? text : '📷 Imagen'
+  }
+  if (message.hasAudio || type === 'audio' || type === 'ptt') {
+    return text && !looksGeneric ? text : message.isPtt || type === 'ptt' ? '🎤 Audio' : '🎵 Audio'
+  }
+  if (message.hasDocument || type === 'document') {
+    return text && !looksGeneric ? text : '📄 Documento'
+  }
+  if (type === 'video') return text && !looksGeneric ? text : '🎬 Video'
+  if (type === 'location' || type === 'livelocation') return '📍 Ubicación'
+  if (type === 'contact' || type === 'contactsarray') return '👤 Contacto'
+  return text || 'Mensaje'
+}
+
+function formatLeftAgo(leftAt: number | null | undefined, now = Date.now()) {
+  if (!leftAt) return 'salió'
+  const sec = Math.max(1, Math.round((now - leftAt) / 1000))
+  if (sec < 60) return `salió hace ${sec}s`
+  const min = Math.max(1, Math.round(sec / 60))
+  return `salió hace ${min} min`
+}
+
+function rolPresenceLabel(rol: string | null | undefined) {
+  if (rol === 'owner') return 'Propietario'
+  if (rol === 'vendedor') return 'Vendedor'
+  if (rol === 'admin') return 'Admin'
+  return 'Usuario'
+}
+
+function CrmPresenceBar({
+  presence,
+  selfUid,
+}: {
+  presence: AvCrmPresenceSnapshot | null
+  selfUid: string | null
+}) {
+  const online = presence?.online || []
+  const recentlyLeft = presence?.recentlyLeft || []
+  const now = presence?.serverTime || Date.now()
+
+  return (
+    <div className="av-crm-presence" aria-live="polite" aria-label="Vendedores conectados al CRM">
+      <div className="av-crm-presence-head">
+        <Users size={15} strokeWidth={2} aria-hidden />
+        <strong>En el CRM ahora</strong>
+        <span className="av-crm-presence-count">
+          {online.length === 0
+            ? 'Nadie conectado'
+            : online.length === 1
+              ? '1 conectado'
+              : `${online.length} conectados`}
+        </span>
+      </div>
+
+      {online.length === 0 && recentlyLeft.length === 0 ? (
+        <p className="av-crm-presence-empty">Los vendedores aparecen aquí al abrir esta pestaña.</p>
+      ) : (
+        <ul className="av-crm-presence-list">
+          {online.map((item) => {
+            const isSelf = Boolean(selfUid && item.uid === selfUid)
+            return (
+              <li key={`on-${item.uid}`} className="av-crm-presence-chip is-online">
+                <span className="av-crm-presence-dot" aria-hidden />
+                <span className="av-crm-presence-name">
+                  {item.nombre}
+                  {isSelf ? ' (tú)' : ''}
+                </span>
+                <span className="av-crm-presence-rol">{rolPresenceLabel(item.rol)}</span>
+              </li>
+            )
+          })}
+          {recentlyLeft.map((item: AvCrmPresenceUser) => (
+            <li key={`off-${item.uid}-${item.leftAt || 0}`} className="av-crm-presence-chip is-offline">
+              <span className="av-crm-presence-dot" aria-hidden />
+              <span className="av-crm-presence-name">{item.nombre}</span>
+              <span className="av-crm-presence-left">{formatLeftAgo(item.leftAt, now)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function LinkedWhatsappCard({
   status,
   variant = 'sidebar',
@@ -626,14 +909,18 @@ function LinkedWhatsappCard({
 }
 
 export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
-  const { user, isOwner, isVendedor } = useAuth()
+  const { user, isOwner, isVendedor, administrador } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [presence, setPresence] = useState<AvCrmPresenceSnapshot | null>(null)
 
   const [chats, setChats] = useState<AvCrmChat[]>([])
+  const [crmClientesByChatId, setCrmClientesByChatId] = useState<Record<string, AvCrmCliente>>(
+    {},
+  )
   const [chatQuery, setChatQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeChat, setActiveChat] = useState<AvCrmChat | null>(null)
@@ -679,11 +966,16 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [vendedorAccesosSaving, setVendedorAccesosSaving] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const selectedIdRef = useRef<string | null>(null)
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
   const canManageVendedores = isOwner && !readOnly
   const canOpenMensajesRapidos = !readOnly && (isOwner || isVendedor)
   const canManageAutoMensajes = isOwner && !readOnly
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId
+  }, [selectedId])
 
   function resizeComposer() {
     const el = composerInputRef.current
@@ -700,6 +992,72 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     resizeComposer()
   }, [draft])
+
+  useEffect(() => {
+    if (!user) {
+      setPresence(null)
+      return
+    }
+
+    let cancelled = false
+    let timer: number | null = null
+    let leftWhileHidden = false
+
+    async function notifyLeave() {
+      try {
+        const token = await user.getIdToken()
+        await leaveAvCrmPresence(token)
+      } catch {
+        // ignore
+      }
+    }
+
+    async function syncPresence() {
+      if (!user || cancelled) return
+      try {
+        const token = await user.getIdToken()
+        if (document.visibilityState === 'hidden') {
+          if (!leftWhileHidden) {
+            leftWhileHidden = true
+            const left = await leaveAvCrmPresence(token)
+            if (!cancelled) setPresence(left)
+          } else {
+            const snapshot = await getAvCrmPresence(token)
+            if (!cancelled) setPresence(snapshot)
+          }
+          return
+        }
+        leftWhileHidden = false
+        const data = await heartbeatAvCrmPresence(token)
+        if (!cancelled) setPresence(data)
+      } catch {
+        // No bloquear el CRM si falla la presencia.
+      }
+    }
+
+    void syncPresence()
+    timer = window.setInterval(() => {
+      void syncPresence()
+    }, 5000)
+
+    function onVisibility() {
+      void syncPresence()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    function onPageHide() {
+      void notifyLeave()
+    }
+    window.addEventListener('pagehide', onPageHide)
+
+    return () => {
+      cancelled = true
+      if (timer != null) window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', onPageHide)
+      void notifyLeave()
+    }
+  }, [user])
 
   useEffect(() => {
     let cancelled = false
@@ -771,6 +1129,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     if (!user) {
       setChats([])
+      setCrmClientesByChatId({})
       return
     }
     let cancelled = false
@@ -780,7 +1139,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         const token = await user!.getIdToken()
         const data = await listAvCrmChats(token, { q: chatQuery, limit: 250 })
         if (cancelled) return
-        setChats(data)
+        const openId = selectedIdRef.current
+        setChats(
+          openId
+            ? data.map((chat) =>
+                chat.id === openId ? { ...chat, unreadCount: 0 } : chat,
+              )
+            : data,
+        )
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'No se pudieron cargar los chats'
@@ -808,6 +1174,39 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   }, [user, chatQuery])
 
   useEffect(() => {
+    if (!user) {
+      setCrmClientesByChatId({})
+      return
+    }
+    let cancelled = false
+
+    async function loadCrmClientes() {
+      try {
+        const token = await user!.getIdToken()
+        const list = await listAvCrmClientes(token)
+        if (cancelled) return
+        const next: Record<string, AvCrmCliente> = {}
+        for (const item of list) {
+          if (!item.chatId) continue
+          next[item.chatId] = item
+        }
+        setCrmClientesByChatId(next)
+      } catch {
+        // No bloquear el inbox si falla el listado CRM.
+      }
+    }
+
+    void loadCrmClientes()
+    const id = window.setInterval(() => {
+      void loadCrmClientes()
+    }, 12000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [user])
+
+  useEffect(() => {
     if (!user || !selectedId) {
       setActiveChat(null)
       setMessages([])
@@ -822,6 +1221,20 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         if (cancelled) return
         setActiveChat(data.chat)
         setMessages(data.messages)
+        // Mantener el badge de no leídos alineado con el servidor (multi-vendedor).
+        if (data.chat?.id) {
+          setChats((current) =>
+            current.map((item) =>
+              item.id === data.chat.id
+                ? {
+                    ...item,
+                    ...data.chat,
+                    unreadCount: Number(data.chat.unreadCount) || 0,
+                  }
+                : item,
+            ),
+          )
+        }
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'No se pudo abrir el chat'
@@ -1142,6 +1555,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       setStatus(data)
       setSelectedId(null)
       setChats([])
+      setCrmClientesByChatId({})
       setMessages([])
       setActiveChat(null)
     } catch (err) {
@@ -1284,6 +1698,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     setSelectedId(chat.id)
     setMobileShowChat(true)
     setDraft('')
+    // Optimista: el badge desaparece al instante; el servidor lo confirma para todos.
+    if (chat.unreadCount > 0) {
+      setChats((current) =>
+        current.map((item) =>
+          item.id === chat.id ? { ...item, unreadCount: 0 } : item,
+        ),
+      )
+    }
   }
 
   async function handleSend(event: FormEvent) {
@@ -1398,6 +1820,11 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       </div>
 
+      <CrmPresenceBar
+        presence={presence}
+        selfUid={administrador?.uid || user?.uid || null}
+      />
+
       {readOnly ? (
         <p className="section-note av-readonly-banner">
           Modo solo visualización: puedes consultar chats, pero no vincular ni enviar mensajes.
@@ -1477,42 +1904,78 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               ) : null}
               {chats.map((chat) => {
                 const active = chat.id === selectedId
+                const crmCliente = crmClientesByChatId[chat.id] || null
+                const showCrmDropdown =
+                  chat.recursoSolicitarDatos?.status === 'complete' || Boolean(crmCliente)
+                const responders = normalizeResponders(chat)
                 return (
-                  <button
+                  <div
                     key={chat.id}
-                    type="button"
                     role="listitem"
                     className={`av-wa-chat-item ${active ? 'is-active' : ''}`}
-                    onClick={() => selectChat(chat)}
                   >
-                    <Avatar name={chat.name} url={chat.profilePicUrl} />
-                    <span className="av-wa-chat-main">
-                      <span className="av-wa-chat-top">
-                        <strong>{chat.name}</strong>
-                        <time>{formatChatTime(chat.lastMessage?.timestamp || chat.conversationTimestamp)}</time>
-                      </span>
-                      {(() => {
-                        const responders = normalizeResponders(chat)
-                        return responders.length > 0 ? (
-                          <ChatRespondersBadge responders={responders} />
-                        ) : null
-                      })()}
-                      <span className="av-wa-chat-bottom">
-                        <span className="av-wa-preview">
-                          {!chat.isGroup && chat.phoneDisplay && chat.phoneDisplay !== `+${chat.name}` && chat.name !== chat.phoneNumber ? (
-                            <span className="av-wa-phone-inline">{chat.phoneDisplay} · </span>
-                          ) : null}
-                          {chat.lastMessage?.fromMe ? (
-                            <MessageTicks status={chat.lastMessage.status} />
-                          ) : null}
-                          {chat.lastMessage?.text || (chat.isGroup ? 'Grupo' : 'Sin mensajes')}
+                    <button
+                      type="button"
+                      className="av-wa-chat-item-main"
+                      onClick={() => selectChat(chat)}
+                    >
+                      <Avatar name={chatDisplayName(chat)} url={chat.profilePicUrl} />
+                      <span className="av-wa-chat-main">
+                        <span className="av-wa-chat-top">
+                          <strong>{chatDisplayName(chat)}</strong>
+                          <time>
+                            {formatChatTime(
+                              chat.lastMessage?.timestamp || chat.conversationTimestamp,
+                            )}
+                          </time>
                         </span>
-                        {chat.unreadCount > 0 ? (
-                          <span className="av-wa-unread">{chat.unreadCount}</span>
+                        {responders.length > 0 ? (
+                          <ChatRespondersBadge responders={responders} />
                         ) : null}
+                        <span className="av-wa-chat-bottom">
+                          <span className="av-wa-preview">
+                            {!chat.isGroup &&
+                            chat.phoneDisplay &&
+                            chat.phoneDisplay !== chatDisplayName(chat) ? (
+                              <span className="av-wa-phone-inline">{chat.phoneDisplay} · </span>
+                            ) : null}
+                            {chat.lastMessage?.fromMe ? (
+                              <MessageTicks status={chat.lastMessage.status} />
+                            ) : null}
+                            {chat.lastMessage
+                              ? messagePreviewLabel({
+                                  text: chat.lastMessage.text,
+                                  type: chat.lastMessage.type,
+                                  hasImage: chat.lastMessage.hasImage,
+                                  hasAudio: chat.lastMessage.hasAudio,
+                                  hasDocument: chat.lastMessage.hasDocument,
+                                  isPtt: chat.lastMessage.isPtt,
+                                  imageKind: chat.lastMessage.imageKind,
+                                })
+                              : chat.isGroup
+                                ? 'Grupo'
+                                : 'Sin mensajes'}
+                          </span>
+                          {chat.unreadCount > 0 ? (
+                            <span className="av-wa-unread">{chat.unreadCount}</span>
+                          ) : null}
+                        </span>
                       </span>
-                    </span>
-                  </button>
+                    </button>
+                    {showCrmDropdown ? (
+                      <ChatClienteCrmDropdown
+                        chat={chat}
+                        cliente={crmCliente}
+                        onClientePatch={(next) => {
+                          if (!next.chatId) return
+                          setCrmClientesByChatId((current) => ({
+                            ...current,
+                            [next.chatId!]: next,
+                          }))
+                        }}
+                      />
+                    ) : null}
+                  </div>
                 )
               })}
             </div>
@@ -1536,14 +1999,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                   >
                     <ArrowLeft size={18} strokeWidth={2} aria-hidden />
                   </button>
-                  <Avatar name={headerChat.name} url={headerChat.profilePicUrl} size={40} />
+                  <Avatar name={chatDisplayName(headerChat)} url={headerChat.profilePicUrl} size={40} />
                   <div className="av-wa-pane-meta">
-                    <strong>{headerChat.name}</strong>
+                    <strong>{chatDisplayName(headerChat)}</strong>
                     <span>
                       {headerChat.isGroup
                         ? 'Grupo'
                         : [
-                            headerChat.phoneDisplay,
+                            headerChat.phoneDisplay &&
+                            headerChat.phoneDisplay !== chatDisplayName(headerChat)
+                              ? headerChat.phoneDisplay
+                              : headerChat.phoneDisplay || null,
                             headerChat.presence?.label || null,
                           ]
                             .filter(Boolean)
@@ -1578,13 +2044,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       {!message.fromMe && headerChat.isGroup && message.pushName ? (
                         <span className="av-wa-bubble-author">{message.pushName}</span>
                       ) : null}
-                      {message.hasImage || message.type === 'image' || message.type === 'sticker' ? (
+                      {message.hasImage ||
+                      message.type === 'image' ||
+                      message.type === 'sticker' ? (
                         <CrmImageMessage chatId={selectedId} message={message} />
                       ) : null}
                       {message.hasDocument || message.type === 'document' ? (
                         <CrmDocumentMessage chatId={selectedId} message={message} />
                       ) : null}
-                      {message.hasAudio || message.type === 'audio' ? (
+                      {message.hasAudio ||
+                      message.type === 'audio' ||
+                      message.type === 'ptt' ? (
                         <CrmAudioPlayer chatId={selectedId} message={message} />
                       ) : null}
                       {!message.hasImage &&
@@ -1593,8 +2063,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       message.type !== 'image' &&
                       message.type !== 'sticker' &&
                       message.type !== 'document' &&
-                      message.type !== 'audio' ? (
-                        <p>{message.text || `[${message.type}]`}</p>
+                      message.type !== 'audio' &&
+                      message.type !== 'ptt' ? (
+                        <p>{messagePreviewLabel(message)}</p>
                       ) : null}
                       <span className="av-wa-bubble-meta">
                         <time dateTime={message.timestamp ? new Date(message.timestamp).toISOString() : undefined}>

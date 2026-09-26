@@ -881,6 +881,12 @@ export type AvCrmChatLastMessage = {
   id: string | null
   fromMe: boolean
   text: string
+  type?: string | null
+  hasImage?: boolean
+  imageKind?: 'image' | 'sticker' | null
+  hasAudio?: boolean
+  isPtt?: boolean
+  hasDocument?: boolean
   status: string | null
   timestamp: number | null
 }
@@ -1285,6 +1291,40 @@ export async function getAvCrmClienteIntereses(
     `/api/audiovisual/crm/clientes-crm/${encodeURIComponent(id)}/intereses${qs}`,
     token,
   )
+}
+
+export type AvCrmPresenceUser = {
+  uid: string
+  nombre: string
+  email: string | null
+  rol: string | null
+  connectedAt?: number | null
+  lastSeenAt?: number | null
+  leftAt?: number | null
+}
+
+export type AvCrmPresenceSnapshot = {
+  online: AvCrmPresenceUser[]
+  recentlyLeft: AvCrmPresenceUser[]
+  serverTime: number
+}
+
+export async function getAvCrmPresence(token: string): Promise<AvCrmPresenceSnapshot> {
+  return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence', token)
+}
+
+export async function heartbeatAvCrmPresence(token: string): Promise<AvCrmPresenceSnapshot> {
+  return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence/heartbeat', token, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export async function leaveAvCrmPresence(token: string): Promise<AvCrmPresenceSnapshot> {
+  return apiFetch<AvCrmPresenceSnapshot>('/api/audiovisual/crm/presence/leave', token, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
 }
 
 export type AvCrmVendedor = {
