@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import {
   connectAvCrmWhatsapp,
   createAvCrmVendedor,
@@ -1022,6 +1023,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   const [cannedOpen, setCannedOpen] = useState(false)
   const [resourcesOpen, setResourcesOpen] = useState(false)
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false)
   const [recursos, setRecursos] = useState<AvCrmRecurso[]>([])
   const [recursosLoading, setRecursosLoading] = useState(false)
   const [recursosError, setRecursosError] = useState('')
@@ -1133,6 +1135,23 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     resizeComposer()
   }, [draft])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 860px)')
+    const sync = () => setIsNarrowViewport(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (!resourcesOpen || !isNarrowViewport) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [resourcesOpen, isNarrowViewport])
 
   useEffect(() => {
     if (!user) {
@@ -2336,207 +2355,282 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       <Plus size={18} strokeWidth={2} aria-hidden />
                     </button>
                     {resourcesOpen ? (
-                      <div className="av-wa-canned-panel av-wa-resources-panel" role="dialog" aria-label="Recursos">
-                        <div className="av-wa-canned-panel-head">
-                          <strong>Recursos</strong>
-                        </div>
-                        {recursosLoading ? (
-                          <p className="section-note">Cargando…</p>
-                        ) : null}
-                        {recursosError ? (
-                          <p className="login-error" role="alert">
-                            {recursosError}
-                          </p>
-                        ) : null}
-                        {!recursosLoading
-                          ? recursos.map((recurso) => {
-                              if (recurso.id === 'enviar_cotizacion') {
-                                return (
-                                  <div key={recurso.id} className="av-wa-resource-card">
-                                    <div className="av-wa-resource-card-head">
-                                      <strong>{recurso.titulo}</strong>
-                                    </div>
-                                    <p className="av-wa-resource-desc">{recurso.descripcion}</p>
-                                    <label className="av-wa-resource-search">
-                                      <Search size={14} strokeWidth={2} aria-hidden />
-                                      <input
-                                        type="search"
-                                        value={cotizacionQuery}
-                                        onChange={(event) => setCotizacionQuery(event.target.value)}
-                                        placeholder="Buscar por número, cliente…"
-                                        disabled={
-                                          readOnly ||
-                                          !connected ||
-                                          Boolean(cotizacionSendingId) ||
-                                          cotizacionesCrmLoading
-                                        }
-                                        aria-label="Buscar cotización"
-                                      />
-                                    </label>
-                                    {cotizacionesCrmLoading ? (
-                                      <p className="section-note">Cargando cotizaciones…</p>
-                                    ) : null}
-                                    {!cotizacionesCrmLoading && cotizacionesFiltradas.length === 0 ? (
-                                      <p className="section-note">
-                                        {cotizacionQuery.trim()
-                                          ? 'Sin resultados para esa búsqueda.'
-                                          : 'No hay cotizaciones creadas.'}
-                                      </p>
-                                    ) : null}
-                                    {!cotizacionesCrmLoading && cotizacionesFiltradas.length > 0 ? (
-                                      <ul className="av-wa-cotizacion-list">
-                                        {cotizacionesFiltradas.map((cotizacion) => {
-                                          const busy = cotizacionSendingId === cotizacion.id
-                                          return (
-                                            <li key={cotizacion.id}>
+                      (() => {
+                        const panelInner = (
+                          <>
+                            <div className="av-wa-canned-panel-head">
+                              <strong>Recursos</strong>
+                              {isNarrowViewport ? (
+                                <button
+                                  type="button"
+                                  className="av-wa-resources-close"
+                                  aria-label="Cerrar recursos"
+                                  onClick={() => {
+                                    setResourcesOpen(false)
+                                    setRecursoEditing(false)
+                                  }}
+                                >
+                                  <X size={18} strokeWidth={2} aria-hidden />
+                                </button>
+                              ) : null}
+                            </div>
+                            <div className="av-wa-resources-panel-body">
+                              {recursosLoading ? (
+                                <p className="section-note">Cargando…</p>
+                              ) : null}
+                              {recursosError ? (
+                                <p className="login-error" role="alert">
+                                  {recursosError}
+                                </p>
+                              ) : null}
+                              {!recursosLoading
+                                ? recursos.map((recurso) => {
+                                    if (recurso.id === 'enviar_cotizacion') {
+                                      return (
+                                        <div key={recurso.id} className="av-wa-resource-card">
+                                          <div className="av-wa-resource-card-head">
+                                            <strong>{recurso.titulo}</strong>
+                                          </div>
+                                          <p className="av-wa-resource-desc">{recurso.descripcion}</p>
+                                          <label className="av-wa-resource-search">
+                                            <Search size={14} strokeWidth={2} aria-hidden />
+                                            <input
+                                              type="search"
+                                              value={cotizacionQuery}
+                                              onChange={(event) =>
+                                                setCotizacionQuery(event.target.value)
+                                              }
+                                              placeholder="Buscar por número, cliente…"
+                                              disabled={
+                                                readOnly ||
+                                                !connected ||
+                                                Boolean(cotizacionSendingId) ||
+                                                cotizacionesCrmLoading
+                                              }
+                                              aria-label="Buscar cotización"
+                                            />
+                                          </label>
+                                          {cotizacionesCrmLoading ? (
+                                            <p className="section-note">Cargando cotizaciones…</p>
+                                          ) : null}
+                                          {!cotizacionesCrmLoading &&
+                                          cotizacionesFiltradas.length === 0 ? (
+                                            <p className="section-note">
+                                              {cotizacionQuery.trim()
+                                                ? 'Sin resultados para esa búsqueda.'
+                                                : 'No hay cotizaciones creadas.'}
+                                            </p>
+                                          ) : null}
+                                          {!cotizacionesCrmLoading &&
+                                          cotizacionesFiltradas.length > 0 ? (
+                                            <ul className="av-wa-cotizacion-list">
+                                              {cotizacionesFiltradas.map((cotizacion) => {
+                                                const busy = cotizacionSendingId === cotizacion.id
+                                                return (
+                                                  <li key={cotizacion.id}>
+                                                    <button
+                                                      type="button"
+                                                      className="av-wa-cotizacion-item"
+                                                      disabled={
+                                                        readOnly ||
+                                                        !connected ||
+                                                        sending ||
+                                                        recursoSending ||
+                                                        Boolean(cotizacionSendingId)
+                                                      }
+                                                      onClick={() =>
+                                                        void handleSendCotizacion(cotizacion)
+                                                      }
+                                                    >
+                                                      <span className="av-wa-cotizacion-item-main">
+                                                        <strong>
+                                                          {cotizacion.numero || 'Cotización'}
+                                                        </strong>
+                                                        <span>
+                                                          {cotizacion.clienteNombre || 'Sin cliente'}
+                                                        </span>
+                                                      </span>
+                                                      <span className="av-wa-cotizacion-item-meta">
+                                                        {formatCop(cotizacion.subtotal || 0)}
+                                                        {busy ? (
+                                                          <LoaderCircle
+                                                            className="spin"
+                                                            size={14}
+                                                            strokeWidth={2}
+                                                            aria-hidden
+                                                          />
+                                                        ) : (
+                                                          <FileText
+                                                            size={14}
+                                                            strokeWidth={2}
+                                                            aria-hidden
+                                                          />
+                                                        )}
+                                                      </span>
+                                                    </button>
+                                                  </li>
+                                                )
+                                              })}
+                                            </ul>
+                                          ) : null}
+                                        </div>
+                                      )
+                                    }
+
+                                    const state =
+                                      headerChat?.recursoSolicitarDatos ||
+                                      activeChat?.recursoSolicitarDatos ||
+                                      null
+                                    const datos = state?.datos
+                                    return (
+                                      <div key={recurso.id} className="av-wa-resource-card">
+                                        <div className="av-wa-resource-card-head">
+                                          <strong>{recurso.titulo}</strong>
+                                          {state?.status === 'awaiting' ? (
+                                            <span className="av-wa-resource-status is-awaiting">
+                                              Recopilando…
+                                            </span>
+                                          ) : null}
+                                          {state?.status === 'complete' ? (
+                                            <span className="av-wa-resource-status is-complete">
+                                              Completo
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <p className="av-wa-resource-desc">{recurso.descripcion}</p>
+
+                                        {isOwner && recursoEditing ? (
+                                          <textarea
+                                            className="av-wa-resource-edit"
+                                            rows={4}
+                                            value={recursoEditTexto}
+                                            disabled={recursoSaving}
+                                            onChange={(event) =>
+                                              setRecursoEditTexto(event.target.value)
+                                            }
+                                          />
+                                        ) : (
+                                          <p className="av-wa-resource-preview">{recurso.texto}</p>
+                                        )}
+
+                                        {(state?.status === 'awaiting' ||
+                                          state?.status === 'complete') && (
+                                          <ul className="av-wa-resource-fields">
+                                            <li className={datos?.nombreContacto ? 'is-done' : ''}>
+                                              <span>Nombre de contacto</span>
+                                              <strong>
+                                                {datos?.nombreContacto || 'Pendiente'}
+                                              </strong>
+                                            </li>
+                                            <li className={datos?.nombreEmpresa ? 'is-done' : ''}>
+                                              <span>Empresa / emprendimiento</span>
+                                              <strong>
+                                                {datos?.nombreEmpresa || 'Pendiente'}
+                                              </strong>
+                                            </li>
+                                          </ul>
+                                        )}
+
+                                        <div className="av-wa-resource-actions">
+                                          {isOwner ? (
+                                            recursoEditing ? (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  className="btn-secondary"
+                                                  disabled={recursoSaving}
+                                                  onClick={() => {
+                                                    setRecursoEditing(false)
+                                                    setRecursoEditTexto(recurso.texto)
+                                                  }}
+                                                >
+                                                  Cancelar
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="btn-primary"
+                                                  disabled={recursoSaving}
+                                                  onClick={() =>
+                                                    void handleSaveRecursoSolicitarDatos()
+                                                  }
+                                                >
+                                                  {recursoSaving ? 'Guardando…' : 'Guardar'}
+                                                </button>
+                                              </>
+                                            ) : (
                                               <button
                                                 type="button"
-                                                className="av-wa-cotizacion-item"
-                                                disabled={
-                                                  readOnly ||
-                                                  !connected ||
-                                                  sending ||
-                                                  recursoSending ||
-                                                  Boolean(cotizacionSendingId)
-                                                }
-                                                onClick={() => void handleSendCotizacion(cotizacion)}
+                                                className="btn-secondary"
+                                                onClick={() => {
+                                                  setRecursoEditTexto(recurso.texto)
+                                                  setRecursoEditing(true)
+                                                }}
                                               >
-                                                <span className="av-wa-cotizacion-item-main">
-                                                  <strong>
-                                                    {cotizacion.numero || 'Cotización'}
-                                                  </strong>
-                                                  <span>
-                                                    {cotizacion.clienteNombre || 'Sin cliente'}
-                                                  </span>
-                                                </span>
-                                                <span className="av-wa-cotizacion-item-meta">
-                                                  {formatCop(cotizacion.subtotal || 0)}
-                                                  {busy ? (
-                                                    <LoaderCircle
-                                                      className="spin"
-                                                      size={14}
-                                                      strokeWidth={2}
-                                                      aria-hidden
-                                                    />
-                                                  ) : (
-                                                    <FileText size={14} strokeWidth={2} aria-hidden />
-                                                  )}
-                                                </span>
+                                                Editar
                                               </button>
-                                            </li>
-                                          )
-                                        })}
-                                      </ul>
-                                    ) : null}
-                                  </div>
-                                )
-                              }
-
-                              const state =
-                                headerChat?.recursoSolicitarDatos ||
-                                activeChat?.recursoSolicitarDatos ||
-                                null
-                              const datos = state?.datos
-                              return (
-                                <div key={recurso.id} className="av-wa-resource-card">
-                                  <div className="av-wa-resource-card-head">
-                                    <strong>{recurso.titulo}</strong>
-                                    {state?.status === 'awaiting' ? (
-                                      <span className="av-wa-resource-status is-awaiting">
-                                        Recopilando…
-                                      </span>
-                                    ) : null}
-                                    {state?.status === 'complete' ? (
-                                      <span className="av-wa-resource-status is-complete">
-                                        Completo
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <p className="av-wa-resource-desc">{recurso.descripcion}</p>
-
-                                  {isOwner && recursoEditing ? (
-                                    <textarea
-                                      className="av-wa-resource-edit"
-                                      rows={5}
-                                      value={recursoEditTexto}
-                                      disabled={recursoSaving}
-                                      onChange={(event) => setRecursoEditTexto(event.target.value)}
-                                    />
-                                  ) : (
-                                    <p className="av-wa-resource-preview">{recurso.texto}</p>
-                                  )}
-
-                                  {(state?.status === 'awaiting' || state?.status === 'complete') && (
-                                    <ul className="av-wa-resource-fields">
-                                      <li className={datos?.nombreContacto ? 'is-done' : ''}>
-                                        <span>Nombre de contacto</span>
-                                        <strong>{datos?.nombreContacto || 'Pendiente'}</strong>
-                                      </li>
-                                      <li className={datos?.nombreEmpresa ? 'is-done' : ''}>
-                                        <span>Empresa / emprendimiento</span>
-                                        <strong>{datos?.nombreEmpresa || 'Pendiente'}</strong>
-                                      </li>
-                                    </ul>
-                                  )}
-
-                                  <div className="av-wa-resource-actions">
-                                    {isOwner ? (
-                                      recursoEditing ? (
-                                        <>
-                                          <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            disabled={recursoSaving}
-                                            onClick={() => {
-                                              setRecursoEditing(false)
-                                              setRecursoEditTexto(recurso.texto)
-                                            }}
-                                          >
-                                            Cancelar
-                                          </button>
+                                            )
+                                          ) : null}
                                           <button
                                             type="button"
                                             className="btn-primary"
-                                            disabled={recursoSaving}
-                                            onClick={() => void handleSaveRecursoSolicitarDatos()}
+                                            disabled={
+                                              readOnly ||
+                                              !connected ||
+                                              sending ||
+                                              recursoSending ||
+                                              recursoEditing ||
+                                              Boolean(cotizacionSendingId)
+                                            }
+                                            onClick={() =>
+                                              void handleSendRecursoSolicitarDatos(recurso)
+                                            }
                                           >
-                                            {recursoSaving ? 'Guardando…' : 'Guardar'}
+                                            {recursoSending ? 'Enviando…' : 'Enviar'}
                                           </button>
-                                        </>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          className="btn-secondary"
-                                          onClick={() => {
-                                            setRecursoEditTexto(recurso.texto)
-                                            setRecursoEditing(true)
-                                          }}
-                                        >
-                                          Editar
-                                        </button>
-                                      )
-                                    ) : null}
-                                    <button
-                                      type="button"
-                                      className="btn-primary"
-                                      disabled={
-                                        readOnly ||
-                                        !connected ||
-                                        sending ||
-                                        recursoSending ||
-                                        recursoEditing ||
-                                        Boolean(cotizacionSendingId)
-                                      }
-                                      onClick={() => void handleSendRecursoSolicitarDatos(recurso)}
-                                    >
-                                      {recursoSending ? 'Enviando…' : 'Enviar'}
-                                    </button>
-                                  </div>
-                                </div>
-                              )
-                            })
-                          : null}
-                      </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })
+                                : null}
+                            </div>
+                          </>
+                        )
+
+                        if (isNarrowViewport && typeof document !== 'undefined') {
+                          return createPortal(
+                            <div className="av-wa-resources-sheet" role="presentation">
+                              <button
+                                type="button"
+                                className="av-wa-resources-backdrop"
+                                aria-label="Cerrar recursos"
+                                onClick={() => {
+                                  setResourcesOpen(false)
+                                  setRecursoEditing(false)
+                                }}
+                              />
+                              <div
+                                className="av-wa-resources-panel is-sheet"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-label="Recursos"
+                              >
+                                {panelInner}
+                              </div>
+                            </div>,
+                            document.body,
+                          )
+                        }
+
+                        return (
+                          <div
+                            className="av-wa-canned-panel av-wa-resources-panel"
+                            role="dialog"
+                            aria-label="Recursos"
+                          >
+                            {panelInner}
+                          </div>
+                        )
+                      })()
                     ) : null}
                   </div>
                   <textarea

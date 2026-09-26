@@ -4472,9 +4472,71 @@ a {
 .av-wa-resources-panel {
   width: min(26rem, 86vw);
   max-height: min(70vh, 520px);
-  overflow: auto;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overscroll-behavior: contain;
+}
+
+.av-wa-resources-panel-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  display: grid;
+  gap: 0.55rem;
+  padding-right: 0.1rem;
+}
+
+.av-wa-resources-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(11, 31, 58, 0.06);
+  color: var(--wa-muted, #667781);
+  cursor: pointer;
+}
+
+.av-wa-resources-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  align-items: end;
+  justify-items: stretch;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.av-wa-resources-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(11, 20, 26, 0.45);
+  cursor: pointer;
+}
+
+.av-wa-resources-panel.is-sheet {
+  position: relative;
+  z-index: 1;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(78dvh, 34rem);
+  margin: 0;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid var(--wa-border, #e9edef);
+  border-bottom: 0;
+  background: #fff;
+  box-shadow: 0 -8px 28px rgba(11, 20, 26, 0.18);
+  padding: 0.85rem 0.85rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
 }
 
 .av-wa-resource-search {
@@ -4777,31 +4839,38 @@ a {
     display: inline-grid;
   }
 
-  /* Recursos / mensajes rápidos: panel fijo para no desbordar en móvil. */
-  .av-wa-canned-panel,
-  .av-wa-resources-panel {
+  /* Recursos / mensajes rápidos en móvil. */
+  .av-wa-canned-panel {
     position: fixed;
     left: 0.55rem;
     right: 0.55rem;
     bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
     width: auto;
     max-width: none;
-    max-height: min(58dvh, 26rem);
+    max-height: min(52dvh, 22rem);
     z-index: 60;
     box-sizing: border-box;
   }
 
-  .av-wa-resources-panel {
-    max-height: min(64dvh, 30rem);
+  .av-wa-resources-panel.is-sheet {
+    max-height: min(82dvh, 36rem);
+  }
+
+  .av-wa-resources-panel-body {
+    max-height: none;
   }
 
   .av-wa-cotizacion-list {
-    max-height: min(28dvh, 11rem);
+    max-height: min(26dvh, 10rem);
   }
 
   .av-wa-resource-preview,
   .av-wa-resource-edit {
-    max-height: min(22dvh, 7.5rem);
+    max-height: min(18dvh, 6.5rem);
+  }
+
+  .av-wa-resource-search input {
+    font-size: 16px;
   }
 
   .av-wa-conversation {
