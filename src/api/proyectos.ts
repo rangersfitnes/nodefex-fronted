@@ -57,10 +57,13 @@ export function esProyectoContable(proyectoId: string): boolean {
 
 export function esProyectoAudiovisual(proyectoId: string): boolean {
   const id = normalizeProyectoId(proyectoId)
+  const key = id.replace(/[\s_]+/g, '-')
   return (
     id === 'nodefex audio visual' ||
-    id === 'nodefex-audio-visual' ||
-    id === 'nodefex-audiovisual'
+    key === 'nodefex-audio-visual' ||
+    key === 'nodefex-audiovisual' ||
+    key.includes('audio-visual') ||
+    key.includes('audiovisual')
   )
 }
 

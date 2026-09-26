@@ -58,6 +58,7 @@ export {
   Share2,
   Shield,
   Smartphone,
+  StickyNote,
   Trash2,
   Upload,
   User,

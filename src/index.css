@@ -2910,6 +2910,148 @@ a {
   justify-content: center;
 }
 
+.av-crm-vendedores-list {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.av-crm-vendedores-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.av-crm-vendedores-list li.is-expanded {
+  border-color: color-mix(in srgb, var(--blue-700, #1d4ed8) 35%, #e2e8f0);
+}
+
+.av-crm-vendedor-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.av-crm-vendedor-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.av-crm-vendedor-select:hover {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.av-crm-vendedor-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.av-crm-vendedor-meta strong {
+  font-size: 0.95rem;
+}
+
+.av-crm-vendedor-meta span {
+  font-size: 0.8rem;
+  color: var(--muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-crm-vendedor-row > .btn-secondary {
+  align-self: center;
+  margin-right: 0.55rem;
+  flex-shrink: 0;
+}
+
+.av-crm-vendedor-chevron {
+  flex-shrink: 0;
+  color: var(--muted, #64748b);
+  transition: transform 0.15s ease;
+}
+
+.av-crm-vendedor-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.av-crm-vendedor-permisos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 0.85rem 0.9rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.av-crm-vendedor-permisos .section-note {
+  margin: 0.75rem 0 0;
+}
+
+.av-crm-vendedor-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+}
+
+.av-crm-vendedor-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.av-crm-vendedor-check.is-locked {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.av-crm-vendedor-check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--blue-700, #1d4ed8);
+}
+
+.av-crm-vendedor-permisos-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 560px) {
+  .av-crm-vendedor-checks {
+    grid-template-columns: 1fr;
+  }
+}
+
+.av-crm-vendedores-form-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
 .av-wa {
   --wa-green: #00a884;
   --wa-green-deep: #008069;
@@ -3339,6 +3481,124 @@ a {
   background: var(--wa-panel);
   border-top: 1px solid var(--wa-border);
   z-index: 2;
+  position: relative;
+}
+
+.av-wa-canned-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.av-wa-canned-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--wa-muted);
+  cursor: pointer;
+}
+
+.av-wa-canned-toggle:hover:not(:disabled) {
+  color: var(--wa-green-deep);
+  background: rgba(0, 168, 132, 0.1);
+}
+
+.av-wa-canned-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.av-wa-canned-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.45rem);
+  width: min(22rem, 78vw);
+  max-height: min(50vh, 22rem);
+  overflow: auto;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--wa-border);
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(11, 20, 26, 0.16);
+  z-index: 5;
+}
+
+.av-wa-canned-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.av-wa-canned-panel-head strong {
+  font-size: 0.9rem;
+  color: var(--wa-text);
+}
+
+.av-wa-canned-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.av-wa-canned-list li {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--wa-border);
+}
+
+.av-wa-canned-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.av-wa-canned-item {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  padding: 0.35rem 0.25rem;
+  border-radius: 8px;
+}
+
+.av-wa-canned-item:hover:not(:disabled) {
+  background: rgba(0, 168, 132, 0.08);
+}
+
+.av-wa-canned-item strong {
+  font-size: 0.86rem;
+  color: var(--wa-text);
+}
+
+.av-wa-canned-item span {
+  font-size: 0.78rem;
+  color: var(--wa-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.av-wa-canned-item-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.av-wa-canned-item-actions .btn-secondary {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
 }
 
 .av-wa-composer input {
@@ -4488,6 +4748,24 @@ a.btn-secondary {
   border-radius: 10px;
   background: var(--blue-50);
   color: var(--blue-700);
+}
+
+.proyecto-card-icon-genio {
+  background: #0b1f3a;
+  overflow: hidden;
+}
+
+.proyecto-card-icon-genio img {
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
+  display: block;
+}
+
+.proyecto-card-alias {
+  margin: -0.15rem 0 0 !important;
+  font-size: 0.8rem !important;
+  color: var(--gray-400, #94a3b8) !important;
 }
 
 .proyecto-delete {

@@ -108,7 +108,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
         if (tab.adminOnly) return isAdmin && !isOwner
-        if (tab.shared) return isOwner || Boolean(access)
+        if (tab.shared) return isOwner || (isAdmin && Boolean(access))
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),

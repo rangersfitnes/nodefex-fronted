@@ -1,34 +1,75 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   connectAvCrmWhatsapp,
+  createAvCrmMensajePredeterminado,
+  createAvCrmVendedor,
+  deleteAvCrmMensajePredeterminado,
+  deleteAvCrmVendedor,
   disconnectAvCrmWhatsapp,
   fetchAvCrmMessageAudio,
   getAvCrmChat,
   getAvCrmWhatsappStatus,
   listAvCrmChats,
+  listAvCrmMensajesPredeterminados,
+  listAvCrmVendedores,
+  saveAvCrmVendedorAccesos,
   sendAvCrmMessage,
+  updateAvCrmMensajePredeterminado,
   type AvCrmChat,
+  type AvCrmMensajePredeterminado,
   type AvCrmMessage,
+  type AvCrmVendedor,
   type AvCrmWhatsappStatus,
 } from '../api/audiovisual'
+import {
+  ADMIN_ACCIONES_AUDIOVISUAL,
+  type AdminAccion,
+} from '../api/administradores'
+import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   ArrowLeft,
   Check,
   CheckCheck,
+  ChevronDown,
   Link2,
   LoaderCircle,
   MessageCircle,
   MoreVertical,
   Phone,
+  Plus,
   RefreshCw,
   Search,
   Send,
   Smartphone,
+  StickyNote,
+  Trash2,
+  Users,
   Video,
   X,
 } from '../icons'
+
+const VENDEDOR_ACCIONES = ADMIN_ACCIONES_AUDIOVISUAL.filter(
+  (item) => item.id !== 'av_accesos',
+)
+
+function getVendedorAvAcciones(vendedor: AvCrmVendedor): AdminAccion[] {
+  const accesos = vendedor.accesos || {}
+  for (const [key, value] of Object.entries(accesos)) {
+    if (!esProyectoAudiovisual(key)) continue
+    if (value.nivel === 'manage') {
+      return VENDEDOR_ACCIONES.map((item) => item.id)
+    }
+    const acciones = Array.isArray(value.acciones)
+      ? value.acciones.filter((id): id is AdminAccion =>
+          VENDEDOR_ACCIONES.some((item) => item.id === id),
+        )
+      : []
+    return Array.from(new Set<AdminAccion>(['av_crm', ...acciones]))
+  }
+  return ['av_crm']
+}
 
 const EMPTY_STATUS: AvCrmWhatsappStatus = {
   status: 'idle',
@@ -222,7 +263,7 @@ function Avatar({
 }
 
 export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
-  const { user } = useAuth()
+  const { user, isOwner } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -239,8 +280,35 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [sending, setSending] = useState(false)
   const [mobileShowChat, setMobileShowChat] = useState(false)
 
+  const [cannedOpen, setCannedOpen] = useState(false)
+  const [cannedMessages, setCannedMessages] = useState<AvCrmMensajePredeterminado[]>([])
+  const [cannedLoading, setCannedLoading] = useState(false)
+  const [cannedError, setCannedError] = useState('')
+  const [manageCannedOpen, setManageCannedOpen] = useState(false)
+  const [cannedTitulo, setCannedTitulo] = useState('')
+  const [cannedTexto, setCannedTexto] = useState('')
+  const [editingCannedId, setEditingCannedId] = useState<string | null>(null)
+  const [cannedSaving, setCannedSaving] = useState(false)
+
+  const [vendedoresOpen, setVendedoresOpen] = useState(false)
+  const [vendedores, setVendedores] = useState<AvCrmVendedor[]>([])
+  const [vendedoresLoading, setVendedoresLoading] = useState(false)
+  const [vendedoresError, setVendedoresError] = useState('')
+  const [vendedorNombre, setVendedorNombre] = useState('')
+  const [vendedorCedula, setVendedorCedula] = useState('')
+  const [vendedorEmail, setVendedorEmail] = useState('')
+  const [vendedorPassword, setVendedorPassword] = useState('')
+  const [vendedorSaving, setVendedorSaving] = useState(false)
+  const [vendedorDeletingUid, setVendedorDeletingUid] = useState<string | null>(null)
+  const [vendedorExpandedUid, setVendedorExpandedUid] = useState<string | null>(null)
+  const [vendedorDraftAcciones, setVendedorDraftAcciones] = useState<AdminAccion[]>(['av_crm'])
+  const [vendedorAccesosSaving, setVendedorAccesosSaving] = useState(false)
+
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const connected = status.connected
+  const canDisconnect = isOwner && !readOnly
+  const canManageCanned = isOwner && !readOnly
+  const canManageVendedores = isOwner && !readOnly
 
   useEffect(() => {
     let cancelled = false
@@ -374,6 +442,35 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   }, [connected, user, selectedId])
 
   useEffect(() => {
+    if (!connected || !user) {
+      setCannedMessages([])
+      return
+    }
+    let cancelled = false
+    async function loadCanned() {
+      setCannedLoading(true)
+      setCannedError('')
+      try {
+        const token = await user!.getIdToken()
+        const list = await listAvCrmMensajesPredeterminados(token)
+        if (!cancelled) setCannedMessages(list)
+      } catch (err) {
+        if (!cancelled) {
+          setCannedError(
+            err instanceof Error ? err.message : 'No se pudieron cargar los mensajes predeterminados',
+          )
+        }
+      } finally {
+        if (!cancelled) setCannedLoading(false)
+      }
+    }
+    void loadCanned()
+    return () => {
+      cancelled = true
+    }
+  }, [connected, user])
+
+  useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
     // Scroll solo dentro del panel de mensajes (no mueve la página ni oculta el composer).
@@ -419,7 +516,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   }
 
   async function handleDisconnect() {
-    if (!user || busy || readOnly) return
+    if (!user || busy || readOnly || !isOwner) return
     const ok = window.confirm('¿Desvincular WhatsApp de este CRM?')
     if (!ok) return
     setBusy(true)
@@ -436,6 +533,213 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       setError(err instanceof Error ? err.message : 'No se pudo desvincular')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function openVendedoresModal() {
+    if (!user || !canManageVendedores) return
+    setVendedoresOpen(true)
+    setVendedoresError('')
+    setVendedorNombre('')
+    setVendedorCedula('')
+    setVendedorEmail('')
+    setVendedorPassword('')
+    setVendedorExpandedUid(null)
+    setVendedorDraftAcciones(['av_crm'])
+    setVendedoresLoading(true)
+    try {
+      const token = await user.getIdToken()
+      const items = await listAvCrmVendedores(token)
+      setVendedores(items)
+    } catch (err) {
+      setVendedoresError(err instanceof Error ? err.message : 'No se pudieron cargar los vendedores')
+      setVendedores([])
+    } finally {
+      setVendedoresLoading(false)
+    }
+  }
+
+  function toggleVendedorExpand(item: AvCrmVendedor) {
+    if (vendedorExpandedUid === item.uid) {
+      setVendedorExpandedUid(null)
+      return
+    }
+    setVendedorExpandedUid(item.uid)
+    setVendedorDraftAcciones(getVendedorAvAcciones(item))
+    setVendedoresError('')
+  }
+
+  function toggleVendedorAccion(accion: AdminAccion) {
+    if (accion === 'av_crm') return
+    setVendedorDraftAcciones((current) => {
+      if (current.includes(accion)) {
+        return current.filter((item) => item !== accion)
+      }
+      return [...current, accion]
+    })
+  }
+
+  async function handleSaveVendedorAccesos(item: AvCrmVendedor) {
+    if (!user || vendedorAccesosSaving || !canManageVendedores) return
+    setVendedorAccesosSaving(true)
+    setVendedoresError('')
+    try {
+      const token = await user.getIdToken()
+      const updated = await saveAvCrmVendedorAccesos(token, item.uid, vendedorDraftAcciones)
+      setVendedores((current) =>
+        current.map((vendedor) => (vendedor.uid === updated.uid ? updated : vendedor)),
+      )
+      setVendedorDraftAcciones(getVendedorAvAcciones(updated))
+    } catch (err) {
+      setVendedoresError(
+        err instanceof Error ? err.message : 'No se pudieron guardar los accesos del vendedor',
+      )
+    } finally {
+      setVendedorAccesosSaving(false)
+    }
+  }
+
+  async function handleCreateVendedor(event: FormEvent) {
+    event.preventDefault()
+    if (!user || vendedorSaving || !canManageVendedores) return
+    setVendedorSaving(true)
+    setVendedoresError('')
+    try {
+      const token = await user.getIdToken()
+      const created = await createAvCrmVendedor(token, {
+        nombre: vendedorNombre.trim(),
+        cedula: vendedorCedula.trim(),
+        email: vendedorEmail.trim(),
+        password: vendedorPassword,
+      })
+      setVendedores((current) =>
+        [...current, created].sort((a, b) =>
+          String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || ''), 'es'),
+        ),
+      )
+      setVendedorExpandedUid(created.uid)
+      setVendedorDraftAcciones(getVendedorAvAcciones(created))
+      setVendedorNombre('')
+      setVendedorCedula('')
+      setVendedorEmail('')
+      setVendedorPassword('')
+    } catch (err) {
+      setVendedoresError(err instanceof Error ? err.message : 'No se pudo crear el vendedor')
+    } finally {
+      setVendedorSaving(false)
+    }
+  }
+
+  async function handleDeleteVendedor(item: AvCrmVendedor) {
+    if (!user || vendedorDeletingUid || !canManageVendedores) return
+    const ok = window.confirm(
+      `¿Eliminar al vendedor ${item.nombre || item.email}? Perderá el acceso al panel.`,
+    )
+    if (!ok) return
+    setVendedorDeletingUid(item.uid)
+    setVendedoresError('')
+    try {
+      const token = await user.getIdToken()
+      await deleteAvCrmVendedor(token, item.uid)
+      setVendedores((current) => current.filter((v) => v.uid !== item.uid))
+      if (vendedorExpandedUid === item.uid) {
+        setVendedorExpandedUid(null)
+      }
+    } catch (err) {
+      setVendedoresError(err instanceof Error ? err.message : 'No se pudo eliminar el vendedor')
+    } finally {
+      setVendedorDeletingUid(null)
+    }
+  }
+
+  async function handleSendCanned(mensaje: AvCrmMensajePredeterminado) {
+    if (!user || !selectedId || sending || readOnly) return
+    setSending(true)
+    setError('')
+    setCannedOpen(false)
+    try {
+      const token = await user.getIdToken()
+      const message = await sendAvCrmMessage(token, selectedId, mensaje.texto)
+      setMessages((current) => [...current, message])
+      setChats((current) =>
+        current
+          .map((chat) =>
+            chat.id === selectedId
+              ? {
+                  ...chat,
+                  conversationTimestamp: message.timestamp || Date.now(),
+                  lastMessage: {
+                    id: message.id,
+                    fromMe: true,
+                    text: message.text,
+                    status: message.status,
+                    timestamp: message.timestamp,
+                  },
+                }
+              : chat,
+          )
+          .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje predeterminado')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  function openManageCanned(mensaje?: AvCrmMensajePredeterminado) {
+    if (!canManageCanned) return
+    setEditingCannedId(mensaje?.id || null)
+    setCannedTitulo(mensaje?.titulo || '')
+    setCannedTexto(mensaje?.texto || '')
+    setCannedError('')
+    setManageCannedOpen(true)
+    setCannedOpen(false)
+  }
+
+  async function handleSaveCanned(event: FormEvent) {
+    event.preventDefault()
+    if (!user || !canManageCanned || cannedSaving) return
+    const titulo = cannedTitulo.trim()
+    const texto = cannedTexto.trim()
+    if (!titulo || !texto) {
+      setCannedError('Título y texto son obligatorios')
+      return
+    }
+    setCannedSaving(true)
+    setCannedError('')
+    try {
+      const token = await user.getIdToken()
+      if (editingCannedId) {
+        const updated = await updateAvCrmMensajePredeterminado(token, editingCannedId, {
+          titulo,
+          texto,
+        })
+        setCannedMessages((current) =>
+          current.map((item) => (item.id === updated.id ? updated : item)),
+        )
+      } else {
+        const created = await createAvCrmMensajePredeterminado(token, { titulo, texto })
+        setCannedMessages((current) => [...current, created])
+      }
+      setManageCannedOpen(false)
+    } catch (err) {
+      setCannedError(err instanceof Error ? err.message : 'No se pudo guardar el mensaje')
+    } finally {
+      setCannedSaving(false)
+    }
+  }
+
+  async function handleDeleteCanned(id: string) {
+    if (!user || !canManageCanned) return
+    const ok = window.confirm('¿Eliminar este mensaje predeterminado?')
+    if (!ok) return
+    try {
+      const token = await user.getIdToken()
+      await deleteAvCrmMensajePredeterminado(token, id)
+      setCannedMessages((current) => current.filter((item) => item.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el mensaje')
     }
   }
 
@@ -504,7 +808,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               {connected ? 'Sesión' : 'Vincular WhatsApp'}
             </button>
           ) : null}
-          {!readOnly && connected ? (
+          {canDisconnect && connected ? (
             <button
               type="button"
               className="btn-secondary"
@@ -512,6 +816,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               disabled={busy}
             >
               Desvincular
+            </button>
+          ) : null}
+          {canManageVendedores ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void openVendedoresModal()}
+              disabled={busy || loading}
+            >
+              <Users size={16} strokeWidth={2} aria-hidden />
+              Vendedores
             </button>
           ) : null}
         </div>
@@ -687,6 +1002,77 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 </div>
 
                 <form className="av-wa-composer" onSubmit={(event) => void handleSend(event)}>
+                  <div className="av-wa-canned-wrap">
+                    <button
+                      type="button"
+                      className="av-wa-canned-toggle"
+                      onClick={() => setCannedOpen((open) => !open)}
+                      disabled={readOnly || sending}
+                      aria-expanded={cannedOpen}
+                      aria-label="Mensajes predeterminados"
+                      title="Mensajes predeterminados"
+                    >
+                      <StickyNote size={18} strokeWidth={2} aria-hidden />
+                    </button>
+                    {cannedOpen ? (
+                      <div className="av-wa-canned-panel" role="listbox" aria-label="Mensajes predeterminados">
+                        <div className="av-wa-canned-panel-head">
+                          <strong>Mensajes predeterminados</strong>
+                          {canManageCanned ? (
+                            <button type="button" className="btn-secondary" onClick={() => openManageCanned()}>
+                              <Plus size={14} strokeWidth={2} aria-hidden />
+                              Nuevo
+                            </button>
+                          ) : null}
+                        </div>
+                        {cannedLoading ? (
+                          <p className="section-note">Cargando…</p>
+                        ) : null}
+                        {cannedError ? (
+                          <p className="login-error" role="alert">
+                            {cannedError}
+                          </p>
+                        ) : null}
+                        {!cannedLoading && cannedMessages.length === 0 ? (
+                          <p className="section-note">Aún no hay mensajes predeterminados.</p>
+                        ) : null}
+                        <ul className="av-wa-canned-list">
+                          {cannedMessages.map((mensaje) => (
+                            <li key={mensaje.id}>
+                              <button
+                                type="button"
+                                className="av-wa-canned-item"
+                                disabled={readOnly || sending}
+                                onClick={() => void handleSendCanned(mensaje)}
+                              >
+                                <strong>{mensaje.titulo}</strong>
+                                <span>{mensaje.texto}</span>
+                              </button>
+                              {canManageCanned ? (
+                                <div className="av-wa-canned-item-actions">
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => openManageCanned(mensaje)}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => void handleDeleteCanned(mensaje.id)}
+                                    aria-label={`Eliminar ${mensaje.titulo}`}
+                                  >
+                                    <Trash2 size={14} strokeWidth={2} aria-hidden />
+                                  </button>
+                                </div>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
                   <input
                     type="text"
                     placeholder={readOnly ? 'Solo lectura' : 'Escribe un mensaje'}
@@ -787,6 +1173,316 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {manageCannedOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => !cannedSaving && setManageCannedOpen(false)}
+        >
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-crm-canned-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-crm-canned-title">
+                {editingCannedId ? 'Editar mensaje predeterminado' : 'Nuevo mensaje predeterminado'}
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setManageCannedOpen(false)}
+                disabled={cannedSaving}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={(event) => void handleSaveCanned(event)}>
+              <label className="login-field" htmlFor="av-crm-canned-titulo">
+                Título
+                <input
+                  id="av-crm-canned-titulo"
+                  value={cannedTitulo}
+                  onChange={(event) => setCannedTitulo(event.target.value)}
+                  disabled={cannedSaving}
+                  required
+                  maxLength={80}
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-canned-texto">
+                Mensaje
+                <textarea
+                  id="av-crm-canned-texto"
+                  value={cannedTexto}
+                  onChange={(event) => setCannedTexto(event.target.value)}
+                  disabled={cannedSaving}
+                  required
+                  rows={5}
+                  maxLength={2000}
+                />
+              </label>
+              {cannedError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {cannedError}
+                </p>
+              ) : null}
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setManageCannedOpen(false)}
+                  disabled={cannedSaving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={cannedSaving}>
+                  {cannedSaving ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Guardando…
+                    </>
+                  ) : (
+                    'Guardar'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {vendedoresOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => {
+            if (!vendedorSaving && !vendedorDeletingUid) setVendedoresOpen(false)
+          }}
+        >
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-crm-vendedores-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-crm-vendedores-title">Gestionar vendedores</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setVendedoresOpen(false)}
+                aria-label="Cerrar"
+                disabled={vendedorSaving || Boolean(vendedorDeletingUid)}
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+
+            <p className="section-note">
+              Crea cuentas con rol vendedor. Selecciona un vendedor para personalizar qué
+              funciones del Genio puede gestionar (CRM siempre incluido).
+            </p>
+
+            {vendedoresLoading ? (
+              <div className="proyectos-status">
+                <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
+                Cargando vendedores...
+              </div>
+            ) : null}
+
+            {!vendedoresLoading && vendedores.length === 0 ? (
+              <p className="section-note">Aún no hay vendedores creados.</p>
+            ) : null}
+
+            {!vendedoresLoading && vendedores.length > 0 ? (
+              <ul className="av-crm-vendedores-list">
+                {vendedores.map((item) => {
+                  const expanded = vendedorExpandedUid === item.uid
+                  return (
+                    <li key={item.uid} className={expanded ? 'is-expanded' : ''}>
+                      <div className="av-crm-vendedor-row">
+                        <button
+                          type="button"
+                          className="av-crm-vendedor-select"
+                          onClick={() => toggleVendedorExpand(item)}
+                          aria-expanded={expanded}
+                        >
+                          <span className="av-crm-vendedor-meta">
+                            <strong>{item.nombre || 'Sin nombre'}</strong>
+                            <span>{item.email}</span>
+                            {item.cedula ? <span>Cédula {item.cedula}</span> : null}
+                          </span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2}
+                            className={`av-crm-vendedor-chevron ${expanded ? 'is-open' : ''}`}
+                            aria-hidden
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => void handleDeleteVendedor(item)}
+                          disabled={vendedorSaving || vendedorDeletingUid === item.uid}
+                          aria-label={`Eliminar ${item.nombre || item.email}`}
+                        >
+                          {vendedorDeletingUid === item.uid ? (
+                            <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Trash2 size={16} strokeWidth={2} aria-hidden />
+                          )}
+                        </button>
+                      </div>
+
+                      {expanded ? (
+                        <div className="av-crm-vendedor-permisos">
+                          <p className="section-note">
+                            Marca las funciones que este vendedor puede gestionar.
+                          </p>
+                          <div className="av-crm-vendedor-checks" role="group" aria-label="Funciones">
+                            {VENDEDOR_ACCIONES.map((accion) => {
+                              const locked = accion.id === 'av_crm'
+                              const checked = vendedorDraftAcciones.includes(accion.id)
+                              return (
+                                <label
+                                  key={accion.id}
+                                  className={`av-crm-vendedor-check ${locked ? 'is-locked' : ''}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={locked || vendedorAccesosSaving}
+                                    onChange={() => toggleVendedorAccion(accion.id)}
+                                  />
+                                  <span>
+                                    {accion.label}
+                                    {locked ? ' (base)' : ''}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                          <div className="av-crm-vendedor-permisos-actions">
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              onClick={() => void handleSaveVendedorAccesos(item)}
+                              disabled={vendedorAccesosSaving}
+                            >
+                              {vendedorAccesosSaving ? (
+                                <>
+                                  <LoaderCircle
+                                    className="spin"
+                                    size={16}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                  />
+                                  Guardando…
+                                </>
+                              ) : (
+                                'Guardar permisos'
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : null}
+
+            <form className="modal-form" onSubmit={(event) => void handleCreateVendedor(event)}>
+              <h3 className="av-crm-vendedores-form-title">Nuevo vendedor</h3>
+              <label className="login-field" htmlFor="av-crm-vendedor-nombre">
+                Nombre
+                <input
+                  id="av-crm-vendedor-nombre"
+                  value={vendedorNombre}
+                  onChange={(event) => setVendedorNombre(event.target.value)}
+                  disabled={vendedorSaving}
+                  required
+                  maxLength={80}
+                  autoComplete="name"
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-vendedor-cedula">
+                Cédula
+                <input
+                  id="av-crm-vendedor-cedula"
+                  value={vendedorCedula}
+                  onChange={(event) => setVendedorCedula(event.target.value)}
+                  disabled={vendedorSaving}
+                  required
+                  inputMode="numeric"
+                  maxLength={12}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-vendedor-email">
+                Correo
+                <input
+                  id="av-crm-vendedor-email"
+                  type="email"
+                  value={vendedorEmail}
+                  onChange={(event) => setVendedorEmail(event.target.value)}
+                  disabled={vendedorSaving}
+                  required
+                  autoComplete="off"
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-vendedor-password">
+                Contraseña temporal
+                <input
+                  id="av-crm-vendedor-password"
+                  type="password"
+                  value={vendedorPassword}
+                  onChange={(event) => setVendedorPassword(event.target.value)}
+                  disabled={vendedorSaving}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </label>
+              {vendedoresError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {vendedoresError}
+                </p>
+              ) : null}
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setVendedoresOpen(false)}
+                  disabled={vendedorSaving || Boolean(vendedorDeletingUid)}
+                >
+                  Cerrar
+                </button>
+                <button type="submit" className="btn-primary" disabled={vendedorSaving}>
+                  {vendedorSaving ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Creando…
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} strokeWidth={2} aria-hidden />
+                      Crear vendedor
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

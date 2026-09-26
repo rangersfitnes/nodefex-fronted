@@ -29,6 +29,7 @@ type AuthContextValue = {
   loading: boolean
   isOwner: boolean
   isAdmin: boolean
+  isVendedor: boolean
   getProjectAccess: (proyectoId: string) => ProyectoAccesoConfig | null
   canProjectAction: (proyectoId: string, action: AdminAccion) => boolean
   login: (email: string, password: string) => Promise<void>
@@ -171,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isOwner: administrador?.rol === 'owner',
         isAdmin: administrador?.rol === 'admin',
+        isVendedor: administrador?.rol === 'vendedor',
         getProjectAccess: (proyectoId: string) => {
           if (!administrador) return null
           if (administrador.rol === 'owner') {

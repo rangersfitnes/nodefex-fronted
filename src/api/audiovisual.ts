@@ -979,6 +979,133 @@ export async function fetchAvCrmMessageAudio(
   return response.blob()
 }
 
+export type AvCrmMensajePredeterminado = {
+  id: string
+  titulo: string
+  texto: string
+  orden: number
+  creadoEn: string | null
+  actualizadoEn: string | null
+}
+
+export async function listAvCrmMensajesPredeterminados(
+  token: string,
+): Promise<AvCrmMensajePredeterminado[]> {
+  const data = await apiFetch<{ mensajes: AvCrmMensajePredeterminado[] }>(
+    '/api/audiovisual/crm/mensajes-predeterminados',
+    token,
+  )
+  return data.mensajes
+}
+
+export async function createAvCrmMensajePredeterminado(
+  token: string,
+  payload: { titulo: string; texto: string; orden?: number },
+): Promise<AvCrmMensajePredeterminado> {
+  const data = await apiFetch<{ mensaje: AvCrmMensajePredeterminado }>(
+    '/api/audiovisual/crm/mensajes-predeterminados',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.mensaje
+}
+
+export async function updateAvCrmMensajePredeterminado(
+  token: string,
+  id: string,
+  payload: { titulo: string; texto: string; orden?: number },
+): Promise<AvCrmMensajePredeterminado> {
+  const data = await apiFetch<{ mensaje: AvCrmMensajePredeterminado }>(
+    `/api/audiovisual/crm/mensajes-predeterminados/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.mensaje
+}
+
+export async function deleteAvCrmMensajePredeterminado(
+  token: string,
+  id: string,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `/api/audiovisual/crm/mensajes-predeterminados/${encodeURIComponent(id)}`,
+    token,
+    { method: 'DELETE', body: JSON.stringify({}) },
+  )
+}
+
+export type AvCrmVendedor = {
+  uid: string
+  email: string | null
+  nombre: string | null
+  cedula: string | null
+  rol: 'vendedor'
+  accesos?: Record<
+    string,
+    {
+      nivel: 'view' | 'manage' | 'custom'
+      acciones: string[]
+      visualizar?: string[]
+    }
+  >
+  mustChangePassword?: boolean
+  createdAt: string | null
+  lastSignInAt: string | null
+}
+
+export async function listAvCrmVendedores(token: string): Promise<AvCrmVendedor[]> {
+  const data = await apiFetch<{ vendedores: AvCrmVendedor[] }>(
+    '/api/audiovisual/crm/vendedores',
+    token,
+  )
+  return data.vendedores
+}
+
+export async function createAvCrmVendedor(
+  token: string,
+  payload: { email: string; password: string; nombre: string; cedula: string },
+): Promise<AvCrmVendedor> {
+  const data = await apiFetch<{ vendedor: AvCrmVendedor }>(
+    '/api/audiovisual/crm/vendedores',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.vendedor
+}
+
+export async function deleteAvCrmVendedor(token: string, uid: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `/api/audiovisual/crm/vendedores/${encodeURIComponent(uid)}`,
+    token,
+    { method: 'DELETE', body: JSON.stringify({}) },
+  )
+}
+
+export async function saveAvCrmVendedorAccesos(
+  token: string,
+  uid: string,
+  acciones: string[],
+): Promise<AvCrmVendedor> {
+  const data = await apiFetch<{ vendedor: AvCrmVendedor }>(
+    `/api/audiovisual/crm/vendedores/${encodeURIComponent(uid)}/accesos`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ acciones }),
+    },
+  )
+  return data.vendedor
+}
+
 export type AvEmpresaGenio = {
   nit: string | null
   razonSocial: string | null

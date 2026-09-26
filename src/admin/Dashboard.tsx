@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   createProyecto,
   deleteProyecto,
+  esProyectoAudiovisual,
   listProyectos,
   type Proyecto,
 } from '../api/proyectos'
@@ -23,8 +24,37 @@ import {
   X,
 } from '../icons'
 
+function ProyectoCardBrand({ proyecto }: { proyecto: Proyecto }) {
+  const isGenio = esProyectoAudiovisual(proyecto.id) || esProyectoAudiovisual(proyecto.nombre)
+  if (isGenio) {
+    return (
+      <>
+        <h2>El Genio</h2>
+        <p className="proyecto-card-alias">({proyecto.nombre})</p>
+      </>
+    )
+  }
+  return <h2>{proyecto.nombre}</h2>
+}
+
+function ProyectoCardIcon({ proyecto }: { proyecto: Proyecto }) {
+  const isGenio = esProyectoAudiovisual(proyecto.id) || esProyectoAudiovisual(proyecto.nombre)
+  if (isGenio) {
+    return (
+      <div className="proyecto-card-icon proyecto-card-icon-genio" aria-hidden>
+        <img src="/genio/logo-icon.png" alt="" width={28} height={28} />
+      </div>
+    )
+  }
+  return (
+    <div className="proyecto-card-icon" aria-hidden>
+      <Package size={20} strokeWidth={1.75} />
+    </div>
+  )
+}
+
 export function Dashboard() {
-  const { user, logout, isOwner, isAdmin, administrador } = useAuth()
+  const { user, logout, isOwner, isAdmin, isVendedor, administrador } = useAuth()
   const navigate = useNavigate()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +72,7 @@ export function Dashboard() {
     let cancelled = false
 
     async function load() {
-      if (!user || (!isOwner && !isAdmin)) {
+      if (!user || (!isOwner && !isAdmin && !isVendedor)) {
         setLoading(false)
         return
       }
@@ -65,7 +95,7 @@ export function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [user, isOwner, isAdmin])
+  }, [user, isOwner, isAdmin, isVendedor])
 
   async function handleLogout() {
     await logout()
@@ -163,7 +193,7 @@ export function Dashboard() {
             <div>
               <h1>Nodefex Tecnology</h1>
               <p className="dashboard-copy">
-                {isAdmin
+                {isAdmin || isVendedor
                   ? 'Estos son los proyectos que el propietario te asignó.'
                   : 'Gestiona los proyectos del sitio. Solo el servidor escribe en Firestore.'}
               </p>
@@ -177,7 +207,7 @@ export function Dashboard() {
           </div>
         </section>
 
-        {isAdmin ? (
+        {isAdmin || isVendedor ? (
           <section className="proyectos-section" aria-label="Proyectos asignados">
             {(administrador?.gananciaTotal || 0) > 0 ||
             Object.values(administrador?.ganancias || {}).some((item) => item.activa) ? (
@@ -241,9 +271,7 @@ export function Dashboard() {
                     tabIndex={0}
                   >
                     <div className="proyecto-card-top">
-                      <div className="proyecto-card-icon" aria-hidden>
-                        <Package size={20} strokeWidth={1.75} />
-                      </div>
+                      <ProyectoCardIcon proyecto={proyecto} />
                       <span
                         className={`admin-role-badge ${
                           proyecto.acceso?.nivel === 'manage'
@@ -260,7 +288,7 @@ export function Dashboard() {
                             : 'Solo ver'}
                       </span>
                     </div>
-                    <h2>{proyecto.nombre}</h2>
+                    <ProyectoCardBrand proyecto={proyecto} />
                     <p>{proyecto.descripcion}</p>
                   </article>
                 ))}
@@ -359,9 +387,7 @@ export function Dashboard() {
                   tabIndex={0}
                 >
                   <div className="proyecto-card-top">
-                    <div className="proyecto-card-icon" aria-hidden>
-                      <Package size={20} strokeWidth={1.75} />
-                    </div>
+                    <ProyectoCardIcon proyecto={proyecto} />
                     <button
                       type="button"
                       className="proyecto-delete"
@@ -374,7 +400,7 @@ export function Dashboard() {
                       <Trash2 size={16} strokeWidth={2} />
                     </button>
                   </div>
-                  <h2>{proyecto.nombre}</h2>
+                  <ProyectoCardBrand proyecto={proyecto} />
                   <p>{proyecto.descripcion}</p>
                 </article>
               ))}

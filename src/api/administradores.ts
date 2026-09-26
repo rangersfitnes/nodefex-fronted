@@ -54,7 +54,7 @@ export type ProyectoGananciaConfig = {
   total: number
 }
 
-export type AdministradorRol = 'owner' | 'admin'
+export type AdministradorRol = 'owner' | 'admin' | 'vendedor'
 
 export type Administrador = {
   uid: string
