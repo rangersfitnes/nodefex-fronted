@@ -1001,7 +1001,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
     let cancelled = false
     let timer: number | null = null
-    let leftWhileHidden = false
 
     async function notifyLeave() {
       try {
@@ -1016,32 +1015,29 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (!user || cancelled) return
       try {
         const token = await user.getIdToken()
+        // Si la pestaña está oculta: solo leer (el TTL marca offline si no hay heartbeat).
+        // No hacer leave inmediato: en móvil "hidden" es muy frecuente y borraba la presencia.
         if (document.visibilityState === 'hidden') {
-          if (!leftWhileHidden) {
-            leftWhileHidden = true
-            const left = await leaveAvCrmPresence(token)
-            if (!cancelled) setPresence(left)
-          } else {
-            const snapshot = await getAvCrmPresence(token)
-            if (!cancelled) setPresence(snapshot)
-          }
+          const snapshot = await getAvCrmPresence(token)
+          if (!cancelled) setPresence(snapshot)
           return
         }
-        leftWhileHidden = false
         const data = await heartbeatAvCrmPresence(token)
         if (!cancelled) setPresence(data)
-      } catch {
-        // No bloquear el CRM si falla la presencia.
+      } catch (err) {
+        console.warn('[crm-presence]', err instanceof Error ? err.message : err)
       }
     }
 
     void syncPresence()
     timer = window.setInterval(() => {
       void syncPresence()
-    }, 5000)
+    }, 8000)
 
     function onVisibility() {
-      void syncPresence()
+      if (document.visibilityState === 'visible') {
+        void syncPresence()
+      }
     }
     document.addEventListener('visibilitychange', onVisibility)
 
