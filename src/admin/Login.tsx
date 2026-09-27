@@ -1,5 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { ApiError } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,6 +7,18 @@ import { AlertCircle, ArrowRight, Hexagon, Lock, LogIn, Mail, Shield } from '../
 
 function getLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.status === 503) {
+      return (
+        error.message ||
+        'El servidor o Firestore no están disponibles ahora. Espera un momento y reintenta.'
+      )
+    }
+    if (error.status >= 500) {
+      return 'El servidor no respondió a tiempo. Tus datos pueden ser correctos: pulsa Entrar de nuevo.'
+    }
+    if (error.status === 403) {
+      return error.message || 'Esta cuenta no tiene acceso de administrador.'
+    }
     return error.message
   }
   if (error instanceof FirebaseError) {
@@ -21,23 +33,42 @@ function getLoginErrorMessage(error: unknown): string {
         return 'Correo o contraseña incorrectos.'
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde.'
+      case 'auth/network-request-failed':
+        return 'Sin conexión con Firebase. Revisa tu red e intenta de nuevo.'
       default:
         return 'No se pudo iniciar sesión. Intenta de nuevo.'
     }
+  }
+  if (error instanceof TypeError || (error instanceof Error && /failed to fetch|network/i.test(error.message))) {
+    return 'No se pudo conectar con el servidor. Si el backend está despertando, espera unos segundos y reintenta.'
   }
   return 'No se pudo iniciar sesión. Intenta de nuevo.'
 }
 
 export function Login() {
   const { user, administrador, loading, login, profileError, retryProfile } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const submitLock = useRef(false)
+  const redirectedRef = useRef(false)
 
-  if (!loading && user && administrador) {
-    return <Navigate to="/admin/dashboard" replace />
+  // Redirigir en cuanto haya sesión + perfil (no esperar a que loading baje).
+  useEffect(() => {
+    if (!user || !administrador || redirectedRef.current) return
+    redirectedRef.current = true
+    navigate('/admin/dashboard', { replace: true })
+  }, [user, administrador, navigate])
+
+  if (user && administrador) {
+    return (
+      <div className="admin-loading">
+        <div className="admin-spinner" aria-hidden />
+        <p>Entrando al panel...</p>
+      </div>
+    )
   }
 
   const busy = submitting || (loading && Boolean(user))
@@ -53,6 +84,7 @@ export function Login() {
 
     try {
       await login(email.trim(), password)
+      // El useEffect redirige cuando user + administrador queden listos.
     } catch (err) {
       setError(getLoginErrorMessage(err))
     } finally {

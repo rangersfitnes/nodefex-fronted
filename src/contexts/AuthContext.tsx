@@ -73,13 +73,26 @@ function resolveAccessFromMap(
   return null
 }
 
-/** Solo cerrar sesión cuando la cuenta no es admin (403). Un 401 puntual se reintenta. */
 function isForbiddenAccount(error: unknown) {
   return error instanceof ApiError && error.status === 403
 }
 
 function isUnauthorized(error: unknown) {
   return error instanceof ApiError && error.status === 401
+}
+
+function isRetryableProfileError(error: unknown) {
+  if (!(error instanceof ApiError)) {
+    // fetch falló (cold start Render, red, CORS, etc.)
+    return true
+  }
+  return error.status === 401 || error.status === 408 || error.status === 429 || error.status >= 500
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 async function fetchAdminProfile(
@@ -90,6 +103,25 @@ async function fetchAdminProfile(
   return getMe(token)
 }
 
+/**
+ * Reintenta getMe ante 401/503/red: el login de Firebase puede ser correcto
+ * y fallar solo la carga del perfil (cuota, cold start, token recién emitido).
+ */
+async function fetchAdminProfileWithRetry(firebaseUser: User): Promise<Administrador> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      return await fetchAdminProfile(firebaseUser, { forceRefresh: attempt > 0 })
+    } catch (error) {
+      lastError = error
+      if (isForbiddenAccount(error)) throw error
+      if (!isRetryableProfileError(error) || attempt === 3) throw error
+      await sleep(400 * (attempt + 1))
+    }
+  }
+  throw lastError
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [administrador, setAdministrador] = useState<Administrador | null>(null)
@@ -97,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState('')
   const profileSeq = useRef(0)
   const loginInFlight = useRef(false)
+  const loginPromiseRef = useRef<Promise<void> | null>(null)
   /** Evita que el effect vuelva a pedir perfil justo después de un login/retry exitoso. */
   const profileLoadedForUid = useRef<string | null>(null)
 
@@ -117,7 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return
 
-    // Mismo uid ya resuelto (re-fire de auth, login previo o Strict Mode): no reiniciar.
+    // El login en curso es dueño de la carga del perfil (evita carrera que descarta el éxito).
+    if (loginInFlight.current) return
+
     if (profileLoadedForUid.current === user.uid) {
       setLoading(false)
       return
@@ -129,18 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadProfile() {
       setLoading(true)
       try {
-        let profile: Administrador
-        try {
-          profile = await fetchAdminProfile(firebaseUser)
-        } catch (firstError) {
-          // Token recién emitido a veces falla una vez: forzar refresh y reintentar.
-          if (isUnauthorized(firstError)) {
-            profile = await fetchAdminProfile(firebaseUser, { forceRefresh: true })
-          } else {
-            throw firstError
-          }
-        }
-
+        const profile = await fetchAdminProfileWithRetry(firebaseUser)
         if (profileSeq.current !== seq) return
         setAdministrador(profile)
         setProfileError('')
@@ -162,14 +186,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (isUnauthorized(error)) {
-          // Tras reintento con token fresco sigue 401: sesión inválida.
           profileLoadedForUid.current = null
           setAdministrador(null)
           await signOut(auth)
           return
         }
 
-        // Red / 503 / etc.: mantener Firebase Auth para poder reintentar sin salir del sitio.
+        // Red / 503: mantener Firebase Auth para poder reintentar.
         setAdministrador(null)
       } finally {
         if (profileSeq.current === seq) setLoading(false)
@@ -180,54 +203,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.uid])
 
   async function login(email: string, password: string) {
-    if (loginInFlight.current) {
-      return
+    // Reutilizar el mismo intento si el usuario hace doble clic.
+    if (loginPromiseRef.current) {
+      return loginPromiseRef.current
     }
-    loginInFlight.current = true
-    setProfileError('')
-    setLoading(true)
 
-    try {
-      const credential = await signInWithEmailAndPassword(auth, email, password)
-      const signedIn = credential.user
-      const seq = ++profileSeq.current
-
-      let profile: Administrador
-      try {
-        profile = await fetchAdminProfile(signedIn, { forceRefresh: true })
-      } catch (firstError) {
-        if (isUnauthorized(firstError)) {
-          profile = await fetchAdminProfile(signedIn, { forceRefresh: true })
-        } else {
-          throw firstError
-        }
-      }
-
-      if (profileSeq.current !== seq) return
-
-      setUser(signedIn)
-      setAdministrador(profile)
+    const run = (async () => {
+      loginInFlight.current = true
       setProfileError('')
-      profileLoadedForUid.current = signedIn.uid
-    } catch (error) {
-      if (isForbiddenAccount(error)) {
-        profileLoadedForUid.current = null
-        setAdministrador(null)
-        await signOut(auth).catch(() => undefined)
-      } else if (!(error instanceof Error && 'code' in error)) {
-        // Error de perfil (API), no de Firebase Auth: sesión Firebase puede existir.
-        setAdministrador(null)
-        setProfileError(
-          error instanceof Error
-            ? error.message
-            : 'No se pudo cargar el perfil de administrador',
-        )
+      setLoading(true)
+      // Invalidar cargas en vuelo del effect para no pisar el resultado del login.
+      profileSeq.current += 1
+
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password)
+        const signedIn = credential.user
+        setUser(signedIn)
+
+        const profile = await fetchAdminProfileWithRetry(signedIn)
+
+        // Aplicar si seguimos con la misma cuenta (no exigir seq exacto:
+        // un effect concurrente no debe descartar un login exitoso).
+        if (auth.currentUser?.uid !== signedIn.uid) return
+
+        profileSeq.current += 1
+        setAdministrador(profile)
+        setProfileError('')
+        profileLoadedForUid.current = signedIn.uid
+      } catch (error) {
+        if (isForbiddenAccount(error)) {
+          profileLoadedForUid.current = null
+          setAdministrador(null)
+          await signOut(auth).catch(() => undefined)
+        } else if (!(error instanceof Error && 'code' in error)) {
+          // Perfil/API falló; Firebase puede haber autenticado bien.
+          setAdministrador(null)
+          setProfileError(
+            error instanceof Error
+              ? error.message
+              : 'No se pudo cargar el perfil de administrador',
+          )
+        }
+        throw error
+      } finally {
+        setLoading(false)
+        loginInFlight.current = false
+        loginPromiseRef.current = null
       }
-      throw error
-    } finally {
-      setLoading(false)
-      loginInFlight.current = false
-    }
+    })()
+
+    loginPromiseRef.current = run
+    return run
   }
 
   async function retryProfile() {
@@ -236,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setProfileError('')
     try {
-      const profile = await fetchAdminProfile(user, { forceRefresh: true })
+      const profile = await fetchAdminProfileWithRetry(user)
       if (profileSeq.current !== seq) return
       setAdministrador(profile)
       setProfileError('')
@@ -261,6 +287,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     profileSeq.current += 1
     profileLoadedForUid.current = null
+    loginPromiseRef.current = null
+    loginInFlight.current = false
     setAdministrador(null)
     await signOut(auth)
   }
