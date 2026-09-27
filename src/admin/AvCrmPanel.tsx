@@ -206,6 +206,32 @@ function compareChatsForSidebar(a: AvCrmChat, b: AvCrmChat): number {
   return chatActivityTs(b) - chatActivityTs(a)
 }
 
+/** true si el mensaje salió del CRM / WhatsApp vinculado (no del cliente). */
+function isCrmOutboundMessage(message: AvCrmMessage | null | undefined): boolean {
+  if (!message) return false
+  if (message.fromMe === true) return true
+  // Status de entrega solo existe en mensajes salientes; evita pintar ticks del CRM como cliente.
+  if (message.status) return true
+  return false
+}
+
+function mergeCrmMessages(current: AvCrmMessage[], incoming: AvCrmMessage[]): AvCrmMessage[] {
+  if (!incoming.length) return []
+  const prevById = new Map<string, AvCrmMessage>()
+  for (const msg of current) {
+    if (msg?.id) prevById.set(String(msg.id), msg)
+  }
+  return incoming.map((msg) => {
+    const prev = msg?.id ? prevById.get(String(msg.id)) : undefined
+    const fromMe = isCrmOutboundMessage(msg) || isCrmOutboundMessage(prev)
+    return {
+      ...msg,
+      fromMe,
+      status: msg.status ?? prev?.status ?? null,
+    }
+  })
+}
+
 function MessageTicks({ status }: { status: string | null }) {
   if (!status) return null
   if (status === 'pending' || status === 'error') {
@@ -1089,6 +1115,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (shell) {
         shell.style.removeProperty('height')
         shell.style.removeProperty('max-height')
+        shell.style.removeProperty('width')
+        shell.style.removeProperty('max-width')
       }
       return
     }
@@ -1101,6 +1129,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (!mq.matches) {
         el.style.removeProperty('height')
         el.style.removeProperty('max-height')
+        el.style.removeProperty('width')
         return
       }
       const vv = window.visualViewport
@@ -1111,6 +1140,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       const height = Math.max(260, Math.min(available, Math.floor((vv?.height || window.innerHeight) - 12)))
       el.style.height = `${height}px`
       el.style.maxHeight = `${height}px`
+      // Evita que el teclado / visualViewport desplace el chat en horizontal.
+      el.style.width = '100%'
+      el.style.maxWidth = '100%'
     }
 
     syncShellHeight()
@@ -1127,6 +1159,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       mq.removeEventListener('change', syncShellHeight)
       shell.style.removeProperty('height')
       shell.style.removeProperty('max-height')
+      shell.style.removeProperty('width')
+      shell.style.removeProperty('max-width')
     }
   }, [mobileShowChat, selectedId])
 
@@ -1401,7 +1435,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         const data = await getAvCrmChat(token, selectedId!, { limit: 200 })
         if (cancelled) return
         setActiveChat(data.chat)
-        setMessages(data.messages)
+        setMessages((current) => mergeCrmMessages(current, data.messages))
         // Mantener el badge de no leídos alineado con el servidor (multi-vendedor).
         if (data.chat?.id) {
           setChats((current) =>
@@ -1437,6 +1471,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
 
     setChatLoading(true)
+    setMessages([])
     void loadChat()
     const id = window.setInterval(() => {
       void loadChat()
@@ -1565,7 +1600,21 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     updatedChat: AvCrmChat | null | undefined,
   ) {
     if (!selectedId || !message) return
-    setMessages((current) => [...current, message])
+    setMessages((current) => {
+      const next = { ...message, fromMe: true as const }
+      const id = message.id ? String(message.id) : null
+      if (!id) return [...current, next]
+      const idx = current.findIndex((item) => item.id && String(item.id) === id)
+      if (idx < 0) return [...current, next]
+      const copy = [...current]
+      copy[idx] = {
+        ...current[idx],
+        ...next,
+        fromMe: true,
+        status: next.status ?? current[idx].status,
+      }
+      return copy
+    })
     setChats((current) =>
       current
         .map((chat) =>
@@ -1907,33 +1956,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       const token = await user.getIdToken()
       const { message, chat: updatedChat } = await sendAvCrmMessage(token, selectedId, text)
       setDraft('')
-      setMessages((current) => [...current, message])
-      setChats((current) =>
-        current
-          .map((chat) =>
-            chat.id === selectedId
-              ? {
-                  ...chat,
-                  ...(updatedChat || {}),
-                  conversationTimestamp:
-                    updatedChat?.conversationTimestamp || message.timestamp || Date.now(),
-                  lastMessage: updatedChat?.lastMessage || {
-                    id: message.id,
-                    fromMe: true,
-                    text: message.text,
-                    status: message.status,
-                    timestamp: message.timestamp,
-                  },
-                  lastResponder: updatedChat?.lastResponder ?? chat.lastResponder ?? null,
-                  responders: updatedChat?.responders ?? chat.responders ?? [],
-                  recursoSolicitarDatos:
-                    updatedChat?.recursoSolicitarDatos ?? chat.recursoSolicitarDatos ?? null,
-                }
-              : chat,
-          )
-          .sort(compareChatsForSidebar),
-      )
-      if (updatedChat) setActiveChat(updatedChat)
+      applySentMessageToChat(message, updatedChat)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje')
     } finally {
@@ -2230,12 +2253,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                     </div>
                   ) : null}
                   <div className="av-wa-messages-spacer" aria-hidden />
-                  {sortedMessages.map((message) => (
+                  {sortedMessages.map((message) => {
+                    const outbound = isCrmOutboundMessage(message)
+                    return (
                     <div
                       key={message.id || `${message.timestamp}-${message.text}`}
-                      className={`av-wa-bubble ${message.fromMe ? 'is-out' : 'is-in'}`}
+                      className={`av-wa-bubble ${outbound ? 'is-out' : 'is-in'}`}
                     >
-                      {!message.fromMe && headerChat.isGroup ? (
+                      {!outbound && headerChat.isGroup ? (
                         <span
                           className="av-wa-bubble-author"
                           style={{ color: groupAuthorColor(message) }}
@@ -2270,10 +2295,11 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                         <time dateTime={message.timestamp ? new Date(message.timestamp).toISOString() : undefined}>
                           {formatMessageTime(message.timestamp) || '—'}
                         </time>
-                        {message.fromMe ? <MessageTicks status={message.status} /> : null}
+                        {outbound ? <MessageTicks status={message.status} /> : null}
                       </span>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <form className="av-wa-composer" onSubmit={(event) => void handleSend(event)}>
