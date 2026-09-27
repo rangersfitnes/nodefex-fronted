@@ -5577,57 +5577,81 @@ a {
 
 .av-equipos-list {
   display: grid;
-  gap: 0.85rem;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1rem;
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 }
 
 .av-equipo-card {
-  display: grid;
-  gap: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   min-width: 0;
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(15, 40, 70, 0.12);
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9fb 100%);
+  min-height: 100%;
+  padding: 1rem 1.05rem 0.9rem;
+  border: 1px solid rgba(15, 40, 70, 0.1);
+  border-left: 3px solid #94a3b8;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(15, 40, 70, 0.04);
+}
+
+.av-equipo-card.is-bodega {
+  border-left-color: #94a3b8;
+}
+
+.av-equipo-card.is-produccion {
+  border-left-color: #dc2626;
+  background: linear-gradient(180deg, #fffafa 0%, #ffffff 40%);
 }
 
 .av-equipo-card-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.45rem 0.75rem;
+  gap: 0.65rem;
 }
 
-.av-equipo-card-title {
-  display: grid;
-  gap: 0.3rem;
-  min-width: 0;
-}
-
-.av-equipo-card-title h4 {
+.av-equipo-card-name {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: Outfit, 'DM Sans', sans-serif;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
   color: #0b1f3a;
-  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.av-equipo-card-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: #f4f7fa;
 }
 
 .av-equipo-codigo {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  width: fit-content;
+  flex-shrink: 0;
   appearance: none;
   border: 0;
-  padding: 0.15rem 0.45rem;
-  border-radius: 8px;
-  background: rgba(59, 130, 246, 0.12);
+  padding: 0.2rem 0.5rem;
+  border-radius: 7px;
+  background: rgba(59, 130, 246, 0.14);
   color: var(--blue-950, #0b1f3a);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   cursor: pointer;
 }
 
@@ -5635,11 +5659,13 @@ a {
   cursor: default;
   background: rgba(107, 114, 128, 0.14);
   color: #6b7280;
+  letter-spacing: 0.02em;
+  font-weight: 600;
 }
 
 .av-equipo-codigo-copied {
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   letter-spacing: 0;
   font-weight: 600;
   color: #027a5a;
@@ -5652,13 +5678,30 @@ a {
 
 .av-equipo-card-valor {
   margin: 0;
-  font-size: 0.88rem;
-  color: #445468;
+  display: grid;
+  justify-items: end;
+  gap: 0.08rem;
+  min-width: 0;
+  text-align: right;
+}
+
+.av-equipo-card-valor-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7c8f;
 }
 
 .av-equipo-card-valor strong {
+  font-size: 0.92rem;
+  font-weight: 700;
   color: #0b1f3a;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .av-equipo-salida-codigo {
@@ -5673,58 +5716,71 @@ a {
   letter-spacing: 0.06em;
 }
 
-.av-equipo-card-head h4 {
-  margin: 0;
-  font-family: Outfit, 'DM Sans', sans-serif;
-  font-size: 1.05rem;
-  color: #0b1f3a;
-  word-break: break-word;
-}
-
 .av-equipo-estado {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.55rem;
+  flex-shrink: 0;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .av-equipo-estado.is-bodega {
   color: #4b5563;
-  background: rgba(107, 114, 128, 0.16);
+  background: rgba(107, 114, 128, 0.14);
 }
 
 .av-equipo-estado.is-produccion {
   color: #991b1b;
-  background: rgba(220, 38, 38, 0.14);
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.av-equipo-card-body {
+  display: grid;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-height: 3.5rem;
 }
 
 .av-equipo-card-meta {
-  margin: -0.2rem 0 0;
-  font-size: 0.84rem;
+  margin: 0;
+  font-size: 0.8rem;
   color: #5b6b7c;
+  line-height: 1.35;
+}
+
+.av-equipo-card-items {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .av-equipo-items-count {
-  font-size: 0.78rem;
-  color: #5b6b7c;
-  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #6b7c8f;
 }
 
 .av-equipo-card-desc {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: #445468;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .av-equipo-card-empty {
   margin: 0;
-  font-size: 0.86rem;
-  color: #6b7c8f;
+  font-size: 0.82rem;
+  color: #8a97a6;
 }
 
 .av-equipo-items-preview {
@@ -5733,20 +5789,40 @@ a {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .av-equipo-items-preview li {
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(2, 122, 90, 0.1);
-  color: #0b1f3a;
-  font-size: 0.82rem;
+  max-width: 100%;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(15, 40, 70, 0.06);
+  color: #243447;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.av-equipo-items-preview li.av-equipo-items-more {
+  background: transparent;
+  color: #5b6b7c;
+  font-weight: 700;
+  padding-inline: 0.2rem;
 }
 
 .av-equipo-card-actions {
-  padding-top: 0.2rem;
+  margin-top: auto;
+  padding-top: 0.7rem;
   border-top: 1px solid rgba(15, 40, 70, 0.08);
+  justify-content: stretch;
+}
+
+.av-equipo-card-actions > * {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
 }
 
 .av-equipo-modal {

@@ -498,59 +498,80 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
         <div className="av-equipos-list" role="list">
           {equipos.map((equipo) => {
             const enProduccion = (equipo.estado || 'bodega') === 'produccion'
+            const items = equipo.itemsRevision || []
+            const previewItems = items.slice(0, 3)
+            const itemsExtra = items.length - previewItems.length
             return (
-              <article key={equipo.id} className="av-equipo-card" role="listitem">
+              <article
+                key={equipo.id}
+                className={`av-equipo-card ${enProduccion ? 'is-produccion' : 'is-bodega'}`}
+                role="listitem"
+              >
                 <div className="av-equipo-card-head">
-                  <div className="av-equipo-card-title">
-                    <h4>{equipo.nombre || 'Sin nombre'}</h4>
-                    {equipo.codigo ? (
-                      <button
-                        type="button"
-                        className="av-equipo-codigo"
-                        onClick={() => void handleCopyCodigo(equipo.codigo)}
-                        title="Copiar código"
-                      >
-                        {equipo.codigo}
-                        <Copy size={12} strokeWidth={2} aria-hidden />
-                        {copiedCodigo === equipo.codigo ? (
-                          <span className="av-equipo-codigo-copied">Copiado</span>
-                        ) : null}
-                      </button>
-                    ) : (
-                      <span className="av-equipo-codigo is-missing">Sin código</span>
-                    )}
-                  </div>
+                  <h4 className="av-equipo-card-name">{equipo.nombre || 'Sin nombre'}</h4>
                   <span
                     className={`av-equipo-estado ${enProduccion ? 'is-produccion' : 'is-bodega'}`}
                   >
                     {estadoLabel(equipo.estado)}
                   </span>
                 </div>
-                <p className="av-equipo-card-valor">
-                  Valor comercial: <strong>{formatCop(equipo.valorComercial || 0)}</strong>
-                </p>
-                {enProduccion && equipo.responsableNombre ? (
-                  <p className="av-equipo-card-meta">
-                    A cargo de {equipo.responsableNombre}
-                    {equipo.responsableRol === 'vendedor'
-                      ? ' (vendedor)'
-                      : equipo.responsableRol === 'admin'
-                        ? ' (admin)'
-                        : ''}
+
+                <div className="av-equipo-card-stats">
+                  {equipo.codigo ? (
+                    <button
+                      type="button"
+                      className="av-equipo-codigo"
+                      onClick={() => void handleCopyCodigo(equipo.codigo)}
+                      title="Copiar código"
+                    >
+                      {equipo.codigo}
+                      <Copy size={12} strokeWidth={2} aria-hidden />
+                      {copiedCodigo === equipo.codigo ? (
+                        <span className="av-equipo-codigo-copied">Copiado</span>
+                      ) : null}
+                    </button>
+                  ) : (
+                    <span className="av-equipo-codigo is-missing">Sin código</span>
+                  )}
+                  <p className="av-equipo-card-valor">
+                    <span className="av-equipo-card-valor-label">Valor</span>
+                    <strong>{formatCop(equipo.valorComercial || 0)}</strong>
                   </p>
-                ) : null}
-                {equipo.descripcion ? (
-                  <p className="av-equipo-card-desc">{equipo.descripcion}</p>
-                ) : null}
-                {(equipo.itemsRevision || []).length > 0 ? (
-                  <ul className="av-equipo-items-preview">
-                    {equipo.itemsRevision.map((item) => (
-                      <li key={item.id}>{item.nombre}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="av-equipo-card-empty">Sin ítems de revisión</p>
-                )}
+                </div>
+
+                <div className="av-equipo-card-body">
+                  {enProduccion && equipo.responsableNombre ? (
+                    <p className="av-equipo-card-meta">
+                      A cargo de {equipo.responsableNombre}
+                      {equipo.responsableRol === 'vendedor'
+                        ? ' (vendedor)'
+                        : equipo.responsableRol === 'admin'
+                          ? ' (admin)'
+                          : ''}
+                    </p>
+                  ) : null}
+                  {equipo.descripcion ? (
+                    <p className="av-equipo-card-desc">{equipo.descripcion}</p>
+                  ) : null}
+                  {items.length > 0 ? (
+                    <div className="av-equipo-card-items">
+                      <span className="av-equipo-items-count">
+                        {items.length} ítem{items.length === 1 ? '' : 's'} de revisión
+                      </span>
+                      <ul className="av-equipo-items-preview">
+                        {previewItems.map((item) => (
+                          <li key={item.id}>{item.nombre}</li>
+                        ))}
+                        {itemsExtra > 0 ? (
+                          <li className="av-equipo-items-more">+{itemsExtra}</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="av-equipo-card-empty">Sin ítems de revisión</p>
+                  )}
+                </div>
+
                 {!readOnly ? (
                   <div className="av-ingresos-row-actions av-equipo-card-actions">
                     <button type="button" className="btn-secondary" onClick={() => openEdit(equipo)}>
