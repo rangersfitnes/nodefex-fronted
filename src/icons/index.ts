@@ -29,6 +29,7 @@ export {
   FileText,
   Filter,
   Globe,
+  HardDrive,
   Hexagon,
   Home,
   IdCard,

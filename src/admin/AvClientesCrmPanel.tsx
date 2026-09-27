@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getAvCrmClienteIntereses,
   listAvCrmClientes,
   type AvCrmCliente,
   type AvCrmClienteIntereses,
+  type AvCrmFunnelEstado,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -26,12 +27,36 @@ function formatDate(iso: string | null) {
   })
 }
 
+const FUNNEL_FILTERS: Array<{ id: 'all' | AvCrmFunnelEstado; label: string }> = [
+  { id: 'all', label: 'Todos' },
+  { id: 'nuevo', label: 'Nuevo' },
+  { id: 'en_proceso', label: 'En proceso' },
+  { id: 'interesado', label: 'Interesado' },
+  { id: 'venta_cerrada', label: 'Venta cerrada' },
+]
+
+function funnelLabel(estado: AvCrmFunnelEstado | null | undefined): string {
+  switch (estado) {
+    case 'nuevo':
+      return 'Nuevo'
+    case 'en_proceso':
+      return 'En proceso'
+    case 'interesado':
+      return 'Interesado'
+    case 'venta_cerrada':
+      return 'Venta cerrada'
+    default:
+      return 'Sin estado'
+  }
+}
+
 export function AvClientesCrmPanel() {
   const { user } = useAuth()
   const [clientes, setClientes] = useState<AvCrmCliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+  const [funnelFilter, setFunnelFilter] = useState<'all' | AvCrmFunnelEstado>('all')
 
   const [interesesOpen, setInteresesOpen] = useState(false)
   const [interesesCliente, setInteresesCliente] = useState<AvCrmCliente | null>(null)
@@ -66,6 +91,11 @@ export function AvClientesCrmPanel() {
     }
   }, [user, refreshTick])
 
+  const filteredClientes = useMemo(() => {
+    if (funnelFilter === 'all') return clientes
+    return clientes.filter((item) => (item.funnelEstado || null) === funnelFilter)
+  }, [clientes, funnelFilter])
+
   async function openIntereses(cliente: AvCrmCliente, refresh = false) {
     if (!user) return
     setInteresesCliente(cliente)
@@ -76,7 +106,6 @@ export function AvClientesCrmPanel() {
     try {
       const token = await user.getIdToken()
       const data = await getAvCrmClienteIntereses(token, cliente.id, { refresh })
-      // Guardrail UI: no mostrar si el backend devolvió otro id.
       if (data.cliente?.id && data.cliente.id !== cliente.id) {
         throw new Error('El análisis no corresponde a este cliente')
       }
@@ -104,8 +133,7 @@ export function AvClientesCrmPanel() {
         <div>
           <h3>Clientes CRM</h3>
           <p className="section-note">
-            Capturados al completar «Solicitar datos» en WhatsApp. Cada fila es un chat; el
-            análisis de intereses no se mezcla entre clientes.
+            Capturados al completar «Solicitar datos» en WhatsApp. Filtra por embudo de ventas.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -122,6 +150,23 @@ export function AvClientesCrmPanel() {
         </div>
       </div>
 
+      <div
+        className="av-wa-funnel-filters av-clientes-crm-funnel"
+        role="toolbar"
+        aria-label="Filtro embudo"
+      >
+        {FUNNEL_FILTERS.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={`av-wa-funnel-chip ${funnelFilter === filter.id ? 'is-active' : ''} is-${filter.id}`}
+            onClick={() => setFunnelFilter(filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="proyectos-status">
           <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
@@ -136,23 +181,25 @@ export function AvClientesCrmPanel() {
         </div>
       ) : null}
 
-      {!loading && !error && clientes.length === 0 ? (
+      {!loading && !error && filteredClientes.length === 0 ? (
         <div className="proyectos-empty">
           <Users size={28} strokeWidth={1.75} aria-hidden />
           <p>
-            Aún no hay clientes CRM. Activa el recurso «Solicitar datos» en un chat de WhatsApp
-            y espera a que el cliente responda nombre y empresa.
+            {clientes.length === 0
+              ? 'Aún no hay clientes CRM. Activa el recurso «Solicitar datos» en un chat de WhatsApp y espera a que el cliente responda nombre y empresa.'
+              : 'No hay clientes en este estado del embudo.'}
           </p>
         </div>
       ) : null}
 
-      {!loading && !error && clientes.length > 0 ? (
+      {!loading && !error && filteredClientes.length > 0 ? (
         <div className="pagos-table-wrap">
           <table className="pagos-table">
             <thead>
               <tr>
                 <th>Contacto</th>
                 <th>Empresa</th>
+                <th>Embudo</th>
                 <th>Teléfono</th>
                 <th>Recopilado</th>
                 <th>Activado por</th>
@@ -160,10 +207,15 @@ export function AvClientesCrmPanel() {
               </tr>
             </thead>
             <tbody>
-              {clientes.map((cliente) => (
+              {filteredClientes.map((cliente) => (
                 <tr key={cliente.id}>
                   <td>{cliente.nombreContacto || '—'}</td>
                   <td>{cliente.nombreEmpresa || '—'}</td>
+                  <td>
+                    <span className={`av-wa-funnel-badge is-${cliente.funnelEstado || 'none'}`}>
+                      {funnelLabel(cliente.funnelEstado)}
+                    </span>
+                  </td>
                   <td>{cliente.phoneDisplay || cliente.phoneNumber || '—'}</td>
                   <td>{formatDate(cliente.recopiladoEn || cliente.actualizadoEn)}</td>
                   <td>{cliente.activatedByNombre || '—'}</td>
@@ -215,6 +267,9 @@ export function AvClientesCrmPanel() {
               <p>
                 <strong>Teléfono:</strong>{' '}
                 {interesesCliente.phoneDisplay || interesesCliente.phoneNumber || '—'}
+              </p>
+              <p>
+                <strong>Embudo:</strong> {funnelLabel(interesesCliente.funnelEstado)}
               </p>
             </div>
 

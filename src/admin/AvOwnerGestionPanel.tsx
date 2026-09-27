@@ -1,14 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createAvNotificacion,
   getAvContrato,
   getAvGenioAdmin,
+  listAvCrmStorage,
   listAvGestionAdmins,
   listAvNotificaciones,
+  purgeAvCrmStorage,
   saveAvContratoEnlace,
   saveAvGenioAdminEnlace,
   uploadAvContrato,
   type AvContrato,
+  type AvCrmStorageChat,
+  type AvCrmStorageTotals,
   type AvGenioAdmin,
   type AvGestionAdmin,
   type AvNotificacion,
@@ -17,11 +21,14 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   Check,
+  HardDrive,
   Link2,
   LoaderCircle,
   RefreshCw,
   Send,
+  Trash2,
   Upload,
+  X,
 } from '../icons'
 
 function formatFecha(iso: string | null): string {
@@ -89,6 +96,19 @@ export function AvOwnerGestionPanel() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [sendSuccess, setSendSuccess] = useState('')
+
+  const [storageOpen, setStorageOpen] = useState(false)
+  const [storageLoading, setStorageLoading] = useState(false)
+  const [storageError, setStorageError] = useState('')
+  const [storageSuccess, setStorageSuccess] = useState('')
+  const [storageChats, setStorageChats] = useState<AvCrmStorageChat[]>([])
+  const [storageTotals, setStorageTotals] = useState<AvCrmStorageTotals>({
+    messageCount: 0,
+    approxBytes: 0,
+  })
+  const [storageQuery, setStorageQuery] = useState('')
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
+  const [purging, setPurging] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -261,6 +281,104 @@ export function AvOwnerGestionPanel() {
     }
   }
 
+  const filteredStorageChats = useMemo(() => {
+    const q = storageQuery.trim().toLowerCase()
+    if (!q) return storageChats
+    return storageChats.filter((chat) => {
+      const haystack = [chat.displayName, chat.name, chat.phoneDisplay, chat.phoneNumber, chat.id]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [storageChats, storageQuery])
+
+  const selectedStats = useMemo(() => {
+    let messageCount = 0
+    let approxBytes = 0
+    for (const chat of storageChats) {
+      if (!selectedChatIds.has(chat.id)) continue
+      messageCount += chat.messageCount || 0
+      approxBytes += chat.approxBytes || 0
+    }
+    return { count: selectedChatIds.size, messageCount, approxBytes }
+  }, [storageChats, selectedChatIds])
+
+  async function openStorageModal() {
+    if (!user || storageLoading) return
+    setStorageOpen(true)
+    setStorageError('')
+    setStorageSuccess('')
+    setStorageQuery('')
+    setSelectedChatIds(new Set())
+    setStorageLoading(true)
+    try {
+      const token = await user.getIdToken()
+      const data = await listAvCrmStorage(token)
+      setStorageChats(data.chats)
+      setStorageTotals(data.totals)
+    } catch (err) {
+      setStorageError(err instanceof Error ? err.message : 'No se pudo cargar el almacenamiento')
+      setStorageChats([])
+      setStorageTotals({ messageCount: 0, approxBytes: 0 })
+    } finally {
+      setStorageLoading(false)
+    }
+  }
+
+  function toggleChatSelected(chatId: string) {
+    setSelectedChatIds((current) => {
+      const next = new Set(current)
+      if (next.has(chatId)) next.delete(chatId)
+      else next.add(chatId)
+      return next
+    })
+  }
+
+  function toggleSelectVisible() {
+    const visibleIds = filteredStorageChats.map((chat) => chat.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedChatIds.has(id))
+    setSelectedChatIds((current) => {
+      const next = new Set(current)
+      if (allSelected) {
+        for (const id of visibleIds) next.delete(id)
+      } else {
+        for (const id of visibleIds) next.add(id)
+      }
+      return next
+    })
+  }
+
+  async function handlePurgeSelected() {
+    if (!user || purging || selectedChatIds.size === 0) return
+    const ok = window.confirm(
+      `¿Borrar el contenido de ${selectedChatIds.size} chat(es)?\n\n` +
+        `Se eliminarán ~${selectedStats.messageCount} mensajes (~${formatBytes(selectedStats.approxBytes)}) de Firestore.\n` +
+        'El chat seguirá en la lista; los mensajes nuevos se guardarán otra vez.',
+    )
+    if (!ok) return
+
+    setPurging(true)
+    setStorageError('')
+    setStorageSuccess('')
+    try {
+      const token = await user.getIdToken()
+      const result = await purgeAvCrmStorage(token, [...selectedChatIds])
+      const data = await listAvCrmStorage(token)
+      setStorageChats(data.chats)
+      setStorageTotals(data.totals)
+      setSelectedChatIds(new Set())
+      setStorageSuccess(
+        `Liberado: ${result.purgedChats} chat(es), ${result.deletedMessages} mensaje(s) eliminados` +
+          (result.failed ? ` · ${result.failed} con error` : ''),
+      )
+    } catch (err) {
+      setStorageError(err instanceof Error ? err.message : 'No se pudo liberar el almacenamiento')
+    } finally {
+      setPurging(false)
+    }
+  }
+
   const viewUrl = contrato?.downloadUrl || contrato?.externalUrl || null
 
   return (
@@ -274,6 +392,15 @@ export function AvOwnerGestionPanel() {
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => void openStorageModal()}
+            disabled={loading || storageLoading}
+          >
+            <HardDrive size={16} strokeWidth={2} aria-hidden />
+            Liberar almacenamiento
+          </button>
           <button
             type="button"
             className="btn-secondary contable-refresh"
@@ -663,6 +790,156 @@ export function AvOwnerGestionPanel() {
               </div>
             )}
           </section>
+        </div>
+      ) : null}
+
+      {storageOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => !purging && setStorageOpen(false)}>
+          <div
+            className="modal-panel av-owner-storage-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-owner-storage-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-head">
+              <h2 id="av-owner-storage-title">Liberar almacenamiento CRM</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setStorageOpen(false)}
+                disabled={purging}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+
+            <div className="modal-form av-owner-storage-body">
+              <p className="section-note">
+                Elige chats y borra su historial en Firestore para liberar espacio. El chat sigue en
+                la bandeja; solo se elimina el contenido ya guardado.
+              </p>
+
+              <div className="av-owner-storage-totals">
+                <span>
+                  Total: <strong>{storageTotals.messageCount}</strong> mensajes
+                </span>
+                <span>
+                  ≈ <strong>{formatBytes(storageTotals.approxBytes)}</strong>
+                </span>
+              </div>
+
+              <label className="login-field" htmlFor="av-owner-storage-search">
+                Buscar chat
+                <input
+                  id="av-owner-storage-search"
+                  type="search"
+                  placeholder="Nombre, teléfono o id"
+                  value={storageQuery}
+                  onChange={(event) => setStorageQuery(event.target.value)}
+                  disabled={storageLoading || purging}
+                />
+              </label>
+
+              <div className="av-owner-storage-toolbar">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={toggleSelectVisible}
+                  disabled={storageLoading || purging || filteredStorageChats.length === 0}
+                >
+                  {filteredStorageChats.length > 0 &&
+                  filteredStorageChats.every((chat) => selectedChatIds.has(chat.id))
+                    ? 'Quitar selección'
+                    : 'Seleccionar visibles'}
+                </button>
+                <span className="section-note">
+                  {selectedStats.count} seleccionado(s) · {selectedStats.messageCount} msgs · ≈
+                  {formatBytes(selectedStats.approxBytes)}
+                </span>
+              </div>
+
+              {storageLoading ? (
+                <div className="proyectos-status">
+                  <LoaderCircle className="spin" size={20} strokeWidth={2} aria-hidden />
+                  Calculando uso…
+                </div>
+              ) : null}
+
+              {storageError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {storageError}
+                </p>
+              ) : null}
+              {storageSuccess ? (
+                <p className="av-cliente-success" role="status">
+                  <Check size={16} strokeWidth={2} aria-hidden />
+                  {storageSuccess}
+                </p>
+              ) : null}
+
+              {!storageLoading && filteredStorageChats.length === 0 ? (
+                <p className="section-note">No hay chats con datos guardados.</p>
+              ) : null}
+
+              {!storageLoading && filteredStorageChats.length > 0 ? (
+                <ul className="av-owner-storage-list" role="list">
+                  {filteredStorageChats.map((chat) => {
+                    const checked = selectedChatIds.has(chat.id)
+                    return (
+                      <li key={chat.id}>
+                        <label className={`av-owner-storage-row ${checked ? 'is-selected' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={purging || chat.messageCount === 0}
+                            onChange={() => toggleChatSelected(chat.id)}
+                          />
+                          <span className="av-owner-storage-meta">
+                            <strong>{chat.displayName}</strong>
+                            <span>
+                              {chat.isGroup ? 'Grupo' : chat.phoneDisplay || 'Chat'}
+                              {chat.messageCount === 0 ? ' · vacío' : ''}
+                            </span>
+                          </span>
+                          <span className="av-owner-storage-size">
+                            <strong>{chat.messageCount}</strong>
+                            <span>≈ {formatBytes(chat.approxBytes)}</span>
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setStorageOpen(false)}
+                disabled={purging}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handlePurgeSelected()}
+                disabled={purging || selectedChatIds.size === 0}
+              >
+                {purging ? (
+                  <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Trash2 size={16} strokeWidth={2} aria-hidden />
+                )}
+                Borrar contenido
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

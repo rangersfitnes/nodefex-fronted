@@ -1162,6 +1162,8 @@ export type AvCrmRecursoSolicitarDatosState = {
   activatedByNombre?: string | null
 }
 
+export type AvCrmFunnelEstado = 'nuevo' | 'en_proceso' | 'interesado' | 'venta_cerrada'
+
 export type AvCrmChat = {
   id: string
   name: string
@@ -1179,6 +1181,8 @@ export type AvCrmChat = {
   lastResponder?: AvCrmChatLastResponder | null
   responders?: AvCrmChatLastResponder[]
   recursoSolicitarDatos?: AvCrmRecursoSolicitarDatosState | null
+  funnelEstado?: AvCrmFunnelEstado | null
+  funnelEstadoAt?: number | null
 }
 
 export type AvCrmMessage = {
@@ -1224,6 +1228,48 @@ export async function listAvCrmChats(
   return data.chats
 }
 
+export type AvCrmStorageChat = {
+  id: string
+  name: string | null
+  displayName: string
+  phoneDisplay: string | null
+  phoneNumber: string | null
+  isGroup: boolean
+  messageCount: number
+  approxBytes: number
+  conversationTimestamp: number | null
+  messagesPurgedAt: string | null
+}
+
+export type AvCrmStorageTotals = {
+  messageCount: number
+  approxBytes: number
+}
+
+export async function listAvCrmStorage(
+  token: string,
+): Promise<{ chats: AvCrmStorageChat[]; totals: AvCrmStorageTotals }> {
+  return apiFetch<{ chats: AvCrmStorageChat[]; totals: AvCrmStorageTotals }>(
+    '/api/audiovisual/crm/whatsapp/storage',
+    token,
+  )
+}
+
+export async function purgeAvCrmStorage(
+  token: string,
+  chatIds: string[],
+): Promise<{
+  results: Array<{ id: string; ok: boolean; deletedMessages: number; error?: string }>
+  deletedMessages: number
+  purgedChats: number
+  failed: number
+}> {
+  return apiFetch('/api/audiovisual/crm/whatsapp/storage/purge', token, {
+    method: 'POST',
+    body: JSON.stringify({ chatIds }),
+  })
+}
+
 export async function getAvCrmChat(
   token: string,
   jid: string,
@@ -1255,6 +1301,22 @@ export async function sendAvCrmMessage(
       }),
     },
   )
+}
+
+export async function setAvCrmFunnelEstado(
+  token: string,
+  jid: string,
+  estado: AvCrmFunnelEstado,
+): Promise<AvCrmChat> {
+  const data = await apiFetch<{ chat: AvCrmChat }>(
+    `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/funnel`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ estado }),
+    },
+  )
+  return data.chat
 }
 
 export async function sendAvCrmDocument(
@@ -1503,6 +1565,8 @@ export type AvCrmCliente = {
   interesResumen: string | null
   interesGeneradoEn: string | null
   interesMessageCount: number | null
+  funnelEstado?: AvCrmFunnelEstado | null
+  funnelEstadoAt?: string | null
 }
 
 export type AvCrmClienteIntereses = {
@@ -1590,7 +1654,7 @@ export type AvCrmVendedor = {
   email: string | null
   nombre: string | null
   cedula: string | null
-  rol: 'vendedor'
+  rol: 'vendedor' | 'admin'
   accesos?: Record<
     string,
     {
@@ -1614,7 +1678,13 @@ export async function listAvCrmVendedores(token: string): Promise<AvCrmVendedor[
 
 export async function createAvCrmVendedor(
   token: string,
-  payload: { email: string; password: string; nombre: string; cedula: string },
+  payload: {
+    email: string
+    password: string
+    nombre: string
+    cedula: string
+    rol?: 'vendedor' | 'admin'
+  },
 ): Promise<AvCrmVendedor> {
   const data = await apiFetch<{ vendedor: AvCrmVendedor }>(
     '/api/audiovisual/crm/vendedores',

@@ -19,6 +19,7 @@ import {
   saveAvCrmVendedorAccesos,
   sendAvCrmDocument,
   sendAvCrmMessage,
+  setAvCrmFunnelEstado,
   listAvCrmClientes,
   getAvCrmClienteIntereses,
   heartbeatAvCrmPresence,
@@ -28,6 +29,7 @@ import {
   type AvCrmChat,
   type AvCrmChatLastResponder,
   type AvCrmCliente,
+  type AvCrmFunnelEstado,
   type AvCrmMensajePredeterminado,
   type AvCrmMessage,
   type AvCrmPresenceSnapshot,
@@ -204,6 +206,35 @@ function compareChatsForSidebar(a: AvCrmChat, b: AvCrmChat): number {
   const bPending = b.lastMessage && b.lastMessage.fromMe === false ? 1 : 0
   if (aPending !== bPending) return bPending - aPending
   return chatActivityTs(b) - chatActivityTs(a)
+}
+
+const FUNNEL_FILTERS: Array<{ id: 'all' | AvCrmFunnelEstado; label: string }> = [
+  { id: 'all', label: 'Todos' },
+  { id: 'nuevo', label: 'Nuevo' },
+  { id: 'en_proceso', label: 'En proceso' },
+  { id: 'interesado', label: 'Interesado' },
+  { id: 'venta_cerrada', label: 'Venta cerrada' },
+]
+
+const FUNNEL_MANUAL_OPTIONS: Array<{ id: AvCrmFunnelEstado; label: string }> = [
+  { id: 'en_proceso', label: 'En proceso' },
+  { id: 'interesado', label: 'Interesado' },
+  { id: 'venta_cerrada', label: 'Venta cerrada' },
+]
+
+function funnelLabel(estado: AvCrmFunnelEstado | null | undefined): string {
+  switch (estado) {
+    case 'nuevo':
+      return 'Nuevo'
+    case 'en_proceso':
+      return 'En proceso'
+    case 'interesado':
+      return 'Interesado'
+    case 'venta_cerrada':
+      return 'Venta cerrada'
+    default:
+      return 'Sin estado'
+  }
 }
 
 /** true si el mensaje salió del CRM / WhatsApp vinculado (no del cliente). */
@@ -1051,6 +1082,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     {},
   )
   const [chatQuery, setChatQuery] = useState('')
+  const [funnelFilter, setFunnelFilter] = useState<'all' | AvCrmFunnelEstado>('all')
+  const [funnelSaving, setFunnelSaving] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeChat, setActiveChat] = useState<AvCrmChat | null>(null)
   const [messages, setMessages] = useState<AvCrmMessage[]>([])
@@ -1061,6 +1094,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   const [cannedOpen, setCannedOpen] = useState(false)
   const [resourcesOpen, setResourcesOpen] = useState(false)
+  const [expandedResourceId, setExpandedResourceId] = useState<string | null>(null)
   const [isNarrowViewport, setIsNarrowViewport] = useState(false)
   const [recursos, setRecursos] = useState<AvCrmRecurso[]>([])
   const [recursosLoading, setRecursosLoading] = useState(false)
@@ -1089,6 +1123,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [vendedorCedula, setVendedorCedula] = useState('')
   const [vendedorEmail, setVendedorEmail] = useState('')
   const [vendedorPassword, setVendedorPassword] = useState('')
+  const [vendedorRolNuevo, setVendedorRolNuevo] = useState<'vendedor' | 'admin'>('vendedor')
   const [vendedorSaving, setVendedorSaving] = useState(false)
   const [vendedorDeletingUid, setVendedorDeletingUid] = useState<string | null>(null)
   const [vendedorExpandedUid, setVendedorExpandedUid] = useState<string | null>(null)
@@ -1249,7 +1284,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     void syncPresence()
     timer = window.setInterval(() => {
       void syncPresence()
-    }, 5000)
+    }, 30_000)
 
     function onVisibility() {
       if (document.visibilityState === 'visible') {
@@ -1308,7 +1343,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
           // ignore
         }
       })()
-    }, 4000)
+    }, 8000)
 
     return () => {
       cancelled = true
@@ -1332,7 +1367,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
     const id = window.setInterval(() => {
       void poll()
-    }, 2500)
+    }, 4000)
     void poll()
     return () => {
       cancelled = true
@@ -1381,7 +1416,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     void loadChats()
     const id = window.setInterval(() => {
       void loadChats()
-    }, 3500)
+    }, 5000)
     return () => {
       cancelled = true
       window.clearInterval(id)
@@ -1414,7 +1449,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     void loadCrmClientes()
     const id = window.setInterval(() => {
       void loadCrmClientes()
-    }, 12000)
+    }, 60_000)
     return () => {
       cancelled = true
       window.clearInterval(id)
@@ -1475,7 +1510,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     void loadChat()
     const id = window.setInterval(() => {
       void loadChat()
-    }, 2500)
+    }, 4000)
     return () => {
       cancelled = true
       window.clearInterval(id)
@@ -1545,6 +1580,11 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       cancelled = true
     }
   }, [resourcesOpen, user])
+
+  useEffect(() => {
+    if (!resourcesOpen || recursos.length === 0) return
+    setExpandedResourceId((current) => current || recursos[0]?.id || null)
+  }, [resourcesOpen, recursos])
 
   const cotizacionesFiltradas = useMemo(() => {
     const q = cotizacionQuery.trim().toLowerCase()
@@ -1712,10 +1752,31 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   )
   const headerChat = activeChat || selectedFromList
 
-  const sortedChats = useMemo(
-    () => [...chats].sort(compareChatsForSidebar),
-    [chats],
-  )
+  const sortedChats = useMemo(() => {
+    const list = [...chats].sort(compareChatsForSidebar)
+    if (funnelFilter === 'all') return list
+    return list.filter((chat) => (chat.funnelEstado || null) === funnelFilter)
+  }, [chats, funnelFilter])
+
+  async function handleSetFunnelEstado(estado: AvCrmFunnelEstado) {
+    if (!user || !selectedId || readOnly || funnelSaving) return
+    setFunnelSaving(true)
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const chat = await setAvCrmFunnelEstado(token, selectedId, estado)
+      setActiveChat(chat)
+      setChats((current) =>
+        current
+          .map((item) => (item.id === chat.id ? { ...item, ...chat } : item))
+          .sort(compareChatsForSidebar),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar el embudo')
+    } finally {
+      setFunnelSaving(false)
+    }
+  }
 
   // Orden cronológico estable (como WhatsApp): antiguos arriba, recientes abajo.
   const sortedMessages = useMemo(() => {
@@ -1810,6 +1871,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     setVendedorCedula('')
     setVendedorEmail('')
     setVendedorPassword('')
+    setVendedorRolNuevo('vendedor')
     setVendedorExpandedUid(null)
     setVendedorDraftAcciones(['av_crm'])
     setVendedoresLoading(true)
@@ -1818,7 +1880,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       const items = await listAvCrmVendedores(token)
       setVendedores(items)
     } catch (err) {
-      setVendedoresError(err instanceof Error ? err.message : 'No se pudieron cargar los vendedores')
+      setVendedoresError(err instanceof Error ? err.message : 'No se pudo cargar el equipo')
       setVendedores([])
     } finally {
       setVendedoresLoading(false)
@@ -1877,11 +1939,16 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         cedula: vendedorCedula.trim(),
         email: vendedorEmail.trim(),
         password: vendedorPassword,
+        rol: vendedorRolNuevo,
       })
       setVendedores((current) =>
-        [...current, created].sort((a, b) =>
-          String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || ''), 'es'),
-        ),
+        [...current, created].sort((a, b) => {
+          if (a.rol !== b.rol) return a.rol === 'admin' ? -1 : 1
+          return String(a.nombre || a.email || '').localeCompare(
+            String(b.nombre || b.email || ''),
+            'es',
+          )
+        }),
       )
       setVendedorExpandedUid(created.uid)
       setVendedorDraftAcciones(getVendedorAvAcciones(created))
@@ -1889,8 +1956,15 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       setVendedorCedula('')
       setVendedorEmail('')
       setVendedorPassword('')
+      setVendedorRolNuevo('vendedor')
     } catch (err) {
-      setVendedoresError(err instanceof Error ? err.message : 'No se pudo crear el vendedor')
+      setVendedoresError(
+        err instanceof Error
+          ? err.message
+          : vendedorRolNuevo === 'admin'
+            ? 'No se pudo crear el administrador'
+            : 'No se pudo crear el vendedor',
+      )
     } finally {
       setVendedorSaving(false)
     }
@@ -1898,8 +1972,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   async function handleDeleteVendedor(item: AvCrmVendedor) {
     if (!user || vendedorDeletingUid || !canManageVendedores) return
+    const rolLabel = item.rol === 'admin' ? 'administrador' : 'vendedor'
     const ok = window.confirm(
-      `¿Eliminar al vendedor ${item.nombre || item.email}? Perderá el acceso al panel.`,
+      `¿Eliminar al ${rolLabel} ${item.nombre || item.email}? Perderá el acceso al panel.`,
     )
     if (!ok) return
     setVendedorDeletingUid(item.uid)
@@ -1912,7 +1987,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         setVendedorExpandedUid(null)
       }
     } catch (err) {
-      setVendedoresError(err instanceof Error ? err.message : 'No se pudo eliminar el vendedor')
+      setVendedoresError(err instanceof Error ? err.message : 'No se pudo eliminar la cuenta')
     } finally {
       setVendedorDeletingUid(null)
     }
@@ -2025,7 +2100,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               disabled={busy || loading}
             >
               <Users size={16} strokeWidth={2} aria-hidden />
-              Vendedores
+              Equipo
             </button>
           ) : null}
         </div>
@@ -2113,6 +2188,19 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               />
             </label>
 
+            <div className="av-wa-funnel-filters" role="toolbar" aria-label="Filtro embudo de ventas">
+              {FUNNEL_FILTERS.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={`av-wa-funnel-chip ${funnelFilter === filter.id ? 'is-active' : ''} is-${filter.id}`}
+                  onClick={() => setFunnelFilter(filter.id)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
             <div className="av-wa-chat-list" role="list">
               {sortedChats.length === 0 ? (
                 <p className="av-wa-empty-list">
@@ -2140,6 +2228,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       <span className="av-wa-chat-main">
                         <span className="av-wa-chat-top">
                           <strong>{chatDisplayName(chat)}</strong>
+                          {chat.funnelEstado ? (
+                            <span
+                              className={`av-wa-funnel-badge is-${chat.funnelEstado}`}
+                              title={`Embudo: ${funnelLabel(chat.funnelEstado)}`}
+                            >
+                              {funnelLabel(chat.funnelEstado)}
+                            </span>
+                          ) : null}
                           <time>
                             {formatChatTime(
                               chat.lastMessage?.timestamp || chat.conversationTimestamp,
@@ -2233,6 +2329,34 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                             .join(' · ') || 'estado desconocido'}
                     </span>
                   </div>
+                  {!headerChat.isGroup ? (
+                    <label className="av-wa-funnel-select" htmlFor="av-wa-funnel-estado">
+                      <span className="av-wa-funnel-select-label">Embudo</span>
+                      <select
+                        id="av-wa-funnel-estado"
+                        value={headerChat.funnelEstado || ''}
+                        disabled={readOnly || funnelSaving}
+                        onChange={(event) => {
+                          const value = event.target.value as AvCrmFunnelEstado | ''
+                          if (!value) return
+                          if (value === 'nuevo') return
+                          void handleSetFunnelEstado(value)
+                        }}
+                      >
+                        {!headerChat.funnelEstado ? (
+                          <option value="">Sin estado</option>
+                        ) : null}
+                        {headerChat.funnelEstado === 'nuevo' ? (
+                          <option value="nuevo">Nuevo</option>
+                        ) : null}
+                        {FUNNEL_MANUAL_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <div className="av-wa-pane-actions" aria-hidden>
                     <Phone size={18} strokeWidth={2} />
                     <Video size={18} strokeWidth={2} />
@@ -2431,13 +2555,33 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                               ) : null}
                               {!recursosLoading
                                 ? recursos.map((recurso) => {
+                                    const isExpanded = expandedResourceId === recurso.id
                                     if (recurso.id === 'enviar_cotizacion') {
                                       return (
-                                        <div key={recurso.id} className="av-wa-resource-card">
-                                          <div className="av-wa-resource-card-head">
-                                            <strong>{recurso.titulo}</strong>
-                                          </div>
-                                          <p className="av-wa-resource-desc">{recurso.descripcion}</p>
+                                        <div
+                                          key={recurso.id}
+                                          className={`av-wa-resource-card ${isExpanded ? 'is-open' : ''}`}
+                                        >
+                                          <button
+                                            type="button"
+                                            className="av-wa-resource-card-toggle"
+                                            aria-expanded={isExpanded}
+                                            onClick={() =>
+                                              setExpandedResourceId((current) =>
+                                                current === recurso.id ? null : recurso.id,
+                                              )
+                                            }
+                                          >
+                                            <span>
+                                              <strong>{recurso.titulo}</strong>
+                                              <span className="av-wa-resource-desc">
+                                                {recurso.descripcion}
+                                              </span>
+                                            </span>
+                                            <ChevronDown size={16} strokeWidth={2} aria-hidden />
+                                          </button>
+                                          {isExpanded ? (
+                                            <div className="av-wa-resource-card-body">
                                           <label className="av-wa-resource-search">
                                             <Search size={14} strokeWidth={2} aria-hidden />
                                             <input
@@ -2519,6 +2663,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                               })}
                                             </ul>
                                           ) : null}
+                                            </div>
+                                          ) : null}
                                         </div>
                                       )
                                     }
@@ -2529,22 +2675,42 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                       null
                                     const datos = state?.datos
                                     return (
-                                      <div key={recurso.id} className="av-wa-resource-card">
-                                        <div className="av-wa-resource-card-head">
-                                          <strong>{recurso.titulo}</strong>
-                                          {state?.status === 'awaiting' ? (
-                                            <span className="av-wa-resource-status is-awaiting">
-                                              Recopilando…
+                                      <div
+                                        key={recurso.id}
+                                        className={`av-wa-resource-card ${isExpanded ? 'is-open' : ''}`}
+                                      >
+                                        <button
+                                          type="button"
+                                          className="av-wa-resource-card-toggle"
+                                          aria-expanded={isExpanded}
+                                          onClick={() =>
+                                            setExpandedResourceId((current) =>
+                                              current === recurso.id ? null : recurso.id,
+                                            )
+                                          }
+                                        >
+                                          <span>
+                                            <strong>{recurso.titulo}</strong>
+                                            <span className="av-wa-resource-desc">
+                                              {recurso.descripcion}
                                             </span>
-                                          ) : null}
-                                          {state?.status === 'complete' ? (
-                                            <span className="av-wa-resource-status is-complete">
-                                              Completo
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                        <p className="av-wa-resource-desc">{recurso.descripcion}</p>
-
+                                          </span>
+                                          <span className="av-wa-resource-card-toggle-meta">
+                                            {state?.status === 'awaiting' ? (
+                                              <span className="av-wa-resource-status is-awaiting">
+                                                Recopilando…
+                                              </span>
+                                            ) : null}
+                                            {state?.status === 'complete' ? (
+                                              <span className="av-wa-resource-status is-complete">
+                                                Completo
+                                              </span>
+                                            ) : null}
+                                            <ChevronDown size={16} strokeWidth={2} aria-hidden />
+                                          </span>
+                                        </button>
+                                        {isExpanded ? (
+                                          <div className="av-wa-resource-card-body">
                                         {isOwner && recursoEditing ? (
                                           <textarea
                                             className="av-wa-resource-edit"
@@ -2634,6 +2800,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                             {recursoSending ? 'Enviando…' : 'Enviar'}
                                           </button>
                                         </div>
+                                          </div>
+                                        ) : null}
                                       </div>
                                     )
                                   })
@@ -2808,7 +2976,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="av-crm-vendedores-title">Gestionar vendedores</h2>
+              <h2 id="av-crm-vendedores-title">Gestionar equipo</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -2821,25 +2989,27 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             </div>
 
             <p className="section-note">
-              Crea cuentas con rol vendedor. Selecciona un vendedor para personalizar qué
-              funciones del Genio puede gestionar (CRM siempre incluido).
+              Crea vendedores o administradores. Los administradores pueden registrar ventas
+              (Finanzas) y usar el CRM. Expande una cuenta para personalizar permisos (CRM siempre
+              incluido).
             </p>
 
             {vendedoresLoading ? (
               <div className="proyectos-status">
                 <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-                Cargando vendedores...
+                Cargando equipo...
               </div>
             ) : null}
 
             {!vendedoresLoading && vendedores.length === 0 ? (
-              <p className="section-note">Aún no hay vendedores creados.</p>
+              <p className="section-note">Aún no hay vendedores ni administradores en el equipo.</p>
             ) : null}
 
             {!vendedoresLoading && vendedores.length > 0 ? (
               <ul className="av-crm-vendedores-list">
                 {vendedores.map((item) => {
                   const expanded = vendedorExpandedUid === item.uid
+                  const rolLabel = item.rol === 'admin' ? 'Admin' : 'Vendedor'
                   return (
                     <li key={item.uid} className={expanded ? 'is-expanded' : ''}>
                       <div className="av-crm-vendedor-row">
@@ -2850,7 +3020,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                           aria-expanded={expanded}
                         >
                           <span className="av-crm-vendedor-meta">
-                            <strong>{item.nombre || 'Sin nombre'}</strong>
+                            <strong>
+                              {item.nombre || 'Sin nombre'}
+                              <span
+                                className={`av-crm-staff-rol ${item.rol === 'admin' ? 'is-admin' : 'is-vendedor'}`}
+                              >
+                                {rolLabel}
+                              </span>
+                            </strong>
                             <span>{item.email}</span>
                             {item.cedula ? <span>Cédula {item.cedula}</span> : null}
                           </span>
@@ -2879,7 +3056,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       {expanded ? (
                         <div className="av-crm-vendedor-permisos">
                           <p className="section-note">
-                            Marca las funciones que este vendedor puede gestionar.
+                            Marca las funciones que este{' '}
+                            {item.rol === 'admin' ? 'administrador' : 'vendedor'} puede gestionar.
                           </p>
                           <div className="av-crm-vendedor-checks" role="group" aria-label="Funciones">
                             {VENDEDOR_ACCIONES.map((accion) => {
@@ -2935,7 +3113,40 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             ) : null}
 
             <form className="modal-form" onSubmit={(event) => void handleCreateVendedor(event)}>
-              <h3 className="av-crm-vendedores-form-title">Nuevo vendedor</h3>
+              <h3 className="av-crm-vendedores-form-title">Nueva cuenta</h3>
+              <fieldset className="av-crm-staff-rol-fieldset">
+                <legend>Tipo de cuenta</legend>
+                <div className="av-crm-staff-rol-options" role="radiogroup" aria-label="Tipo de cuenta">
+                  <label className={vendedorRolNuevo === 'vendedor' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="av-crm-staff-rol"
+                      value="vendedor"
+                      checked={vendedorRolNuevo === 'vendedor'}
+                      disabled={vendedorSaving}
+                      onChange={() => setVendedorRolNuevo('vendedor')}
+                    />
+                    <span>
+                      <strong>Vendedor</strong>
+                      <em>CRM y permisos que asignes</em>
+                    </span>
+                  </label>
+                  <label className={vendedorRolNuevo === 'admin' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="av-crm-staff-rol"
+                      value="admin"
+                      checked={vendedorRolNuevo === 'admin'}
+                      disabled={vendedorSaving}
+                      onChange={() => setVendedorRolNuevo('admin')}
+                    />
+                    <span>
+                      <strong>Administrador</strong>
+                      <em>Incluye Finanzas para registrar ventas</em>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
               <label className="login-field" htmlFor="av-crm-vendedor-nombre">
                 Nombre
                 <input
@@ -3010,7 +3221,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                   ) : (
                     <>
                       <Plus size={16} strokeWidth={2} aria-hidden />
-                      Crear vendedor
+                      {vendedorRolNuevo === 'admin' ? 'Crear administrador' : 'Crear vendedor'}
                     </>
                   )}
                 </button>

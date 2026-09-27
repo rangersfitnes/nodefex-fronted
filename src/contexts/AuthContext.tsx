@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
   type Dispatch,
@@ -72,8 +73,21 @@ function resolveAccessFromMap(
   return null
 }
 
-function shouldSignOut(error: unknown) {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403)
+/** Solo cerrar sesión cuando la cuenta no es admin (403). Un 401 puntual se reintenta. */
+function isForbiddenAccount(error: unknown) {
+  return error instanceof ApiError && error.status === 403
+}
+
+function isUnauthorized(error: unknown) {
+  return error instanceof ApiError && error.status === 401
+}
+
+async function fetchAdminProfile(
+  firebaseUser: User,
+  options: { forceRefresh?: boolean } = {},
+): Promise<Administrador> {
+  const token = await firebaseUser.getIdToken(Boolean(options.forceRefresh))
+  return getMe(token)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -81,84 +95,172 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [administrador, setAdministrador] = useState<Administrador | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState('')
+  const profileSeq = useRef(0)
+  const loginInFlight = useRef(false)
+  /** Evita que el effect vuelva a pedir perfil justo después de un login/retry exitoso. */
+  const profileLoadedForUid = useRef<string | null>(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
+      if (!currentUser) {
+        profileSeq.current += 1
+        profileLoadedForUid.current = null
+        setAdministrador(null)
+        setProfileError('')
+        setLoading(false)
+      }
     })
     return unsubscribe
   }, [])
 
   useEffect(() => {
-    let cancelled = false
+    if (!user) return
+
+    // Mismo uid ya resuelto (re-fire de auth, login previo o Strict Mode): no reiniciar.
+    if (profileLoadedForUid.current === user.uid) {
+      setLoading(false)
+      return
+    }
+
+    const seq = ++profileSeq.current
+    const firebaseUser = user
 
     async function loadProfile() {
-      if (!user) {
-        setAdministrador(null)
-        setProfileError('')
-        setLoading(false)
-        return
-      }
-
       setLoading(true)
       try {
-        const token = await user.getIdToken()
-        const profile = await getMe(token)
-        if (!cancelled) {
-          setAdministrador(profile)
-          setProfileError('')
+        let profile: Administrador
+        try {
+          profile = await fetchAdminProfile(firebaseUser)
+        } catch (firstError) {
+          // Token recién emitido a veces falla una vez: forzar refresh y reintentar.
+          if (isUnauthorized(firstError)) {
+            profile = await fetchAdminProfile(firebaseUser, { forceRefresh: true })
+          } else {
+            throw firstError
+          }
         }
+
+        if (profileSeq.current !== seq) return
+        setAdministrador(profile)
+        setProfileError('')
+        profileLoadedForUid.current = firebaseUser.uid
       } catch (error) {
-        if (cancelled) return
+        if (profileSeq.current !== seq) return
+
+        setProfileError(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo cargar el perfil de administrador',
+        )
+
+        if (isForbiddenAccount(error)) {
+          profileLoadedForUid.current = null
+          setAdministrador(null)
+          await signOut(auth)
+          return
+        }
+
+        if (isUnauthorized(error)) {
+          // Tras reintento con token fresco sigue 401: sesión inválida.
+          profileLoadedForUid.current = null
+          setAdministrador(null)
+          await signOut(auth)
+          return
+        }
+
+        // Red / 503 / etc.: mantener Firebase Auth para poder reintentar sin salir del sitio.
+        setAdministrador(null)
+      } finally {
+        if (profileSeq.current === seq) setLoading(false)
+      }
+    }
+
+    void loadProfile()
+  }, [user?.uid])
+
+  async function login(email: string, password: string) {
+    if (loginInFlight.current) {
+      return
+    }
+    loginInFlight.current = true
+    setProfileError('')
+    setLoading(true)
+
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password)
+      const signedIn = credential.user
+      const seq = ++profileSeq.current
+
+      let profile: Administrador
+      try {
+        profile = await fetchAdminProfile(signedIn, { forceRefresh: true })
+      } catch (firstError) {
+        if (isUnauthorized(firstError)) {
+          profile = await fetchAdminProfile(signedIn, { forceRefresh: true })
+        } else {
+          throw firstError
+        }
+      }
+
+      if (profileSeq.current !== seq) return
+
+      setUser(signedIn)
+      setAdministrador(profile)
+      setProfileError('')
+      profileLoadedForUid.current = signedIn.uid
+    } catch (error) {
+      if (isForbiddenAccount(error)) {
+        profileLoadedForUid.current = null
+        setAdministrador(null)
+        await signOut(auth).catch(() => undefined)
+      } else if (!(error instanceof Error && 'code' in error)) {
+        // Error de perfil (API), no de Firebase Auth: sesión Firebase puede existir.
         setAdministrador(null)
         setProfileError(
           error instanceof Error
             ? error.message
             : 'No se pudo cargar el perfil de administrador',
         )
-        if (shouldSignOut(error)) {
-          await signOut(auth)
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
       }
+      throw error
+    } finally {
+      setLoading(false)
+      loginInFlight.current = false
     }
-
-    void loadProfile()
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  async function login(email: string, password: string) {
-    setProfileError('')
-    await signInWithEmailAndPassword(auth, email, password)
   }
 
   async function retryProfile() {
-    if (!user) return
+    if (!user || loginInFlight.current) return
+    const seq = ++profileSeq.current
     setLoading(true)
     setProfileError('')
     try {
-      const token = await user.getIdToken()
-      const profile = await getMe(token)
+      const profile = await fetchAdminProfile(user, { forceRefresh: true })
+      if (profileSeq.current !== seq) return
       setAdministrador(profile)
+      setProfileError('')
+      profileLoadedForUid.current = user.uid
     } catch (error) {
+      if (profileSeq.current !== seq) return
       setAdministrador(null)
       setProfileError(
         error instanceof Error
           ? error.message
           : 'No se pudo cargar el perfil de administrador',
       )
-      if (shouldSignOut(error)) {
+      if (isForbiddenAccount(error) || isUnauthorized(error)) {
+        profileLoadedForUid.current = null
         await signOut(auth)
       }
     } finally {
-      setLoading(false)
+      if (profileSeq.current === seq) setLoading(false)
     }
   }
 
   async function logout() {
+    profileSeq.current += 1
+    profileLoadedForUid.current = null
     setAdministrador(null)
     await signOut(auth)
   }

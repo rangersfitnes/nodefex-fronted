@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { ApiError } from '../api/administradores'
@@ -34,6 +34,7 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const submitLock = useRef(false)
 
   if (!loading && user && administrador) {
     return <Navigate to="/admin/dashboard" replace />
@@ -44,6 +45,9 @@ export function Login() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitLock.current || busy) return
+
+    submitLock.current = true
     setError('')
     setSubmitting(true)
 
@@ -53,6 +57,7 @@ export function Login() {
       setError(getLoginErrorMessage(err))
     } finally {
       setSubmitting(false)
+      submitLock.current = false
     }
   }
 

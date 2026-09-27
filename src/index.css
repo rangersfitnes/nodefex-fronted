@@ -2712,6 +2712,113 @@ a {
   margin: 0.2rem 0 0;
 }
 
+.av-owner-storage-modal {
+  max-width: min(640px, 96vw);
+  max-height: min(92vh, 820px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.av-owner-storage-body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.av-owner-storage-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(18, 50, 92, 0.05);
+  font-size: 0.88rem;
+  color: #445468;
+}
+
+.av-owner-storage-totals strong {
+  color: #0b1f3a;
+  font-variant-numeric: tabular-nums;
+}
+
+.av-owner-storage-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+}
+
+.av-owner-storage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  max-height: min(48vh, 22rem);
+  overflow: auto;
+}
+
+.av-owner-storage-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 50, 92, 0.1);
+  background: #fff;
+  cursor: pointer;
+}
+
+.av-owner-storage-row.is-selected {
+  border-color: rgba(2, 122, 90, 0.35);
+  background: rgba(2, 122, 90, 0.06);
+}
+
+.av-owner-storage-row input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #027a5a;
+}
+
+.av-owner-storage-meta {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.av-owner-storage-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0b1f3a;
+  font-size: 0.9rem;
+}
+
+.av-owner-storage-meta span {
+  font-size: 0.78rem;
+  color: #6b7c8f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-owner-storage-size {
+  display: grid;
+  justify-items: end;
+  gap: 0.05rem;
+  font-size: 0.78rem;
+  color: #5b6b7c;
+  font-variant-numeric: tabular-nums;
+}
+
+.av-owner-storage-size strong {
+  color: #0b1f3a;
+  font-size: 0.86rem;
+}
+
 .av-contrato-file-alt {
   margin-top: 0.35rem;
   padding: 0.75rem 0.9rem;
@@ -3430,7 +3537,104 @@ a {
 }
 
 .av-crm-vendedor-meta strong {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   font-size: 0.95rem;
+}
+
+.av-crm-staff-rol {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.av-crm-staff-rol.is-vendedor {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.av-crm-staff-rol.is-admin {
+  color: #047857;
+  background: rgba(5, 150, 105, 0.14);
+}
+
+.av-crm-staff-rol-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.av-crm-staff-rol-fieldset legend {
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.av-crm-staff-rol-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.av-crm-staff-rol-options label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  margin: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(18, 50, 92, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.av-crm-staff-rol-options label.is-active {
+  border-color: rgba(2, 122, 90, 0.4);
+  background: rgba(2, 122, 90, 0.06);
+}
+
+.av-crm-staff-rol-options input {
+  margin-top: 0.2rem;
+  accent-color: #027a5a;
+}
+
+.av-crm-staff-rol-options span {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  color: inherit;
+  font-size: inherit;
+}
+
+.av-crm-staff-rol-options strong {
+  font-size: 0.88rem;
+  color: #0b1f3a;
+}
+
+.av-crm-staff-rol-options em {
+  font-style: normal;
+  font-size: 0.75rem;
+  color: #6b7c8f;
+  line-height: 1.3;
+}
+
+@media (max-width: 560px) {
+  .av-crm-staff-rol-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 .av-crm-vendedor-meta span {
@@ -3642,7 +3846,7 @@ a {
 
 .av-wa-sidebar {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -3715,6 +3919,125 @@ a {
   background: transparent;
   color: var(--wa-text);
   font: inherit;
+}
+
+.av-wa-funnel-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.55rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.av-wa-funnel-chip {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid rgba(17, 27, 33, 0.12);
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  background: #fff;
+  color: #54656f;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.av-wa-funnel-chip.is-active {
+  border-color: transparent;
+  color: #fff;
+  background: #027a5a;
+}
+
+.av-wa-funnel-chip.is-active.is-nuevo {
+  background: #2563eb;
+}
+
+.av-wa-funnel-chip.is-active.is-en_proceso {
+  background: #d97706;
+}
+
+.av-wa-funnel-chip.is-active.is-interesado {
+  background: #7c3aed;
+}
+
+.av-wa-funnel-chip.is-active.is-venta_cerrada {
+  background: #059669;
+}
+
+.av-wa-funnel-badge {
+  flex: 0 0 auto;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  max-width: 5.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.av-wa-funnel-badge.is-nuevo {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.av-wa-funnel-badge.is-en_proceso {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+.av-wa-funnel-badge.is-interesado {
+  color: #6d28d9;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.av-wa-funnel-badge.is-venta_cerrada {
+  color: #047857;
+  background: rgba(5, 150, 105, 0.12);
+}
+
+.av-wa-funnel-badge.is-none {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.12);
+}
+
+.av-clientes-crm-funnel {
+  padding-inline: 0;
+}
+
+.av-wa-funnel-select {
+  display: grid;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  max-width: 9.5rem;
+}
+
+.av-wa-funnel-select-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wa-muted);
+}
+
+.av-wa-funnel-select select {
+  width: 100%;
+  border: 1px solid var(--wa-border);
+  border-radius: 8px;
+  padding: 0.3rem 0.45rem;
+  background: #fff;
+  color: var(--wa-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .av-wa-chat-list {
@@ -3891,6 +4214,8 @@ a {
 }
 
 .av-wa-chat-top strong {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4806,9 +5131,75 @@ a {
 .av-wa-resource-card {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.65rem 0.15rem 0.25rem;
+  gap: 0;
+  padding: 0;
   min-width: 0;
+  border: 1px solid rgba(17, 27, 33, 0.1);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.av-wa-resource-card-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.av-wa-resource-card-toggle > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.av-wa-resource-card-toggle strong {
+  font-size: 0.9rem;
+  color: var(--wa-text);
+}
+
+.av-wa-resource-card-toggle .av-wa-resource-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--wa-muted);
+  line-height: 1.35;
+}
+
+.av-wa-resource-card-toggle > svg,
+.av-wa-resource-card-toggle-meta > svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--wa-muted);
+  transition: transform 0.18s ease;
+}
+
+.av-wa-resource-card.is-open .av-wa-resource-card-toggle > svg,
+.av-wa-resource-card.is-open .av-wa-resource-card-toggle-meta > svg {
+  transform: rotate(180deg);
+}
+
+.av-wa-resource-card-toggle-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.av-wa-resource-card-body {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid rgba(17, 27, 33, 0.08);
+  padding-top: 0.65rem;
 }
 
 .av-wa-resource-card-head {
