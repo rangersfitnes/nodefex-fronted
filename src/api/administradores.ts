@@ -29,7 +29,7 @@ export const ADMIN_ACCIONES_AUDIOVISUAL: { id: AdminAccion; label: string }[] = 
   { id: 'av_equipos', label: 'Equipos' },
   { id: 'av_clientes', label: 'Clientes' },
   { id: 'av_accesos', label: 'Accesos' },
-  { id: 'av_creditos', label: 'Créditos' },
+  { id: 'av_creditos', label: 'Servicios' },
   { id: 'av_cotizaciones', label: 'Cotizaciones' },
   { id: 'av_crm', label: 'CRM' },
 ]

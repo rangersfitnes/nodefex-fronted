@@ -1063,7 +1063,10 @@ export function AvFacturacionPanel({ readOnly = false }: { readOnly?: boolean })
                   <option value="">Selecciona un plan</option>
                   {planesActivos.map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.nombre} — {plan.creditos} créditos — {formatCop(plan.precio)}
+                      {plan.nombre} — {formatCop(plan.precio)}
+                      {(plan.servicios || []).length > 0
+                        ? ` · ${plan.servicios.length} servicio${plan.servicios.length === 1 ? '' : 's'}`
+                        : ''}
                     </option>
                   ))}
                 </select>
@@ -1076,8 +1079,14 @@ export function AvFacturacionPanel({ readOnly = false }: { readOnly?: boolean })
                     <strong>{formatCop(planSeleccionado.precio)}</strong>
                   </div>
                   <div>
-                    <span>Créditos</span>
-                    <strong>{planSeleccionado.creditos}</strong>
+                    <span>Servicios</span>
+                    <strong>
+                      {(planSeleccionado.servicios || []).length > 0
+                        ? planSeleccionado.servicios
+                            .map((item) => `${item.unidades}× ${item.nombre || 'Servicio'}`)
+                            .join(', ')
+                        : '—'}
+                    </strong>
                   </div>
                 </div>
               ) : null}

@@ -2465,6 +2465,7 @@ a {
 .av-facturacion,
 .av-egresos,
 .av-planes,
+.av-equipos,
 .av-accesos,
 .av-creditos,
 .av-cotizaciones,
@@ -2857,6 +2858,164 @@ a {
   letter-spacing: 0.08em;
   color: var(--blue-950);
   background: rgba(59, 130, 246, 0.12);
+}
+
+.av-servicio-modal {
+  max-width: min(720px, 96vw);
+}
+
+.av-servicio-costo-live {
+  margin: -0.35rem 0 0.35rem;
+  font-size: 0.88rem;
+  color: #445468;
+}
+
+.av-servicio-dist {
+  margin: 0.35rem 0 0;
+  padding: 0.85rem 0.9rem 1rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  background: #f7f9fb;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.av-servicio-dist legend {
+  padding: 0 0.25rem;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.av-servicio-dist-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-servicio-dist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(72px, 0.55fr) minmax(100px, 0.7fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.av-servicio-dist-valor {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #5b6b7c;
+}
+
+.av-servicio-dist-valor strong {
+  font-size: 0.92rem;
+  color: #0b1f3a;
+  font-variant-numeric: tabular-nums;
+}
+
+.av-servicio-dist-remove {
+  padding: 0.55rem 0.65rem;
+  min-width: 0;
+}
+
+.av-servicio-dist-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  background: #fff;
+  border: 1px solid rgba(15, 40, 70, 0.1);
+}
+
+.av-servicio-dist-summary.is-ok {
+  border-color: rgba(2, 122, 90, 0.35);
+  background: rgba(2, 122, 90, 0.08);
+}
+
+.av-servicio-dist-summary.is-pending {
+  border-color: rgba(180, 100, 20, 0.35);
+  background: rgba(255, 186, 73, 0.14);
+}
+
+.av-servicio-dist-preview {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.84rem;
+}
+
+.av-servicio-dist-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  justify-content: space-between;
+}
+
+.av-servicio-dist-preview strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.av-servicio-plantillas {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-servicio-plantillas-head h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #0b1f3a;
+}
+
+.av-servicio-plantillas-list {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.av-servicio-plantilla-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  background: #f7f9fb;
+}
+
+.av-servicio-plantilla-card strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #0b1f3a;
+}
+
+.av-servicio-plantilla-tag {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  color: #445468;
+}
+
+.av-servicio-inline-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--blue-700, #1d4ed8);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .av-servicio-dist-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .av-servicio-dist-valor,
+  .av-servicio-dist-remove {
+    grid-column: span 1;
+  }
 }
 
 .av-empresa-genio {
@@ -5088,6 +5247,497 @@ a {
   gap: 0.55rem;
   font-size: 0.92rem;
   color: var(--blue-950);
+}
+
+.av-planes-list {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+}
+
+.av-plan-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fb 100%);
+}
+
+.av-plan-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem 0.85rem;
+}
+
+.av-plan-card-title {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.av-plan-card-title h4 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: #0b1f3a;
+  word-break: break-word;
+}
+
+.av-plan-card-precio {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #027a5a;
+  white-space: nowrap;
+}
+
+.av-plan-card-descuento {
+  margin: -0.25rem 0 0;
+  font-size: 0.82rem;
+  color: #5b6b7c;
+}
+
+.av-plan-card-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #445468;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.av-plan-card-servicios {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.av-plan-card-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b6b7c;
+}
+
+.av-plan-card-empty {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #6b7c8f;
+}
+
+.av-plan-card-actions {
+  padding-top: 0.15rem;
+  border-top: 1px solid rgba(15, 40, 70, 0.08);
+}
+
+.av-plan-modal {
+  max-width: min(740px, 96vw);
+  max-height: min(92vh, 920px);
+  overflow: auto;
+}
+
+.av-plan-servicios {
+  margin: 0.2rem 0 0;
+  padding: 0.85rem 0.9rem 1rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  background: #f7f9fb;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.av-plan-servicios legend {
+  padding: 0 0.25rem;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.av-plan-servicios-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-plan-codigo-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem 0.65rem;
+  align-items: end;
+}
+
+.av-plan-codigo-search .login-field {
+  margin: 0;
+}
+
+.av-plan-codigo-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.av-plan-codigo-feedback.is-ok {
+  color: #027a5a;
+}
+
+.av-plan-codigo-feedback.is-error {
+  color: #b42318;
+}
+
+.av-plan-servicio-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(84px, 0.55fr) minmax(110px, 0.7fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.av-plan-servicio-subtotal {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #5b6b7c;
+}
+
+.av-plan-servicio-subtotal strong {
+  font-size: 0.92rem;
+  color: #0b1f3a;
+  font-variant-numeric: tabular-nums;
+}
+
+.av-plan-servicio-remove {
+  padding: 0.55rem 0.65rem;
+  min-width: 0;
+}
+
+.av-plan-total {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(2, 122, 90, 0.28);
+  font-size: 0.9rem;
+}
+
+.av-plan-total-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  color: #445468;
+}
+
+.av-plan-total-row strong {
+  font-variant-numeric: tabular-nums;
+  color: #0b1f3a;
+}
+
+.av-plan-total-row.is-discount {
+  color: #b45309;
+}
+
+.av-plan-total-row.is-discount strong {
+  color: #b45309;
+}
+
+.av-plan-total-row.is-final {
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(15, 40, 70, 0.1);
+  font-size: 0.98rem;
+  color: #0b1f3a;
+}
+
+.av-plan-total-row.is-final strong {
+  color: #027a5a;
+  font-size: 1.05rem;
+}
+
+.av-plan-servicios-preview {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.84rem;
+}
+
+.av-plan-servicios-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  justify-content: space-between;
+}
+
+.av-plan-servicios-preview strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .av-planes {
+    gap: 0.85rem;
+  }
+
+  .av-planes .av-ingresos-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-planes .av-ingresos-toolbar-actions {
+    width: 100%;
+  }
+
+  .av-planes .av-ingresos-toolbar-actions > * {
+    flex: 1 1 calc(50% - 0.3rem);
+    justify-content: center;
+  }
+
+  .av-planes-list {
+    grid-template-columns: 1fr;
+  }
+
+  .av-plan-card {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .av-plan-card-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-plan-card-precio {
+    font-size: 1.15rem;
+  }
+
+  .av-plan-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .av-plan-card-actions > *:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .av-plan-modal {
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    margin: 0.5rem;
+    border-radius: 14px;
+  }
+
+  .av-plan-servicios {
+    padding: 0.75rem;
+  }
+
+  .av-plan-codigo-search {
+    grid-template-columns: 1fr;
+  }
+
+  .av-plan-codigo-search > .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .av-plan-servicio-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .av-plan-servicio-subtotal {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(15, 40, 70, 0.08);
+  }
+
+  .av-plan-servicio-remove {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .av-plan-modal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+  }
+
+  .av-plan-modal .modal-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.av-equipos-list {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+}
+
+.av-equipo-card {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fb 100%);
+}
+
+.av-equipo-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem 0.75rem;
+}
+
+.av-equipo-card-head h4 {
+  margin: 0;
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  color: #0b1f3a;
+  word-break: break-word;
+}
+
+.av-equipo-items-count {
+  font-size: 0.78rem;
+  color: #5b6b7c;
+  white-space: nowrap;
+}
+
+.av-equipo-card-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #445468;
+  line-height: 1.4;
+}
+
+.av-equipo-card-empty {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #6b7c8f;
+}
+
+.av-equipo-items-preview {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.av-equipo-items-preview li {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(2, 122, 90, 0.1);
+  color: #0b1f3a;
+  font-size: 0.82rem;
+}
+
+.av-equipo-card-actions {
+  padding-top: 0.2rem;
+  border-top: 1px solid rgba(15, 40, 70, 0.08);
+}
+
+.av-equipo-modal {
+  max-width: min(640px, 96vw);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+}
+
+.av-equipo-optional {
+  font-weight: 400;
+  color: #6b7c8f;
+}
+
+.av-equipo-items {
+  margin: 0.2rem 0 0;
+  padding: 0.85rem 0.9rem 1rem;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  background: #f7f9fb;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.av-equipo-items legend {
+  padding: 0 0.25rem;
+  font-weight: 700;
+  color: #0b1f3a;
+}
+
+.av-equipo-items-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.av-equipo-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.av-equipo-item-remove {
+  padding: 0.55rem 0.65rem;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .av-equipos .av-ingresos-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .av-equipos .av-ingresos-toolbar-actions {
+    width: 100%;
+  }
+
+  .av-equipos .av-ingresos-toolbar-actions > * {
+    flex: 1 1 calc(50% - 0.3rem);
+    justify-content: center;
+  }
+
+  .av-equipos-list {
+    grid-template-columns: 1fr;
+  }
+
+  .av-equipo-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .av-equipo-modal {
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    margin: 0.5rem;
+  }
+
+  .av-equipo-item-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .av-equipo-modal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+  }
+
+  .av-equipo-modal .modal-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .modal-form textarea {

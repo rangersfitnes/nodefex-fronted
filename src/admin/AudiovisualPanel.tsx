@@ -9,6 +9,7 @@ import { AvCreditosPanel } from './AvCreditosPanel'
 import { AvCrmPanel } from './AvCrmPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvEmpresaGenioForm } from './AvEmpresaGenioForm'
+import { AvEquiposPanel } from './AvEquiposPanel'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
 import { AvFacturacionPanel } from './AvFacturacionPanel'
 import { AvIngresosPanel } from './AvIngresosPanel'
@@ -45,7 +46,7 @@ const TABS: {
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
   { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
-  { id: 'creditos', label: 'Créditos', icon: Coins, action: 'av_creditos' },
+  { id: 'creditos', label: 'Servicios', icon: Coins, action: 'av_creditos' },
   { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
   { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
   {
@@ -129,6 +130,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
 
   const finanzasReadOnly = !canEditAvTab(access, 'av_finanzas')
   const planesReadOnly = !canEditAvTab(access, 'av_planes')
+  const equiposReadOnly = !canEditAvTab(access, 'av_equipos')
   const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
   const creditosReadOnly = !canEditAvTab(access, 'av_creditos')
   const cotizacionesReadOnly = !canEditAvTab(access, 'av_cotizaciones')
@@ -246,13 +248,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
 
       {vista === 'planes' ? <AvPlanesPanel readOnly={planesReadOnly} /> : null}
 
-      {vista === 'equipos' ? (
-        <div className="audiovisual-placeholder" role="tabpanel" aria-label="Equipos">
-          <Package size={28} strokeWidth={1.75} aria-hidden />
-          <h3>Equipos</h3>
-          <p>Aquí controlaremos inventario, disponibilidad y asignación de equipos.</p>
-        </div>
-      ) : null}
+      {vista === 'equipos' ? <AvEquiposPanel readOnly={equiposReadOnly} /> : null}
 
       {vista === 'clientes' ? <AvClientesPanel readOnly={clientesReadOnly} /> : null}
 

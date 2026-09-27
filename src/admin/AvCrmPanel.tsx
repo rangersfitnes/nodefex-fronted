@@ -194,6 +194,18 @@ function chatDisplayName(chat: {
   return chat.phoneDisplay || chat.phoneNumber || 'Chat'
 }
 
+function chatActivityTs(chat: AvCrmChat): number {
+  return Number(chat.lastMessage?.timestamp || chat.conversationTimestamp || 0)
+}
+
+/** Pendientes de responder (último msg del cliente) arriba; luego por llegada reciente. */
+function compareChatsForSidebar(a: AvCrmChat, b: AvCrmChat): number {
+  const aPending = a.lastMessage && a.lastMessage.fromMe === false ? 1 : 0
+  const bPending = b.lastMessage && b.lastMessage.fromMe === false ? 1 : 0
+  if (aPending !== bPending) return bPending - aPending
+  return chatActivityTs(b) - chatActivityTs(a)
+}
+
 function MessageTicks({ status }: { status: string | null }) {
   if (!status) return null
   if (status === 'pending' || status === 'error') {
@@ -1309,11 +1321,12 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         if (cancelled) return
         const openId = selectedIdRef.current
         setChats(
-          openId
+          (openId
             ? data.map((chat) =>
                 chat.id === openId ? { ...chat, unreadCount: 0 } : chat,
               )
-            : data,
+            : data
+          ).slice().sort(compareChatsForSidebar),
         )
       } catch (err) {
         if (cancelled) return
@@ -1392,15 +1405,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         // Mantener el badge de no leídos alineado con el servidor (multi-vendedor).
         if (data.chat?.id) {
           setChats((current) =>
-            current.map((item) =>
-              item.id === data.chat.id
-                ? {
-                    ...item,
-                    ...data.chat,
-                    unreadCount: Number(data.chat.unreadCount) || 0,
-                  }
-                : item,
-            ),
+            current
+              .map((item) =>
+                item.id === data.chat.id
+                  ? {
+                      ...item,
+                      ...data.chat,
+                      unreadCount: Number(data.chat.unreadCount) || 0,
+                    }
+                  : item,
+              )
+              .sort(compareChatsForSidebar),
           )
         }
       } catch (err) {
@@ -1574,7 +1589,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               }
             : chat,
         )
-        .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
+        .sort(compareChatsForSidebar),
     )
     if (updatedChat) setActiveChat(updatedChat)
   }
@@ -1647,6 +1662,11 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     [chats, selectedId],
   )
   const headerChat = activeChat || selectedFromList
+
+  const sortedChats = useMemo(
+    () => [...chats].sort(compareChatsForSidebar),
+    [chats],
+  )
 
   // Orden cronológico estable (como WhatsApp): antiguos arriba, recientes abajo.
   const sortedMessages = useMemo(() => {
@@ -1911,7 +1931,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 }
               : chat,
           )
-          .sort((a, b) => (b.conversationTimestamp || 0) - (a.conversationTimestamp || 0)),
+          .sort(compareChatsForSidebar),
       )
       if (updatedChat) setActiveChat(updatedChat)
     } catch (err) {
@@ -2071,12 +2091,12 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             </label>
 
             <div className="av-wa-chat-list" role="list">
-              {chats.length === 0 ? (
+              {sortedChats.length === 0 ? (
                 <p className="av-wa-empty-list">
                   Esperando sincronización de chats… habla o recibe un mensaje para llenar la lista.
                 </p>
               ) : null}
-              {chats.map((chat) => {
+              {sortedChats.map((chat) => {
                 const active = chat.id === selectedId
                 const crmCliente = crmClientesByChatId[chat.id] || null
                 const showCrmDropdown =
