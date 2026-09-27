@@ -268,14 +268,55 @@ export type AvEquipoItemRevision = {
   nombre: string
 }
 
+export type AvEquipoEstado = 'bodega' | 'produccion'
+
 export type AvEquipo = {
   id: string
+  codigo: string | null
   nombre: string | null
   descripcion: string | null
+  valorComercial: number
   itemsRevision: AvEquipoItemRevision[]
+  estado: AvEquipoEstado
+  responsableUid?: string | null
+  responsableNombre?: string | null
+  responsableRol?: 'admin' | 'vendedor' | string | null
+  ultimaSalidaId?: string | null
+  ultimaSalidaEn?: string | null
   creadoEn: string | null
   actualizadoEn: string | null
   createdBy: string | null
+}
+
+export type AvEquipoResponsable = {
+  uid: string
+  nombre: string
+  email: string | null
+  rol: 'admin' | 'vendedor'
+}
+
+export type AvEquipoSalidaItem = {
+  itemId: string
+  nombre: string
+  ok: boolean
+  observacion: string | null
+}
+
+export type AvEquipoSalidaEquipo = {
+  equipoId: string
+  nombre: string | null
+  items: AvEquipoSalidaItem[]
+}
+
+export type AvEquipoSalida = {
+  id: string
+  responsableUid: string | null
+  responsableNombre: string | null
+  responsableRol: string | null
+  equipos: AvEquipoSalidaEquipo[]
+  creadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
 }
 
 export async function listAvEquipos(token: string): Promise<AvEquipo[]> {
@@ -283,11 +324,42 @@ export async function listAvEquipos(token: string): Promise<AvEquipo[]> {
   return data.equipos
 }
 
+export async function listAvEquiposResponsables(token: string): Promise<AvEquipoResponsable[]> {
+  const data = await apiFetch<{ responsables: AvEquipoResponsable[] }>(
+    '/api/audiovisual/equipos/responsables',
+    token,
+  )
+  return data.responsables
+}
+
+export async function createAvEquipoSalida(
+  token: string,
+  payload: {
+    responsableUid: string
+    responsableNombre: string
+    responsableRol: 'admin' | 'vendedor'
+    equipos: Array<{
+      equipoId: string
+      items: Array<{ itemId: string; ok: boolean; observacion?: string | null }>
+    }>
+  },
+): Promise<{ salida: AvEquipoSalida; equipos: AvEquipo[] }> {
+  return apiFetch<{ salida: AvEquipoSalida; equipos: AvEquipo[] }>(
+    '/api/audiovisual/equipos/salidas',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
 export async function createAvEquipo(
   token: string,
   payload: {
     nombre: string
     descripcion?: string | null
+    valorComercial?: number
     itemsRevision?: Array<{ id?: string; nombre: string }>
   },
 ): Promise<AvEquipo> {
@@ -298,12 +370,25 @@ export async function createAvEquipo(
   return data.equipo
 }
 
+export async function copyAvEquipo(token: string, id: string): Promise<AvEquipo> {
+  const data = await apiFetch<{ equipo: AvEquipo }>(
+    `/api/audiovisual/equipos/${encodeURIComponent(id)}/copiar`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  )
+  return data.equipo
+}
+
 export async function updateAvEquipo(
   token: string,
   id: string,
   payload: Partial<{
     nombre: string
     descripcion: string | null
+    valorComercial: number
     itemsRevision: Array<{ id?: string; nombre: string }>
   }>,
 ): Promise<AvEquipo> {
