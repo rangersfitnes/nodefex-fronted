@@ -3225,16 +3225,126 @@ a {
 
 .av-servicio-plantilla-card {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem 0.9rem;
+  gap: 0;
+  padding: 0;
   border: 1px solid rgba(15, 40, 70, 0.12);
   border-radius: 12px;
   background: #f7f9fb;
+  overflow: hidden;
+}
+
+.av-servicio-plantilla-card.is-expanded,
+.av-servicio-card.is-expanded {
+  background: #fff;
+}
+
+.av-servicios-cards {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-servicio-card {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  background: #f7f9fb;
+  overflow: hidden;
+}
+
+.av-servicio-card-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.av-servicio-card-toggle:hover {
+  background: rgba(15, 40, 70, 0.03);
+}
+
+.av-servicio-card-toggle-main {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.av-servicio-card-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
+.av-servicio-card-name {
+  font-size: 0.95rem;
+  color: #0b1f3a;
+  line-height: 1.3;
+}
+
+.av-servicio-card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.av-servicio-card-costo {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #0b1f3a;
+  font-size: 0.92rem;
+}
+
+.av-servicio-card-meta {
+  font-size: 0.78rem;
+  color: #5b6b7c;
+}
+
+.av-servicio-card-chevron {
+  flex-shrink: 0;
+  color: #64748b;
+  transition: transform 0.18s ease;
+}
+
+.av-servicio-card-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.av-servicio-card-body {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0 0.95rem 0.9rem;
+  border-top: 1px solid rgba(15, 40, 70, 0.08);
+  padding-top: 0.75rem;
+  margin: 0 0.1rem;
+}
+
+.av-servicio-card-desc {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #445468;
+  line-height: 1.4;
+}
+
+.av-servicio-card-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #6b7c8f;
 }
 
 .av-servicio-plantilla-card strong {
   display: block;
-  margin-bottom: 0.35rem;
   color: #0b1f3a;
 }
 
@@ -6377,6 +6487,40 @@ a {
   font-size: 0.8rem;
   color: #5b6b7c;
   line-height: 1.35;
+}
+
+.av-equipo-card-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.28);
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  color: #9a3412;
+  font-size: 0.84rem;
+}
+
+.av-equipo-card-timer-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.av-equipo-card-chrono {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  color: #7c2d12;
 }
 
 .av-equipo-card-items {

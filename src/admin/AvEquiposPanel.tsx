@@ -15,6 +15,7 @@ import { formatCop } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
+  Clock,
   Copy,
   LoaderCircle,
   Package,
@@ -62,6 +63,25 @@ function estadoLabel(estado: AvEquipo['estado'] | undefined): string {
   return estado === 'produccion' ? 'En producción' : 'En bodega'
 }
 
+function parseSalidaMs(value: string | null | undefined): number | null {
+  if (!value) return null
+  const ms = Date.parse(value)
+  return Number.isFinite(ms) ? ms : null
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(totalSec / 86400)
+  const hours = Math.floor((totalSec % 86400) / 3600)
+  const minutes = Math.floor((totalSec % 3600) / 60)
+  const seconds = totalSec % 60
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  if (days > 0) return `${days}d ${hh}:${mm}:${ss}`
+  return `${hh}:${mm}:${ss}`
+}
+
 export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [equipos, setEquipos] = useState<AvEquipo[]>([])
@@ -69,6 +89,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [deletingId, setDeletingId] = useState('')
+  const [now, setNow] = useState(() => Date.now())
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<ModalMode>('crear')
@@ -135,6 +156,12 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
     () => equipos.filter((item) => (item.estado || 'bodega') === 'produccion'),
     [equipos],
   )
+
+  useEffect(() => {
+    if (equiposEnProduccion.length === 0) return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [equiposEnProduccion.length])
 
   const salidaBusqueda = useMemo(() => {
     const q = salidaQuery.trim().toLowerCase()
@@ -624,10 +651,20 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
       {!loading && !error && equipos.length > 0 ? (
         <div className="av-equipos-list" role="list">
           {equipos.map((equipo) => {
-            const enProduccion = (equipo.estado || 'bodega') === 'produccion'
+            const estadoNorm = String(equipo.estado || 'bodega')
+              .trim()
+              .toLowerCase()
+            const enProduccion = estadoNorm === 'produccion'
             const items = equipo.itemsRevision || []
             const previewItems = items.slice(0, 3)
             const itemsExtra = items.length - previewItems.length
+            const salidaSince =
+              parseSalidaMs(equipo.ultimaSalidaEn) ||
+              parseSalidaMs(equipo.actualizadoEn) ||
+              parseSalidaMs(equipo.creadoEn)
+            const elapsedMs = enProduccion
+              ? Math.max(0, now - (salidaSince ?? now))
+              : null
             return (
               <article
                 key={equipo.id}
@@ -642,6 +679,28 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                     {estadoLabel(equipo.estado)}
                   </span>
                 </div>
+
+                {enProduccion ? (
+                  <div
+                    className="av-equipo-card-timer"
+                    title={
+                      salidaSince
+                        ? `Salida: ${new Date(salidaSince).toLocaleString('es-CO')}`
+                        : 'Sin fecha de salida registrada'
+                    }
+                  >
+                    <span className="av-equipo-card-timer-label">
+                      <Clock size={16} strokeWidth={2.25} aria-hidden />
+                      Tiempo en producción
+                    </span>
+                    <time
+                      className="av-equipo-card-chrono"
+                      dateTime={equipo.ultimaSalidaEn || undefined}
+                    >
+                      {elapsedMs != null ? formatDuration(elapsedMs) : '00:00:00'}
+                    </time>
+                  </div>
+                ) : null}
 
                 <div className="av-equipo-card-stats">
                   {equipo.codigo ? (

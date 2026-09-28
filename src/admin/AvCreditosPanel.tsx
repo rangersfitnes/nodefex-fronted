@@ -16,6 +16,7 @@ import { formatCop } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
+  ChevronDown,
   Coins,
   Layers,
   LoaderCircle,
@@ -238,6 +239,26 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [plantillaItems, setPlantillaItems] = useState<DistRow[]>([newDistRow()])
   const [distFormError, setDistFormError] = useState('')
   const [distSubmitting, setDistSubmitting] = useState(false)
+  const [expandedServicioIds, setExpandedServicioIds] = useState<Set<string>>(() => new Set())
+  const [expandedPlantillaIds, setExpandedPlantillaIds] = useState<Set<string>>(() => new Set())
+
+  function toggleServicioExpanded(id: string) {
+    setExpandedServicioIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function togglePlantillaExpanded(id: string) {
+    setExpandedPlantillaIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const costoNum = useMemo(() => {
     const n = Number(String(costo).replace(/,/g, '').trim())
@@ -572,46 +593,73 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
             <p className="section-note">Asígnelas al crear o editar un servicio.</p>
           </div>
           <div className="av-servicio-plantillas-list">
-            {plantillas.map((plantilla) => (
-              <article key={plantilla.id} className="av-servicio-plantilla-card">
-                <div>
-                  <strong>{plantilla.nombre || 'Sin nombre'}</strong>
-                  <ul className="av-servicio-dist-preview">
-                    {(plantilla.items || []).map((item) => (
-                      <li key={item.id}>
-                        <span>{item.concepto}</span>
-                        <strong>{item.porcentaje}%</strong>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {!readOnly ? (
-                  <div className="av-ingresos-row-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => openEditDist(plantilla)}
-                    >
-                      <Pencil size={14} strokeWidth={2} aria-hidden />
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={deletingPlantillaId === plantilla.id}
-                      onClick={() => void handleDeletePlantilla(plantilla)}
-                    >
-                      {deletingPlantillaId === plantilla.id ? (
-                        <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Trash2 size={14} strokeWidth={2} aria-hidden />
-                      )}
-                      Eliminar
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            ))}
+            {plantillas.map((plantilla) => {
+              const expanded = expandedPlantillaIds.has(plantilla.id)
+              const itemsCount = (plantilla.items || []).length
+              return (
+                <article
+                  key={plantilla.id}
+                  className={`av-servicio-plantilla-card ${expanded ? 'is-expanded' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="av-servicio-card-toggle"
+                    aria-expanded={expanded}
+                    onClick={() => togglePlantillaExpanded(plantilla.id)}
+                  >
+                    <span className="av-servicio-card-toggle-main">
+                      <strong>{plantilla.nombre || 'Sin nombre'}</strong>
+                      <span className="av-servicio-card-meta">
+                        {itemsCount} partida{itemsCount === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      size={18}
+                      strokeWidth={2}
+                      aria-hidden
+                      className={`av-servicio-card-chevron ${expanded ? 'is-open' : ''}`}
+                    />
+                  </button>
+                  {expanded ? (
+                    <div className="av-servicio-card-body">
+                      <ul className="av-servicio-dist-preview">
+                        {(plantilla.items || []).map((item) => (
+                          <li key={item.id}>
+                            <span>{item.concepto}</span>
+                            <strong>{item.porcentaje}%</strong>
+                          </li>
+                        ))}
+                      </ul>
+                      {!readOnly ? (
+                        <div className="av-ingresos-row-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => openEditDist(plantilla)}
+                          >
+                            <Pencil size={14} strokeWidth={2} aria-hidden />
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={deletingPlantillaId === plantilla.id}
+                            onClick={() => void handleDeletePlantilla(plantilla)}
+                          >
+                            {deletingPlantillaId === plantilla.id ? (
+                              <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                            ) : (
+                              <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            )}
+                            Eliminar
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              )
+            })}
           </div>
         </section>
       ) : null}
@@ -636,34 +684,58 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       ) : null}
 
       {!loading && !error && servicios.length > 0 ? (
-        <div className="pagos-table-wrap">
-          <table className="pagos-table">
-            <thead>
-              <tr>
-                <th>Referencia</th>
-                <th>Servicio</th>
-                <th>Descripción</th>
-                <th>Costo</th>
-                <th>Distribución</th>
-                {!readOnly ? <th>Acciones</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {servicios.map((servicio) => (
-                <tr key={servicio.id}>
-                  <td>
-                    <span className="av-credito-ref">{servicio.referencia || '—'}</span>
-                  </td>
-                  <td>{servicio.nombre || '—'}</td>
-                  <td>{servicio.descripcion || '—'}</td>
-                  <td>{formatCop(servicio.costo || 0)}</td>
-                  <td>
+        <div className="av-servicios-cards" role="list">
+          {servicios.map((servicio) => {
+            const expanded = expandedServicioIds.has(servicio.id)
+            const distCount = (servicio.distribucion || []).length
+            return (
+              <article
+                key={servicio.id}
+                className={`av-servicio-card ${expanded ? 'is-expanded' : ''}`}
+                role="listitem"
+              >
+                <button
+                  type="button"
+                  className="av-servicio-card-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => toggleServicioExpanded(servicio.id)}
+                >
+                  <span className="av-servicio-card-toggle-main">
+                    <span className="av-servicio-card-title-row">
+                      <span className="av-credito-ref">{servicio.referencia || '—'}</span>
+                      <strong className="av-servicio-card-name">
+                        {servicio.nombre || 'Sin nombre'}
+                      </strong>
+                    </span>
+                    <span className="av-servicio-card-summary">
+                      <span className="av-servicio-card-costo">{formatCop(servicio.costo || 0)}</span>
+                      <span className="av-servicio-card-meta">
+                        {distCount} partida{distCount === 1 ? '' : 's'}
+                        {servicio.distribucionPlantillaNombre
+                          ? ` · ${servicio.distribucionPlantillaNombre}`
+                          : ''}
+                      </span>
+                    </span>
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    strokeWidth={2}
+                    aria-hidden
+                    className={`av-servicio-card-chevron ${expanded ? 'is-open' : ''}`}
+                  />
+                </button>
+
+                {expanded ? (
+                  <div className="av-servicio-card-body">
+                    {servicio.descripcion ? (
+                      <p className="av-servicio-card-desc">{servicio.descripcion}</p>
+                    ) : null}
                     {servicio.distribucionPlantillaNombre ? (
                       <p className="av-servicio-plantilla-tag">
                         Plantilla: {servicio.distribucionPlantillaNombre}
                       </p>
                     ) : null}
-                    {(servicio.distribucion || []).length > 0 ? (
+                    {distCount > 0 ? (
                       <ul className="av-servicio-dist-preview">
                         {servicio.distribucion.map((item) => (
                           <li key={item.id}>
@@ -679,11 +751,9 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                         ))}
                       </ul>
                     ) : (
-                      '—'
+                      <p className="av-servicio-card-empty">Sin distribución</p>
                     )}
-                  </td>
-                  {!readOnly ? (
-                    <td>
+                    {!readOnly ? (
                       <div className="av-ingresos-row-actions">
                         <button
                           type="button"
@@ -707,12 +777,12 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                           Eliminar
                         </button>
                       </div>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    ) : null}
+                  </div>
+                ) : null}
+              </article>
+            )
+          })}
         </div>
       ) : null}
 
