@@ -1887,6 +1887,12 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
+  function closeVendedoresModal() {
+    if (vendedorSaving || vendedorDeletingUid || vendedorAccesosSaving) return
+    setVendedoresOpen(false)
+    setVendedoresError('')
+  }
+
   function toggleVendedorExpand(item: AvCrmVendedor) {
     if (vendedorExpandedUid === item.uid) {
       setVendedorExpandedUid(null)
@@ -2964,12 +2970,10 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => {
-            if (!vendedorSaving && !vendedorDeletingUid) setVendedoresOpen(false)
-          }}
+          onClick={closeVendedoresModal}
         >
           <div
-            className="modal-panel"
+            className="modal-panel av-crm-equipo-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="av-crm-vendedores-title"
@@ -2980,19 +2984,140 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => setVendedoresOpen(false)}
+                onClick={closeVendedoresModal}
                 aria-label="Cerrar"
-                disabled={vendedorSaving || Boolean(vendedorDeletingUid)}
+                disabled={vendedorSaving || Boolean(vendedorDeletingUid) || vendedorAccesosSaving}
               >
                 <X size={18} strokeWidth={2} aria-hidden />
               </button>
             </div>
 
-            <p className="section-note">
+            <p className="section-note av-crm-equipo-lead">
               Crea vendedores o administradores. Los administradores pueden registrar ventas
               (Finanzas) y usar el CRM. Expande una cuenta para personalizar permisos (CRM siempre
               incluido).
             </p>
+
+            {vendedoresError ? (
+              <p className="login-error av-crm-equipo-error" role="alert">
+                <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                {vendedoresError}
+              </p>
+            ) : null}
+
+            <form
+              className="modal-form av-crm-equipo-create"
+              onSubmit={(event) => void handleCreateVendedor(event)}
+            >
+              <h3 className="av-crm-vendedores-form-title">Nueva cuenta</h3>
+              <fieldset className="av-crm-staff-rol-fieldset">
+                <legend>Tipo de cuenta</legend>
+                <div className="av-crm-staff-rol-options" role="radiogroup" aria-label="Tipo de cuenta">
+                  <label className={vendedorRolNuevo === 'vendedor' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="av-crm-staff-rol"
+                      value="vendedor"
+                      checked={vendedorRolNuevo === 'vendedor'}
+                      disabled={vendedorSaving}
+                      onChange={() => setVendedorRolNuevo('vendedor')}
+                    />
+                    <span>
+                      <strong>Vendedor</strong>
+                      <em>CRM y permisos que asignes</em>
+                    </span>
+                  </label>
+                  <label className={vendedorRolNuevo === 'admin' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="av-crm-staff-rol"
+                      value="admin"
+                      checked={vendedorRolNuevo === 'admin'}
+                      disabled={vendedorSaving}
+                      onChange={() => setVendedorRolNuevo('admin')}
+                    />
+                    <span>
+                      <strong>Administrador</strong>
+                      <em>Incluye Finanzas para registrar ventas</em>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+              <div className="av-crm-equipo-fields">
+                <label className="login-field" htmlFor="av-crm-vendedor-nombre">
+                  Nombre
+                  <input
+                    id="av-crm-vendedor-nombre"
+                    value={vendedorNombre}
+                    onChange={(event) => setVendedorNombre(event.target.value)}
+                    disabled={vendedorSaving}
+                    required
+                    maxLength={80}
+                    autoComplete="name"
+                  />
+                </label>
+                <label className="login-field" htmlFor="av-crm-vendedor-cedula">
+                  Cédula
+                  <input
+                    id="av-crm-vendedor-cedula"
+                    value={vendedorCedula}
+                    onChange={(event) => setVendedorCedula(event.target.value)}
+                    disabled={vendedorSaving}
+                    required
+                    inputMode="numeric"
+                    maxLength={12}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="login-field" htmlFor="av-crm-vendedor-email">
+                  Correo
+                  <input
+                    id="av-crm-vendedor-email"
+                    type="email"
+                    value={vendedorEmail}
+                    onChange={(event) => setVendedorEmail(event.target.value)}
+                    disabled={vendedorSaving}
+                    required
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="login-field" htmlFor="av-crm-vendedor-password">
+                  Contraseña temporal
+                  <input
+                    id="av-crm-vendedor-password"
+                    type="password"
+                    value={vendedorPassword}
+                    onChange={(event) => setVendedorPassword(event.target.value)}
+                    disabled={vendedorSaving}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button type="submit" className="btn-primary" disabled={vendedorSaving}>
+                  {vendedorSaving ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Creando…
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} strokeWidth={2} aria-hidden />
+                      {vendedorRolNuevo === 'admin' ? 'Crear administrador' : 'Crear vendedor'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <div className="av-crm-equipo-list-head">
+              <h3 className="av-crm-vendedores-form-title">Equipo actual</h3>
+              <span className="section-note">
+                {vendedoresLoading ? '…' : `${vendedores.length} cuenta${vendedores.length === 1 ? '' : 's'}`}
+              </span>
+            </div>
 
             {vendedoresLoading ? (
               <div className="proyectos-status">
@@ -3042,7 +3167,11 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                           type="button"
                           className="btn-secondary"
                           onClick={() => void handleDeleteVendedor(item)}
-                          disabled={vendedorSaving || vendedorDeletingUid === item.uid}
+                          disabled={
+                            vendedorSaving ||
+                            vendedorAccesosSaving ||
+                            vendedorDeletingUid === item.uid
+                          }
                           aria-label={`Eliminar ${item.nombre || item.email}`}
                         >
                           {vendedorDeletingUid === item.uid ? (
@@ -3112,121 +3241,16 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               </ul>
             ) : null}
 
-            <form className="modal-form" onSubmit={(event) => void handleCreateVendedor(event)}>
-              <h3 className="av-crm-vendedores-form-title">Nueva cuenta</h3>
-              <fieldset className="av-crm-staff-rol-fieldset">
-                <legend>Tipo de cuenta</legend>
-                <div className="av-crm-staff-rol-options" role="radiogroup" aria-label="Tipo de cuenta">
-                  <label className={vendedorRolNuevo === 'vendedor' ? 'is-active' : ''}>
-                    <input
-                      type="radio"
-                      name="av-crm-staff-rol"
-                      value="vendedor"
-                      checked={vendedorRolNuevo === 'vendedor'}
-                      disabled={vendedorSaving}
-                      onChange={() => setVendedorRolNuevo('vendedor')}
-                    />
-                    <span>
-                      <strong>Vendedor</strong>
-                      <em>CRM y permisos que asignes</em>
-                    </span>
-                  </label>
-                  <label className={vendedorRolNuevo === 'admin' ? 'is-active' : ''}>
-                    <input
-                      type="radio"
-                      name="av-crm-staff-rol"
-                      value="admin"
-                      checked={vendedorRolNuevo === 'admin'}
-                      disabled={vendedorSaving}
-                      onChange={() => setVendedorRolNuevo('admin')}
-                    />
-                    <span>
-                      <strong>Administrador</strong>
-                      <em>Incluye Finanzas para registrar ventas</em>
-                    </span>
-                  </label>
-                </div>
-              </fieldset>
-              <label className="login-field" htmlFor="av-crm-vendedor-nombre">
-                Nombre
-                <input
-                  id="av-crm-vendedor-nombre"
-                  value={vendedorNombre}
-                  onChange={(event) => setVendedorNombre(event.target.value)}
-                  disabled={vendedorSaving}
-                  required
-                  maxLength={80}
-                  autoComplete="name"
-                />
-              </label>
-              <label className="login-field" htmlFor="av-crm-vendedor-cedula">
-                Cédula
-                <input
-                  id="av-crm-vendedor-cedula"
-                  value={vendedorCedula}
-                  onChange={(event) => setVendedorCedula(event.target.value)}
-                  disabled={vendedorSaving}
-                  required
-                  inputMode="numeric"
-                  maxLength={12}
-                  autoComplete="off"
-                />
-              </label>
-              <label className="login-field" htmlFor="av-crm-vendedor-email">
-                Correo
-                <input
-                  id="av-crm-vendedor-email"
-                  type="email"
-                  value={vendedorEmail}
-                  onChange={(event) => setVendedorEmail(event.target.value)}
-                  disabled={vendedorSaving}
-                  required
-                  autoComplete="off"
-                />
-              </label>
-              <label className="login-field" htmlFor="av-crm-vendedor-password">
-                Contraseña temporal
-                <input
-                  id="av-crm-vendedor-password"
-                  type="password"
-                  value={vendedorPassword}
-                  onChange={(event) => setVendedorPassword(event.target.value)}
-                  disabled={vendedorSaving}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                />
-              </label>
-              {vendedoresError ? (
-                <p className="login-error" role="alert">
-                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
-                  {vendedoresError}
-                </p>
-              ) : null}
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setVendedoresOpen(false)}
-                  disabled={vendedorSaving || Boolean(vendedorDeletingUid)}
-                >
-                  Cerrar
-                </button>
-                <button type="submit" className="btn-primary" disabled={vendedorSaving}>
-                  {vendedorSaving ? (
-                    <>
-                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Creando…
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} strokeWidth={2} aria-hidden />
-                      {vendedorRolNuevo === 'admin' ? 'Crear administrador' : 'Crear vendedor'}
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeVendedoresModal}
+                disabled={vendedorSaving || Boolean(vendedorDeletingUid) || vendedorAccesosSaving}
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

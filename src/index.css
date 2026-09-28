@@ -2628,6 +2628,147 @@ a {
   color: var(--gray-600);
 }
 
+.av-equipos-aviso {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.08)),
+    #fffbeb;
+  color: #78350f;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15);
+  animation: av-equipos-aviso-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes av-equipos-aviso-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.2),
+      0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.55),
+      0 0 0 6px rgba(245, 158, 11, 0.12);
+  }
+}
+
+.av-equipos-aviso-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.av-equipos-aviso-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: rgba(217, 119, 6, 0.18);
+  color: #b45309;
+  flex: 0 0 auto;
+}
+
+.av-equipos-aviso-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.av-equipos-aviso-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #92400e;
+}
+
+.av-equipos-aviso-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: #a16207;
+}
+
+.av-equipos-aviso-cta {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.av-equipos-aviso-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.av-equipos-aviso-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.av-equipos-aviso-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.av-equipos-aviso-item-main strong {
+  font-size: 0.95rem;
+  color: #78350f;
+}
+
+.av-equipos-aviso-codigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
+}
+
+.av-equipos-aviso-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #b45309;
+  font-size: 0.85rem;
+}
+
+.av-equipos-aviso-timer-label {
+  opacity: 0.85;
+}
+
+.av-equipos-aviso-chrono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: #92400e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-equipos-aviso {
+    animation: none;
+  }
+}
+
 .av-movimiento-admin {
   display: grid;
   gap: 0.15rem;
@@ -3480,13 +3621,69 @@ a {
 
 .av-crm-vendedores-list {
   list-style: none;
-  margin: 0 0 1.25rem;
+  margin: 0 0 1rem;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: 320px;
-  overflow: auto;
+}
+
+.av-crm-equipo-modal {
+  width: min(100%, 560px);
+}
+
+.av-crm-equipo-lead {
+  margin-top: 0;
+}
+
+.av-crm-equipo-error {
+  margin: 0 0 0.85rem;
+}
+
+.av-crm-equipo-create {
+  margin: 0 0 1.15rem;
+  padding: 0.9rem 0.95rem 1rem;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.av-crm-equipo-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.85rem;
+}
+
+.av-crm-equipo-fields .login-field:nth-child(3),
+.av-crm-equipo-fields .login-field:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.av-crm-equipo-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.av-crm-equipo-list-head .av-crm-vendedores-form-title {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .av-crm-equipo-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .av-crm-equipo-fields .login-field:nth-child(3),
+  .av-crm-equipo-fields .login-field:nth-child(4) {
+    grid-column: auto;
+  }
+
+  .av-crm-staff-rol-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 .av-crm-vendedores-list li {

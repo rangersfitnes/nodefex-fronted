@@ -9,6 +9,7 @@ import { AvCreditosPanel } from './AvCreditosPanel'
 import { AvCrmPanel } from './AvCrmPanel'
 import { AvEgresosPanel } from './AvEgresosPanel'
 import { AvEmpresaGenioForm } from './AvEmpresaGenioForm'
+import { AvEquiposAsignadosAviso } from './AvEquiposAsignadosAviso'
 import { AvEquiposPanel } from './AvEquiposPanel'
 import { AvFinanzasPrincipalPanel } from './AvFinanzasPrincipalPanel'
 import { AvFacturacionPanel } from './AvFacturacionPanel'
@@ -102,7 +103,7 @@ type AudiovisualPanelProps = {
 }
 
 export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
-  const { isOwner, isAdmin } = useAuth()
+  const { isOwner, isAdmin, isVendedor, user } = useAuth()
 
   const allowedTabs = useMemo(
     () =>
@@ -136,6 +137,7 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
   const cotizacionesReadOnly = !canEditAvTab(access, 'av_cotizaciones')
   const crmReadOnly = !canEditAvTab(access, 'av_crm')
   const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
+  const showEquiposAviso = Boolean(user) && (isAdmin || isOwner || isVendedor || Boolean(access))
 
   if (allowedTabs.length === 0) {
     return (
@@ -163,6 +165,16 @@ export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
       </p>
 
       <AvEmpresaGenioForm canEdit={canEditEmpresa} />
+
+      {showEquiposAviso ? (
+        <AvEquiposAsignadosAviso
+          onGoEquipos={
+            allowedTabs.some((tab) => tab.id === 'equipos')
+              ? () => setVista('equipos')
+              : undefined
+          }
+        />
+      ) : null}
 
       <div
         className="contable-tabs contable-page-tabs"

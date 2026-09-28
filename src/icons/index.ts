@@ -19,6 +19,7 @@ export {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Clock,
   Code2,
   Coins,
   Copy,

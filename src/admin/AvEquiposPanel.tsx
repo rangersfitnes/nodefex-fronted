@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createAvEquipo,
   copyAvEquipo,
+  createAvEquipoIngreso,
   createAvEquipoSalida,
   deleteAvEquipo,
   listAvEquipos,
@@ -26,6 +27,7 @@ import {
 
 type ModalMode = 'crear' | 'editar'
 type SalidaStep = 'seleccion' | 'revision' | 'responsable'
+type IngresoStep = 'seleccion' | 'revision' | 'confirmacion'
 
 type ItemRow = {
   key: string
@@ -33,17 +35,19 @@ type ItemRow = {
   nombre: string
 }
 
-type SalidaItemState = {
+type RevisionItemState = {
   itemId: string
   nombre: string
   ok: boolean
   observacion: string
 }
 
-type SalidaEquipoState = {
+type RevisionEquipoState = {
   equipoId: string
   nombre: string
-  items: SalidaItemState[]
+  responsableNombre?: string | null
+  responsableRol?: string | null
+  items: RevisionItemState[]
 }
 
 function newItemRow(partial?: Partial<ItemRow>): ItemRow {
@@ -81,14 +85,19 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [salidaOpen, setSalidaOpen] = useState(false)
   const [salidaStep, setSalidaStep] = useState<SalidaStep>('seleccion')
   const [salidaQuery, setSalidaQuery] = useState('')
-  const [salidaSeleccion, setSalidaSeleccion] = useState<SalidaEquipoState[]>([])
+  const [salidaSeleccion, setSalidaSeleccion] = useState<RevisionEquipoState[]>([])
   const [salidaResponsables, setSalidaResponsables] = useState<AvEquipoResponsable[]>([])
   const [salidaResponsableKey, setSalidaResponsableKey] = useState('')
   const [salidaError, setSalidaError] = useState('')
   const [salidaSubmitting, setSalidaSubmitting] = useState(false)
   const [salidaLoadingResponsables, setSalidaLoadingResponsables] = useState(false)
 
-  const [ingresoNotice, setIngresoNotice] = useState(false)
+  const [ingresoOpen, setIngresoOpen] = useState(false)
+  const [ingresoStep, setIngresoStep] = useState<IngresoStep>('seleccion')
+  const [ingresoQuery, setIngresoQuery] = useState('')
+  const [ingresoSeleccion, setIngresoSeleccion] = useState<RevisionEquipoState[]>([])
+  const [ingresoError, setIngresoError] = useState('')
+  const [ingresoSubmitting, setIngresoSubmitting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -122,6 +131,11 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
     [equipos],
   )
 
+  const equiposEnProduccion = useMemo(
+    () => equipos.filter((item) => (item.estado || 'bodega') === 'produccion'),
+    [equipos],
+  )
+
   const salidaBusqueda = useMemo(() => {
     const q = salidaQuery.trim().toLowerCase()
     const selected = new Set(salidaSeleccion.map((item) => item.equipoId))
@@ -137,13 +151,46 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
       })
   }, [equiposEnBodega, salidaQuery, salidaSeleccion])
 
-  const revisionCompleta = useMemo(() => {
+  const ingresoBusqueda = useMemo(() => {
+    const q = ingresoQuery.trim().toLowerCase()
+    const selected = new Set(ingresoSeleccion.map((item) => item.equipoId))
+    return equiposEnProduccion
+      .filter((item) => !selected.has(item.id))
+      .filter((item) => {
+        if (!q) return true
+        return (
+          String(item.nombre || '').toLowerCase().includes(q) ||
+          String(item.descripcion || '').toLowerCase().includes(q) ||
+          String(item.codigo || '').toLowerCase().includes(q) ||
+          String(item.responsableNombre || '').toLowerCase().includes(q)
+        )
+      })
+  }, [equiposEnProduccion, ingresoQuery, ingresoSeleccion])
+
+  const revisionSalidaCompleta = useMemo(() => {
     if (salidaSeleccion.length === 0) return false
-    return salidaSeleccion.every((equipo) =>
-      equipo.items.every((item) => item.ok),
-    )
+    return salidaSeleccion.every((equipo) => equipo.items.every((item) => item.ok))
   }, [salidaSeleccion])
 
+  const revisionIngresoCompleta = useMemo(() => {
+    if (ingresoSeleccion.length === 0) return false
+    return ingresoSeleccion.every((equipo) => equipo.items.every((item) => item.ok))
+  }, [ingresoSeleccion])
+
+  function toRevisionState(equipo: AvEquipo): RevisionEquipoState {
+    return {
+      equipoId: equipo.id,
+      nombre: equipo.nombre || 'Equipo',
+      responsableNombre: equipo.responsableNombre || null,
+      responsableRol: equipo.responsableRol || null,
+      items: (equipo.itemsRevision || []).map((item) => ({
+        itemId: item.id,
+        nombre: item.nombre,
+        ok: false,
+        observacion: '',
+      })),
+    }
+  }
   function openCreate() {
     setModalMode('crear')
     setEditing(null)
@@ -217,19 +264,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
     if ((equipo.estado || 'bodega') === 'produccion') return
     setSalidaSeleccion((current) => {
       if (current.some((item) => item.equipoId === equipo.id)) return current
-      return [
-        ...current,
-        {
-          equipoId: equipo.id,
-          nombre: equipo.nombre || 'Equipo',
-          items: (equipo.itemsRevision || []).map((item) => ({
-            itemId: item.id,
-            nombre: item.nombre,
-            ok: false,
-            observacion: '',
-          })),
-        },
-      ]
+      return [...current, toRevisionState(equipo)]
     })
     setSalidaQuery('')
     setSalidaError('')
@@ -242,7 +277,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
   function updateSalidaItem(
     equipoId: string,
     itemId: string,
-    patch: Partial<SalidaItemState>,
+    patch: Partial<RevisionItemState>,
   ) {
     setSalidaSeleccion((current) =>
       current.map((equipo) =>
@@ -258,7 +293,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
     )
   }
 
-  function confirmarBuenEstadoTodos() {
+  function confirmarBuenEstadoTodosSalida() {
     setSalidaSeleccion((current) =>
       current.map((equipo) => ({
         ...equipo,
@@ -275,7 +310,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
       setSalidaStep('seleccion')
       return
     }
-    if (!revisionCompleta) {
+    if (!revisionSalidaCompleta) {
       setSalidaError('Confirma el buen estado de todos los ítems de revisión.')
       setSalidaStep('revision')
       return
@@ -315,6 +350,102 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
       setSalidaError(err instanceof Error ? err.message : 'No se pudo confirmar la salida')
     } finally {
       setSalidaSubmitting(false)
+    }
+  }
+
+  function openIngreso() {
+    setIngresoOpen(true)
+    setIngresoStep('seleccion')
+    setIngresoQuery('')
+    setIngresoSeleccion([])
+    setIngresoError('')
+  }
+
+  function closeIngreso() {
+    if (ingresoSubmitting) return
+    setIngresoOpen(false)
+    setIngresoError('')
+  }
+
+  function addEquipoAIngreso(equipo: AvEquipo) {
+    if ((equipo.estado || 'bodega') !== 'produccion') return
+    setIngresoSeleccion((current) => {
+      if (current.some((item) => item.equipoId === equipo.id)) return current
+      return [...current, toRevisionState(equipo)]
+    })
+    setIngresoQuery('')
+    setIngresoError('')
+  }
+
+  function removeEquipoDeIngreso(equipoId: string) {
+    setIngresoSeleccion((current) => current.filter((item) => item.equipoId !== equipoId))
+  }
+
+  function updateIngresoItem(
+    equipoId: string,
+    itemId: string,
+    patch: Partial<RevisionItemState>,
+  ) {
+    setIngresoSeleccion((current) =>
+      current.map((equipo) =>
+        equipo.equipoId !== equipoId
+          ? equipo
+          : {
+              ...equipo,
+              items: equipo.items.map((item) =>
+                item.itemId === itemId ? { ...item, ...patch } : item,
+              ),
+            },
+      ),
+    )
+  }
+
+  function confirmarBuenEstadoTodosIngreso() {
+    setIngresoSeleccion((current) =>
+      current.map((equipo) => ({
+        ...equipo,
+        items: equipo.items.map((item) => ({ ...item, ok: true })),
+      })),
+    )
+    setIngresoError('')
+  }
+
+  async function confirmarIngreso() {
+    if (!user || ingresoSubmitting) return
+    if (ingresoSeleccion.length === 0) {
+      setIngresoError('Agrega al menos un equipo al ingreso.')
+      setIngresoStep('seleccion')
+      return
+    }
+    if (!revisionIngresoCompleta) {
+      setIngresoError('Confirma el buen estado de todos los ítems de revisión.')
+      setIngresoStep('revision')
+      return
+    }
+
+    setIngresoSubmitting(true)
+    setIngresoError('')
+    try {
+      const token = await user.getIdToken()
+      const { equipos: actualizados } = await createAvEquipoIngreso(token, {
+        equipos: ingresoSeleccion.map((equipo) => ({
+          equipoId: equipo.equipoId,
+          items: equipo.items.map((item) => ({
+            itemId: item.itemId,
+            ok: item.ok,
+            observacion: item.observacion.trim() || null,
+          })),
+        })),
+      })
+      setEquipos((current) => {
+        const byId = new Map(actualizados.map((item) => [item.id, item]))
+        return current.map((item) => byId.get(item.id) || item)
+      })
+      setIngresoOpen(false)
+    } catch (err) {
+      setIngresoError(err instanceof Error ? err.message : 'No se pudo confirmar el ingreso')
+    } finally {
+      setIngresoSubmitting(false)
     }
   }
 
@@ -451,11 +582,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
               <button type="button" className="btn-secondary" onClick={() => void openSalida()}>
                 Salida
               </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setIngresoNotice(true)}
-              >
+              <button type="button" className="btn-secondary" onClick={openIngreso}>
                 Ingreso
               </button>
               <button type="button" className="btn-primary" onClick={openCreate}>
@@ -829,7 +956,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                 type="button"
                 className={salidaStep === 'responsable' ? 'is-active' : ''}
                 onClick={() => setSalidaStep('responsable')}
-                disabled={salidaSubmitting || !revisionCompleta}
+                disabled={salidaSubmitting || !revisionSalidaCompleta}
               >
                 3. Responsable
               </button>
@@ -934,8 +1061,8 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={confirmarBuenEstadoTodos}
-                    disabled={salidaSubmitting || revisionCompleta}
+                    onClick={confirmarBuenEstadoTodosSalida}
+                    disabled={salidaSubmitting || revisionSalidaCompleta}
                   >
                     Confirmar buen estado de todos
                   </button>
@@ -997,7 +1124,7 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                     <button
                       type="button"
                       className="btn-primary"
-                      disabled={salidaSubmitting || !revisionCompleta}
+                      disabled={salidaSubmitting || !revisionSalidaCompleta}
                       onClick={() => setSalidaStep('responsable')}
                     >
                       Continuar
@@ -1055,7 +1182,9 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                     <button
                       type="button"
                       className="btn-primary"
-                      disabled={salidaSubmitting || !salidaResponsableKey || !revisionCompleta}
+                      disabled={
+                        salidaSubmitting || !salidaResponsableKey || !revisionSalidaCompleta
+                      }
                       onClick={() => void confirmarSalida()}
                     >
                       {salidaSubmitting ? (
@@ -1082,10 +1211,10 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       ) : null}
 
-      {ingresoNotice ? (
-        <div className="modal-overlay" role="presentation" onClick={() => setIngresoNotice(false)}>
+      {ingresoOpen ? (
+        <div className="modal-overlay" role="presentation" onClick={closeIngreso}>
           <div
-            className="modal-panel av-equipo-modal"
+            className="modal-panel av-equipo-modal av-equipo-salida-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="av-equipo-ingreso-title"
@@ -1096,26 +1225,284 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => setIngresoNotice(false)}
+                onClick={closeIngreso}
+                disabled={ingresoSubmitting}
                 aria-label="Cerrar"
               >
                 <X size={18} strokeWidth={2} aria-hidden />
               </button>
             </div>
-            <div className="modal-form">
-              <p className="section-note">
-                La entrada de equipos se implementará a continuación. Por ahora solo está
-                disponible la salida a producción.
-              </p>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setIngresoNotice(false)}
-                >
-                  Entendido
-                </button>
-              </div>
+
+            <div className="av-equipo-salida-steps" aria-label="Pasos de ingreso">
+              <button
+                type="button"
+                className={ingresoStep === 'seleccion' ? 'is-active' : ''}
+                onClick={() => setIngresoStep('seleccion')}
+                disabled={ingresoSubmitting}
+              >
+                1. Equipos
+              </button>
+              <button
+                type="button"
+                className={ingresoStep === 'revision' ? 'is-active' : ''}
+                onClick={() => setIngresoStep('revision')}
+                disabled={ingresoSubmitting || ingresoSeleccion.length === 0}
+              >
+                2. Revisión
+              </button>
+              <button
+                type="button"
+                className={ingresoStep === 'confirmacion' ? 'is-active' : ''}
+                onClick={() => setIngresoStep('confirmacion')}
+                disabled={ingresoSubmitting || !revisionIngresoCompleta}
+              >
+                3. Confirmar
+              </button>
+            </div>
+
+            <div className="modal-form av-equipo-salida-body">
+              {ingresoStep === 'seleccion' ? (
+                <>
+                  <label className="login-field" htmlFor="av-equipo-ingreso-buscar">
+                    Buscar equipos en producción
+                    <input
+                      id="av-equipo-ingreso-buscar"
+                      type="search"
+                      value={ingresoQuery}
+                      onChange={(event) => setIngresoQuery(event.target.value)}
+                      placeholder="Nombre, código o responsable"
+                      disabled={ingresoSubmitting}
+                      autoFocus
+                    />
+                  </label>
+
+                  <div className="av-equipo-salida-results">
+                    {ingresoBusqueda.length === 0 ? (
+                      <p className="section-note">
+                        {equiposEnProduccion.length === 0
+                          ? 'No hay equipos en producción para ingresar.'
+                          : 'Sin resultados para esa búsqueda.'}
+                      </p>
+                    ) : (
+                      ingresoBusqueda.map((equipo) => (
+                        <button
+                          key={equipo.id}
+                          type="button"
+                          className="av-equipo-salida-result"
+                          onClick={() => addEquipoAIngreso(equipo)}
+                          disabled={ingresoSubmitting}
+                        >
+                          <span>
+                            <strong>{equipo.nombre || 'Equipo'}</strong>
+                            {equipo.codigo ? (
+                              <span className="av-equipo-salida-codigo">{equipo.codigo}</span>
+                            ) : null}
+                            {equipo.responsableNombre ? (
+                              <span className="section-note">
+                                A cargo de {equipo.responsableNombre}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span>
+                            {(equipo.itemsRevision || []).length} ítem
+                            {(equipo.itemsRevision || []).length === 1 ? '' : 's'}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="av-equipo-salida-selected">
+                    <h3>Seleccionados ({ingresoSeleccion.length})</h3>
+                    {ingresoSeleccion.length === 0 ? (
+                      <p className="section-note">Agrega equipos con el buscador.</p>
+                    ) : (
+                      <ul>
+                        {ingresoSeleccion.map((equipo) => (
+                          <li key={equipo.equipoId}>
+                            <span>
+                              {equipo.nombre}
+                              {equipo.responsableNombre
+                                ? ` · ${equipo.responsableNombre}`
+                                : ''}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              onClick={() => removeEquipoDeIngreso(equipo.equipoId)}
+                              disabled={ingresoSubmitting}
+                            >
+                              Quitar
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={closeIngreso}
+                      disabled={ingresoSubmitting}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={ingresoSubmitting || ingresoSeleccion.length === 0}
+                      onClick={() => setIngresoStep('revision')}
+                    >
+                      Continuar a revisión
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {ingresoStep === 'revision' ? (
+                <>
+                  <p className="section-note">
+                    Confirma que cada equipo se entrega con sus ítems en buen estado.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={confirmarBuenEstadoTodosIngreso}
+                    disabled={ingresoSubmitting || revisionIngresoCompleta}
+                  >
+                    Confirmar buen estado de todos
+                  </button>
+
+                  <div className="av-equipo-salida-revision-list">
+                    {ingresoSeleccion.map((equipo) => (
+                      <section key={equipo.equipoId} className="av-equipo-salida-revision-card">
+                        <h3>
+                          {equipo.nombre}
+                          {equipo.responsableNombre ? (
+                            <span className="section-note">
+                              {' '}
+                              · devolvía {equipo.responsableNombre}
+                            </span>
+                          ) : null}
+                        </h3>
+                        {equipo.items.length === 0 ? (
+                          <p className="section-note">Este equipo no tiene ítems de revisión.</p>
+                        ) : (
+                          <ul>
+                            {equipo.items.map((item) => (
+                              <li key={item.itemId}>
+                                <label className="av-equipo-salida-check">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.ok}
+                                    onChange={(event) =>
+                                      updateIngresoItem(equipo.equipoId, item.itemId, {
+                                        ok: event.target.checked,
+                                      })
+                                    }
+                                    disabled={ingresoSubmitting}
+                                  />
+                                  <span>{item.nombre}</span>
+                                </label>
+                                <label className="login-field">
+                                  Observaciones
+                                  <input
+                                    type="text"
+                                    value={item.observacion}
+                                    onChange={(event) =>
+                                      updateIngresoItem(equipo.equipoId, item.itemId, {
+                                        observacion: event.target.value,
+                                      })
+                                    }
+                                    placeholder="Opcional"
+                                    disabled={ingresoSubmitting}
+                                  />
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </section>
+                    ))}
+                  </div>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setIngresoStep('seleccion')}
+                      disabled={ingresoSubmitting}
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={ingresoSubmitting || !revisionIngresoCompleta}
+                      onClick={() => setIngresoStep('confirmacion')}
+                    >
+                      Continuar
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {ingresoStep === 'confirmacion' ? (
+                <>
+                  <div className="av-equipo-salida-resumen">
+                    <p>
+                      <strong>{ingresoSeleccion.length}</strong> equipo
+                      {ingresoSeleccion.length === 1 ? '' : 's'} volverán a{' '}
+                      <strong>En bodega</strong>.
+                    </p>
+                    <ul>
+                      {ingresoSeleccion.map((equipo) => (
+                        <li key={equipo.equipoId}>
+                          {equipo.nombre}
+                          {equipo.responsableNombre
+                            ? ` (antes a cargo de ${equipo.responsableNombre})`
+                            : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setIngresoStep('revision')}
+                      disabled={ingresoSubmitting}
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={ingresoSubmitting || !revisionIngresoCompleta}
+                      onClick={() => void confirmarIngreso()}
+                    >
+                      {ingresoSubmitting ? (
+                        <>
+                          <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                          Confirmando...
+                        </>
+                      ) : (
+                        'Confirmar ingreso'
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {ingresoError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {ingresoError}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

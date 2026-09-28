@@ -283,6 +283,8 @@ export type AvEquipo = {
   responsableRol?: 'admin' | 'vendedor' | string | null
   ultimaSalidaId?: string | null
   ultimaSalidaEn?: string | null
+  ultimoIngresoId?: string | null
+  ultimoIngresoEn?: string | null
   creadoEn: string | null
   actualizadoEn: string | null
   createdBy: string | null
@@ -346,6 +348,33 @@ export async function createAvEquipoSalida(
 ): Promise<{ salida: AvEquipoSalida; equipos: AvEquipo[] }> {
   return apiFetch<{ salida: AvEquipoSalida; equipos: AvEquipo[] }>(
     '/api/audiovisual/equipos/salidas',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export type AvEquipoIngreso = {
+  id: string
+  equipos: AvEquipoSalidaEquipo[]
+  creadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+}
+
+export async function createAvEquipoIngreso(
+  token: string,
+  payload: {
+    equipos: Array<{
+      equipoId: string
+      items: Array<{ itemId: string; ok: boolean; observacion?: string | null }>
+    }>
+  },
+): Promise<{ ingreso: AvEquipoIngreso; equipos: AvEquipo[] }> {
+  return apiFetch<{ ingreso: AvEquipoIngreso; equipos: AvEquipo[] }>(
+    '/api/audiovisual/equipos/ingresos',
     token,
     {
       method: 'POST',
