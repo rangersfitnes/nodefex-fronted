@@ -1065,7 +1065,7 @@ function LinkedWhatsappCard({
 }
 
 export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
-  const { user, isOwner, isVendedor, administrador } = useAuth()
+  const { user, isOwner, isVendedor, isAdmin, administrador } = useAuth()
   const [status, setStatus] = useState<AvCrmWhatsappStatus>(EMPTY_STATUS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -1136,8 +1136,10 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const connected = status.connected
   const canDisconnect = isOwner && !readOnly
   const canManageVendedores = isOwner && !readOnly
-  const canOpenMensajesRapidos = !readOnly && (isOwner || isVendedor)
+  // Owner + cualquier cuenta con CRM editable (vendedor o admin con av_crm).
+  const canOpenMensajesRapidos = !readOnly
   const canManageAutoMensajes = isOwner && !readOnly
+  const canManageMensajesPersonales = !readOnly && !isOwner && (isVendedor || isAdmin)
 
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -3278,7 +3280,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             <div className="av-crm-mensajes-modal-body">
               <AvCrmMensajesPanel
                 canManageGlobal={isOwner}
-                canManagePersonal={isVendedor}
+                canManagePersonal={canManageMensajesPersonales}
               />
             </div>
           </div>

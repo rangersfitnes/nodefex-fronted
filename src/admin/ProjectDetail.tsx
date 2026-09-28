@@ -170,12 +170,20 @@ export function ProjectDetail() {
   const esAudiovisual = esProyectoAudiovisual(decodedId)
   const soportaPlanes = esVelix || esSistecontact || esFexmenu
   const soportaSwitchAccess = esSistecontact || esFexmenu
+  // Preferir el perfil en vivo: proyecto.acceso es un snapshot al cargar y
+  // queda desactualizado si el owner cambia permisos mientras la sesión sigue abierta.
   const access: ProyectoAccesoConfig | null =
-    proyecto?.acceso || getProjectAccess(decodedId)
+    getProjectAccess(decodedId) || proyecto?.acceso || null
   function can(action: AdminAccion): boolean {
     if (!access) return false
     if (access.nivel === 'manage') return true
-    if (access.nivel === 'custom') return access.acciones.includes(action)
+    if (access.nivel === 'custom') {
+      return (
+        access.acciones.includes(action) ||
+        (access.visualizar || []).includes(action)
+      )
+    }
+    // nivel view: solo lectura (sin acciones de escritura)
     return false
   }
   const canCreateUsers = can('create_users')

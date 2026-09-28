@@ -80,9 +80,9 @@ function canViewAvTab(
   if (!access) return false
   if (access.nivel === 'manage' || access.nivel === 'view') return true
   if (access.nivel === 'custom') {
-    return (
-      access.acciones.includes(action) || (access.visualizar || []).includes(action)
-    )
+    const acciones = Array.isArray(access.acciones) ? access.acciones : []
+    const visualizar = Array.isArray(access.visualizar) ? access.visualizar : []
+    return acciones.includes(action) || visualizar.includes(action)
   }
   return false
 }
@@ -94,7 +94,10 @@ function canEditAvTab(
   if (!access) return false
   if (access.nivel === 'manage') return true
   if (access.nivel === 'view') return false
-  if (access.nivel === 'custom') return access.acciones.includes(action)
+  if (access.nivel === 'custom') {
+    const acciones = Array.isArray(access.acciones) ? access.acciones : []
+    return acciones.includes(action)
+  }
   return false
 }
 
@@ -102,15 +105,31 @@ type AudiovisualPanelProps = {
   access?: ProyectoAccesoConfig | null
 }
 
-export function AudiovisualPanel({ access = null }: AudiovisualPanelProps) {
-  const { isOwner, isAdmin, isVendedor, user } = useAuth()
+export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanelProps) {
+  const { isOwner, isAdmin, isVendedor, user, administrador, getProjectAccess } = useAuth()
+
+  // Resolver acceso AV desde prop o perfil en vivo (aliases incluidos).
+  const access = useMemo(() => {
+    const fromAuth =
+      getProjectAccess('nodefex audio visual') ||
+      getProjectAccess('nodefex-audio-visual') ||
+      null
+    // Preferir perfil en vivo si trae custom/manage; el prop puede ser snapshot viejo.
+    if (fromAuth) return fromAuth
+    return accessProp
+  }, [accessProp, administrador, getProjectAccess])
 
   const allowedTabs = useMemo(
     () =>
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
         if (tab.adminOnly) return isAdmin && !isOwner
-        if (tab.shared) return isOwner || (isAdmin && Boolean(access))
+        // Accesos: alineado con backend (cualquier acceso AV puede ver; o av_accesos).
+        if (tab.shared) {
+          if (isOwner) return true
+          if (!access) return false
+          return canViewAvTab(access, 'av_accesos') || Boolean(access)
+        }
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
