@@ -2609,7 +2609,8 @@ a {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
@@ -7027,6 +7028,8 @@ a {
 
   .audiovisual-panel .contable-page-tabs {
     margin-bottom: 0.85rem;
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
   }
 
   .audiovisual-panel .contable-page-tabs button {

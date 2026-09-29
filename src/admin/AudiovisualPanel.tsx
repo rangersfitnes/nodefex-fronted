@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
+import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
@@ -42,14 +43,15 @@ const TABS: {
   adminOnly?: boolean
   shared?: boolean
 }[] = [
+  // CRM primero: admins con muchas pestañas no lo pierden fuera del scroll.
+  { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
+  { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
+  { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
   { id: 'finanzas', label: 'Finanzas', icon: Banknote, action: 'av_finanzas' },
   { id: 'planes', label: 'Planes', icon: Layers, action: 'av_planes' },
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
-  { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
-  { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   { id: 'creditos', label: 'Servicios', icon: Coins, action: 'av_creditos' },
-  { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
-  { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
+  { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   {
     id: 'movimientos',
     label: 'Movimientos',
@@ -73,6 +75,44 @@ const TABS: {
   },
 ]
 
+function asAdminAcciones(raw: unknown): AdminAccion[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((item): item is AdminAccion => typeof item === 'string' && item.length > 0)
+  }
+  if (raw && typeof raw === 'object') {
+    return Object.values(raw).filter(
+      (item): item is AdminAccion => typeof item === 'string' && item.length > 0,
+    )
+  }
+  return []
+}
+
+function mergeAvAccess(
+  a: ProyectoAccesoConfig | null | undefined,
+  b: ProyectoAccesoConfig | null | undefined,
+): ProyectoAccesoConfig | null {
+  if (!a) return b ?? null
+  if (!b) return a
+  if (a.nivel === 'manage' || b.nivel === 'manage') {
+    return { nivel: 'manage', acciones: [], visualizar: [] }
+  }
+  if (a.nivel === 'view' || b.nivel === 'view') {
+    return { nivel: 'view', acciones: [], visualizar: [] }
+  }
+
+  const acciones = Array.from(
+    new Set([...asAdminAcciones(a.acciones), ...asAdminAcciones(b.acciones)]),
+  )
+  const visualizar = Array.from(
+    new Set([...asAdminAcciones(a.visualizar), ...asAdminAcciones(b.visualizar)]),
+  ).filter((item) => !acciones.includes(item))
+
+  if (acciones.length === 0 && visualizar.length === 0) {
+    return { nivel: 'view', acciones: [], visualizar: [] }
+  }
+  return { nivel: 'custom', acciones, visualizar }
+}
+
 function canViewAvTab(
   access: ProyectoAccesoConfig | null | undefined,
   action: AdminAccion,
@@ -80,8 +120,8 @@ function canViewAvTab(
   if (!access) return false
   if (access.nivel === 'manage' || access.nivel === 'view') return true
   if (access.nivel === 'custom') {
-    const acciones = Array.isArray(access.acciones) ? access.acciones : []
-    const visualizar = Array.isArray(access.visualizar) ? access.visualizar : []
+    const acciones = asAdminAcciones(access.acciones)
+    const visualizar = asAdminAcciones(access.visualizar)
     return acciones.includes(action) || visualizar.includes(action)
   }
   return false
@@ -95,41 +135,57 @@ function canEditAvTab(
   if (access.nivel === 'manage') return true
   if (access.nivel === 'view') return false
   if (access.nivel === 'custom') {
-    const acciones = Array.isArray(access.acciones) ? access.acciones : []
-    return acciones.includes(action)
+    return asAdminAcciones(access.acciones).includes(action)
   }
   return false
 }
 
 type AudiovisualPanelProps = {
   access?: ProyectoAccesoConfig | null
+  proyectoId?: string | null
 }
 
-export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanelProps) {
+export function AudiovisualPanel({
+  access: accessProp = null,
+  proyectoId = null,
+}: AudiovisualPanelProps) {
   const { isOwner, isAdmin, isVendedor, user, administrador, getProjectAccess } = useAuth()
 
-  // Resolver acceso AV desde prop o perfil en vivo (aliases incluidos).
+  // Unir prop + todas las claves AV del perfil (evita perder av_crm por alias duplicado).
   const access = useMemo(() => {
-    const fromAuth =
-      getProjectAccess('nodefex audio visual') ||
-      getProjectAccess('nodefex-audio-visual') ||
-      null
-    // Preferir perfil en vivo si trae custom/manage; el prop puede ser snapshot viejo.
-    if (fromAuth) return fromAuth
-    return accessProp
-  }, [accessProp, administrador, getProjectAccess])
+    if (administrador?.rol === 'owner') {
+      return { nivel: 'manage' as const, acciones: [], visualizar: [] }
+    }
+
+    let merged: ProyectoAccesoConfig | null = accessProp ?? null
+
+    if (proyectoId) {
+      merged = mergeAvAccess(merged, getProjectAccess(proyectoId))
+    }
+
+    const accesos = administrador?.accesos || {}
+    for (const [key, value] of Object.entries(accesos)) {
+      if (!esProyectoAudiovisual(key)) continue
+      merged = mergeAvAccess(merged, value)
+    }
+
+    if (!merged) {
+      merged =
+        getProjectAccess('nodefex audio visual') ||
+        getProjectAccess('nodefex-audio-visual') ||
+        null
+    }
+
+    return merged
+  }, [accessProp, administrador, getProjectAccess, proyectoId])
 
   const allowedTabs = useMemo(
     () =>
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
         if (tab.adminOnly) return isAdmin && !isOwner
-        // Accesos: alineado con backend (cualquier acceso AV puede ver; o av_accesos).
-        if (tab.shared) {
-          if (isOwner) return true
-          if (!access) return false
-          return canViewAvTab(access, 'av_accesos') || Boolean(access)
-        }
+        // Accesos: solo quien tiene av_accesos / view / manage (no inflar la barra).
+        if (tab.shared) return isOwner || canViewAvTab(access, 'av_accesos')
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
@@ -137,7 +193,7 @@ export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanel
   )
 
   const [vista, setVista] = useState<AudiovisualVista>(
-    () => allowedTabs[0]?.id ?? 'finanzas',
+    () => allowedTabs[0]?.id ?? 'crm',
   )
   const [finanzasVista, setFinanzasVista] = useState<FinanzasSubvista>('principal')
 
@@ -157,6 +213,7 @@ export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanel
   const crmReadOnly = !canEditAvTab(access, 'av_crm')
   const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
   const showEquiposAviso = Boolean(user) && (isAdmin || isOwner || isVendedor || Boolean(access))
+  const hasCrmTab = allowedTabs.some((tab) => tab.id === 'crm')
 
   if (allowedTabs.length === 0) {
     return (
@@ -229,7 +286,11 @@ export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanel
               Modo solo visualización: puedes consultar, pero no crear ni editar movimientos.
             </p>
           ) : null}
-          <div className="contable-tabs contable-period-tabs" role="tablist" aria-label="Finanzas">
+          <div
+            className="contable-tabs contable-period-tabs"
+            role="tablist"
+            aria-label="Subsecciones de finanzas"
+          >
             <button
               type="button"
               role="tab"
@@ -291,7 +352,7 @@ export function AudiovisualPanel({ access: accessProp = null }: AudiovisualPanel
         <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
       ) : null}
 
-      {vista === 'crm' ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
+      {vista === 'crm' && hasCrmTab ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

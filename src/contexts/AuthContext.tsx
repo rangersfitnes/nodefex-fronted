@@ -66,9 +66,31 @@ function resolveAccessFromMap(
     if (normalizeProjectKey(key) === target) return value
   }
   if (isAudiovisualProjectId(proyectoId)) {
+    // Unir todas las claves AV por si hay alias duplicados con acciones distintas.
+    let merged: ProyectoAccesoConfig | null = null
     for (const [key, value] of Object.entries(accesos)) {
-      if (isAudiovisualProjectId(key)) return value
+      if (!isAudiovisualProjectId(key)) continue
+      if (!merged) {
+        merged = value
+        continue
+      }
+      if (merged.nivel === 'manage' || value.nivel === 'manage') {
+        merged = { nivel: 'manage', acciones: [], visualizar: [] }
+        continue
+      }
+      if (merged.nivel === 'view' || value.nivel === 'view') {
+        merged = { nivel: 'view', acciones: [], visualizar: [] }
+        continue
+      }
+      const acciones = Array.from(
+        new Set([...(merged.acciones || []), ...(value.acciones || [])]),
+      )
+      const visualizar = Array.from(
+        new Set([...(merged.visualizar || []), ...(value.visualizar || [])]),
+      ).filter((item) => !acciones.includes(item))
+      merged = { nivel: 'custom', acciones, visualizar }
     }
+    return merged
   }
   return null
 }
