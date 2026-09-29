@@ -82,12 +82,18 @@ function resolveAccessFromMap(
         merged = { nivel: 'view', acciones: [], visualizar: [] }
         continue
       }
-      const acciones = Array.from(
-        new Set([...(merged.acciones || []), ...(value.acciones || [])]),
+      const mergedAcciones: AdminAccion[] = [
+        ...(merged.acciones || []),
+        ...(value.acciones || []),
+      ]
+      const acciones: AdminAccion[] = Array.from(new Set(mergedAcciones))
+      const mergedVisualizar: AdminAccion[] = [
+        ...(merged.visualizar || []),
+        ...(value.visualizar || []),
+      ]
+      const visualizar: AdminAccion[] = Array.from(new Set(mergedVisualizar)).filter(
+        (item) => !acciones.includes(item),
       )
-      const visualizar = Array.from(
-        new Set([...(merged.visualizar || []), ...(value.visualizar || [])]),
-      ).filter((item) => !acciones.includes(item))
       merged = { nivel: 'custom', acciones, visualizar }
     }
     return merged
