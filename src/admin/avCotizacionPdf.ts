@@ -178,9 +178,14 @@ async function buildAvCotizacionPdfDoc(
 
   autoTable(doc, {
     startY: y,
-    head: [['Concepto', 'Valor']],
-    body: cotizacion.items.map((item) => [item.concepto, formatCop(item.valor)]),
-    foot: [['Subtotal', formatCop(cotizacion.subtotal)]],
+    head: [['Código', 'Concepto', 'Cant.', 'Valor']],
+    body: cotizacion.items.map((item) => [
+      item.referencia || '—',
+      item.concepto,
+      item.unidades != null ? String(item.unidades) : '1',
+      formatCop(item.valor),
+    ]),
+    foot: [['', '', 'Subtotal', formatCop(cotizacion.subtotal)]],
     theme: 'plain',
     headStyles: {
       fillColor: GENIO.blue,
@@ -207,8 +212,10 @@ async function buildAvCotizacionPdfDoc(
       cellPadding: 8,
     },
     columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { cellWidth: 120, halign: 'right' },
+      0: { cellWidth: 52 },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 42, halign: 'center' },
+      3: { cellWidth: 100, halign: 'right' },
     },
     margin: { left: marginX, right: marginX },
     tableLineColor: GENIO.line,

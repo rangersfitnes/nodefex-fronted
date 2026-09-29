@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Clock,
   Copy,
+  History,
   LoaderCircle,
   Package,
   Pencil,
@@ -25,6 +26,7 @@ import {
   Trash2,
   X,
 } from '../icons'
+import { AvEquiposHistorialModal } from './AvEquiposHistorialModal'
 
 type ModalMode = 'crear' | 'editar'
 type SalidaStep = 'seleccion' | 'revision' | 'responsable'
@@ -119,6 +121,8 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [ingresoSeleccion, setIngresoSeleccion] = useState<RevisionEquipoState[]>([])
   const [ingresoError, setIngresoError] = useState('')
   const [ingresoSubmitting, setIngresoSubmitting] = useState(false)
+  const [historialOpen, setHistorialOpen] = useState(false)
+  const [historialEquipoId, setHistorialEquipoId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -604,6 +608,17 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
             <RefreshCw size={16} strokeWidth={2} aria-hidden className={loading ? 'spin' : undefined} />
             Actualizar
           </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setHistorialEquipoId(null)
+              setHistorialOpen(true)
+            }}
+          >
+            <History size={16} strokeWidth={2} aria-hidden />
+            Historial
+          </button>
           {!readOnly ? (
             <>
               <button type="button" className="btn-secondary" onClick={() => void openSalida()}>
@@ -758,40 +773,53 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
                   )}
                 </div>
 
-                {!readOnly ? (
-                  <div className="av-ingresos-row-actions av-equipo-card-actions">
-                    <button type="button" className="btn-secondary" onClick={() => openEdit(equipo)}>
-                      <Pencil size={14} strokeWidth={2} aria-hidden />
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={copyingId === equipo.id}
-                      onClick={() => void handleCopyEquipo(equipo)}
-                    >
-                      {copyingId === equipo.id ? (
-                        <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Copy size={14} strokeWidth={2} aria-hidden />
-                      )}
-                      Copiar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={deletingId === equipo.id}
-                      onClick={() => void handleDelete(equipo)}
-                    >
-                      {deletingId === equipo.id ? (
-                        <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Trash2 size={14} strokeWidth={2} aria-hidden />
-                      )}
-                      Eliminar
-                    </button>
-                  </div>
-                ) : null}
+                <div className="av-ingresos-row-actions av-equipo-card-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setHistorialEquipoId(equipo.id)
+                      setHistorialOpen(true)
+                    }}
+                  >
+                    <History size={14} strokeWidth={2} aria-hidden />
+                    Historial
+                  </button>
+                  {!readOnly ? (
+                    <>
+                      <button type="button" className="btn-secondary" onClick={() => openEdit(equipo)}>
+                        <Pencil size={14} strokeWidth={2} aria-hidden />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={copyingId === equipo.id}
+                        onClick={() => void handleCopyEquipo(equipo)}
+                      >
+                        {copyingId === equipo.id ? (
+                          <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Copy size={14} strokeWidth={2} aria-hidden />
+                        )}
+                        Copiar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={deletingId === equipo.id}
+                        onClick={() => void handleDelete(equipo)}
+                      >
+                        {deletingId === equipo.id ? (
+                          <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Trash2 size={14} strokeWidth={2} aria-hidden />
+                        )}
+                        Eliminar
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </article>
             )
           })}
@@ -1566,6 +1594,13 @@ export function AvEquiposPanel({ readOnly = false }: { readOnly?: boolean }) {
           </div>
         </div>
       ) : null}
+
+      <AvEquiposHistorialModal
+        open={historialOpen}
+        onClose={() => setHistorialOpen(false)}
+        equipos={equipos}
+        initialEquipoId={historialEquipoId}
+      />
     </div>
   )
 }

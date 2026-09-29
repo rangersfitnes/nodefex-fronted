@@ -3,6 +3,7 @@ import { formatCop } from '../api/administradores'
 import {
   createAvPlan,
   deleteAvPlan,
+  generateAvPlanResumen,
   listAvPlanes,
   listAvServiciosCreditos,
   updateAvPlan,
@@ -17,6 +18,8 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Search,
+  Sparkles,
   Trash2,
   X,
 } from '../icons'
@@ -31,10 +34,19 @@ type PlanServicioRow = {
 
 function newPlanServicioRow(partial?: Partial<PlanServicioRow>): PlanServicioRow {
   return {
-    key: `ps-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    key:
+      partial?.key ||
+      `ps-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     servicioId: partial?.servicioId || '',
     unidades: partial?.unidades || '1',
   }
+}
+
+function normalizeRef(raw: string | null | undefined): string {
+  return String(raw || '')
+    .replace(/\D/g, '')
+    .padStart(4, '0')
+    .slice(-4)
 }
 
 export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
@@ -52,13 +64,20 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [editing, setEditing] = useState<AvPlan | null>(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
+  const [resumen, setResumen] = useState('')
   const [activo, setActivo] = useState(true)
   const [descuento, setDescuento] = useState('')
   const [codigoBusqueda, setCodigoBusqueda] = useState('')
+  const [textoBusqueda, setTextoBusqueda] = useState('')
+  const [unidadesAdd, setUnidadesAdd] = useState('1')
   const [codigoFeedback, setCodigoFeedback] = useState('')
-  const [servicioRows, setServicioRows] = useState<PlanServicioRow[]>([newPlanServicioRow()])
+  const [servicioSeleccionado, setServicioSeleccionado] = useState<AvServicioCredito | null>(
+    null,
+  )
+  const [servicioRows, setServicioRows] = useState<PlanServicioRow[]>([])
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [generatingResumen, setGeneratingResumen] = useState(false)
 
   const serviciosById = useMemo(() => {
     const map = new Map<string, AvServicioCredito>()
@@ -104,6 +123,25 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
     )
   }, [nombre, servicioRows, planSubtotal, descuentoPct])
 
+  const serviciosFiltrados = useMemo(() => {
+    const q = textoBusqueda.trim().toLowerCase()
+    if (!q) return servicios.slice(0, 12)
+    return servicios
+      .filter((item) => {
+        const haystack = [
+          item.referencia,
+          item.nombre,
+          item.descripcion,
+          String(item.costo || ''),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(q)
+      })
+      .slice(0, 20)
+  }, [servicios, textoBusqueda])
+
   useEffect(() => {
     let cancelled = false
 
@@ -143,11 +181,15 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
     setEditing(null)
     setNombre('')
     setDescripcion('')
+    setResumen('')
     setActivo(true)
     setDescuento('')
     setCodigoBusqueda('')
+    setTextoBusqueda('')
+    setUnidadesAdd('1')
     setCodigoFeedback('')
-    setServicioRows([newPlanServicioRow()])
+    setServicioSeleccionado(null)
+    setServicioRows([])
     setFormError('')
     setModalOpen(true)
   }
@@ -157,12 +199,16 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
     setEditing(plan)
     setNombre(plan.nombre || '')
     setDescripcion(plan.descripcion || '')
+    setResumen(plan.resumen || '')
     setActivo(plan.activo)
     setDescuento(
       plan.descuentoPorcentaje > 0 ? String(plan.descuentoPorcentaje) : '',
     )
     setCodigoBusqueda('')
+    setTextoBusqueda('')
+    setUnidadesAdd('1')
     setCodigoFeedback('')
+    setServicioSeleccionado(null)
     const rows =
       Array.isArray(plan.servicios) && plan.servicios.length > 0
         ? plan.servicios.map((item) =>
@@ -172,16 +218,76 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
               unidades: String(item.unidades || 1),
             }),
           )
-        : [newPlanServicioRow()]
+        : []
     setServicioRows(rows)
     setFormError('')
     setModalOpen(true)
   }
 
   function closeModal() {
-    if (submitting) return
+    if (submitting || generatingResumen) return
     setModalOpen(false)
     setFormError('')
+    setCodigoFeedback('')
+    setServicioSeleccionado(null)
+  }
+
+  function parseUnidades(): number {
+    const n = Math.floor(Number(String(unidadesAdd).replace(/,/g, '').trim()))
+    return Number.isFinite(n) && n > 0 ? n : 1
+  }
+
+  function seleccionarServicio(servicio: AvServicioCredito) {
+    setServicioSeleccionado(servicio)
+    setCodigoBusqueda(normalizeRef(servicio.referencia))
+    setTextoBusqueda('')
+    setFormError('')
+    setCodigoFeedback(
+      `Seleccionado: ${normalizeRef(servicio.referencia)} · ${servicio.nombre || 'Servicio'}. Define la cantidad y pulsa Agregar.`,
+    )
+  }
+
+  function clearServicioSeleccionado() {
+    setServicioSeleccionado(null)
+    setCodigoBusqueda('')
+    setCodigoFeedback('')
+  }
+
+  function addServicioSeleccionado() {
+    const servicio = servicioSeleccionado
+    if (!servicio) {
+      setCodigoFeedback('Selecciona un servicio de la lista o con el código.')
+      return
+    }
+    const unidades = String(parseUnidades())
+    setServicioRows((current) => [
+      ...current,
+      newPlanServicioRow({ servicioId: servicio.id, unidades }),
+    ])
+    setCodigoBusqueda('')
+    setTextoBusqueda('')
+    setUnidadesAdd('1')
+    setServicioSeleccionado(null)
+    setFormError('')
+    setCodigoFeedback(
+      `Agregado: ${normalizeRef(servicio.referencia)} · ${servicio.nombre || 'Servicio'} × ${unidades}`,
+    )
+  }
+
+  function seleccionarPorCodigo() {
+    const digits = String(codigoBusqueda || '').replace(/\D/g, '')
+    if (!digits) {
+      setCodigoFeedback('Escribe el código de 4 dígitos del servicio.')
+      return
+    }
+    const codigo = digits.padStart(4, '0').slice(-4)
+    const match = servicios.find((item) => normalizeRef(item.referencia) === codigo)
+    if (!match) {
+      setServicioSeleccionado(null)
+      setCodigoFeedback(`No hay servicio con código ${codigo}.`)
+      return
+    }
+    seleccionarServicio(match)
   }
 
   function updateServicioRow(key: string, patch: Partial<PlanServicioRow>) {
@@ -190,47 +296,17 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
     )
   }
 
-  function addServicioByCodigo() {
-    const digits = String(codigoBusqueda || '').replace(/\D/g, '')
-    if (!digits) {
-      setCodigoFeedback('Escribe el código de 4 dígitos del servicio.')
-      return
-    }
-    const codigo = digits.padStart(4, '0').slice(-4)
-
-    const match = servicios.find((item) => {
-      const ref = String(item.referencia || '').replace(/\D/g, '').padStart(4, '0').slice(-4)
-      return ref === codigo
-    })
-
-    if (!match) {
-      setCodigoFeedback(`No hay servicio con código ${codigo}.`)
-      return
-    }
-
-    setServicioRows((current) => {
-      const empty = current.find((row) => !row.servicioId)
-      if (empty) {
-        return current.map((row) =>
-          row.key === empty.key
-            ? { ...row, servicioId: match.id, unidades: row.unidades || '1' }
-            : row,
-        )
-      }
-      return [...current, newPlanServicioRow({ servicioId: match.id, unidades: '1' })]
-    })
-    setCodigoBusqueda('')
-    setCodigoFeedback(
-      `Agregado: ${match.referencia || codigo} · ${match.nombre || 'Servicio'} (${formatCop(match.costo)})`,
-    )
+  function removeServicioRow(key: string) {
+    setServicioRows((current) => current.filter((item) => item.key !== key))
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!user) return
+    if (!user || submitting || generatingResumen) return
 
     const nombreValue = nombre.trim()
     const descripcionValue = descripcion.trim()
+    const resumenValue = resumen.trim()
 
     if (!nombreValue) {
       setFormError('El nombre es obligatorio.')
@@ -259,6 +335,7 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
         await createAvPlan(token, {
           nombre: nombreValue,
           descripcion: descripcionValue || undefined,
+          resumen: resumenValue || undefined,
           activo,
           descuentoPorcentaje: descuentoPct,
           servicios: serviciosPayload,
@@ -267,6 +344,7 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
         await updateAvPlan(token, editing.id, {
           nombre: nombreValue,
           descripcion: descripcionValue || null,
+          resumen: resumenValue || null,
           activo,
           descuentoPorcentaje: descuentoPct,
           servicios: serviciosPayload,
@@ -278,6 +356,34 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
       setFormError(err instanceof Error ? err.message : 'No se pudo guardar el plan')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleGenerateResumen() {
+    if (!user || generatingResumen || submitting) return
+    const serviciosPayload = servicioRows
+      .map((row) => ({
+        servicioId: row.servicioId,
+        unidades: Math.floor(Number(row.unidades)),
+      }))
+      .filter((row) => row.servicioId && Number.isFinite(row.unidades) && row.unidades > 0)
+    if (!serviciosPayload.length) {
+      setFormError('Agrega al menos un servicio con unidades para generar el resumen.')
+      return
+    }
+    setGeneratingResumen(true)
+    setFormError('')
+    try {
+      const token = await user.getIdToken()
+      const generated = await generateAvPlanResumen(token, {
+        nombre: nombre.trim() || undefined,
+        servicios: serviciosPayload,
+      })
+      setResumen(generated)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'No se pudo generar el resumen con IA')
+    } finally {
+      setGeneratingResumen(false)
     }
   }
 
@@ -397,6 +503,9 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
               {plan.descripcion ? (
                 <p className="av-plan-card-desc">{plan.descripcion}</p>
               ) : null}
+              {plan.resumen ? (
+                <p className="av-plan-card-resumen">{plan.resumen}</p>
+              ) : null}
 
               <div className="av-plan-card-servicios">
                 <span className="av-plan-card-label">Servicios</span>
@@ -492,142 +601,247 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
                 />
               </label>
 
-              <fieldset className="av-plan-servicios" disabled={submitting}>
+              <fieldset className="av-plan-servicios" disabled={submitting || generatingResumen}>
                 <legend>Servicios del plan</legend>
                 {servicios.length === 0 ? (
                   <p className="section-note">
                     Primero crea servicios en la pestaña Servicios para poder agregarlos aquí.
                   </p>
                 ) : (
-                  <p className="section-note">
-                    Busca por código de 4 dígitos o elige en la lista. Puedes agregar el mismo
-                    servicio varias veces o subir las unidades.
-                  </p>
-                )}
+                  <>
+                    <p className="section-note">
+                      Elige un servicio de la lista o por código; luego define la cantidad y pulsa
+                      Agregar.
+                    </p>
 
-                {servicios.length > 0 ? (
-                  <div className="av-plan-codigo-search">
-                    <label className="login-field" htmlFor="av-plan-codigo">
-                      Buscar servicio por código
-                      <input
-                        id="av-plan-codigo"
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={codigoBusqueda}
-                        onChange={(event) => {
-                          setCodigoBusqueda(event.target.value.replace(/\D/g, '').slice(0, 4))
-                          setCodigoFeedback('')
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            addServicioByCodigo()
-                          }
-                        }}
-                        placeholder="Ej. 0421"
-                        disabled={submitting}
-                        autoComplete="off"
-                      />
+                    <label className="login-field" htmlFor="av-plan-buscar">
+                      Buscar servicio
+                      <span className="av-cotizacion-buscar-wrap">
+                        <Search size={16} strokeWidth={2} aria-hidden />
+                        <input
+                          id="av-plan-buscar"
+                          value={textoBusqueda}
+                          onChange={(event) => {
+                            setTextoBusqueda(event.target.value)
+                            setCodigoFeedback('')
+                          }}
+                          placeholder="Nombre, código o descripción…"
+                          disabled={submitting || generatingResumen}
+                          autoComplete="off"
+                        />
+                      </span>
                     </label>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={addServicioByCodigo}
-                      disabled={submitting || !codigoBusqueda.trim()}
+
+                    <ul
+                      className="av-cotizacion-servicio-results"
+                      role="listbox"
+                      aria-label="Resultados"
                     >
-                      <Plus size={14} strokeWidth={2} aria-hidden />
-                      Agregar
-                    </button>
+                      {serviciosFiltrados.length === 0 ? (
+                        <li className="av-cotizacion-servicio-empty">Sin resultados</li>
+                      ) : (
+                        serviciosFiltrados.map((servicio) => {
+                          const selected = servicioSeleccionado?.id === servicio.id
+                          return (
+                            <li key={servicio.id}>
+                              <button
+                                type="button"
+                                className={`av-cotizacion-servicio-option${selected ? ' is-selected' : ''}`}
+                                onClick={() => seleccionarServicio(servicio)}
+                                disabled={submitting || generatingResumen}
+                                aria-pressed={selected}
+                              >
+                                <span className="av-credito-ref">
+                                  {normalizeRef(servicio.referencia)}
+                                </span>
+                                <span className="av-cotizacion-servicio-option-main">
+                                  <strong>{servicio.nombre || 'Servicio'}</strong>
+                                  {servicio.descripcion ? (
+                                    <span className="av-cotizacion-servicio-option-desc">
+                                      {servicio.descripcion}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <strong className="av-cotizacion-servicio-option-precio">
+                                  {formatCop(servicio.costo || 0)}
+                                </strong>
+                              </button>
+                            </li>
+                          )
+                        })
+                      )}
+                    </ul>
+
+                    <div className="av-cotizacion-add-bar">
+                      <div className="av-cotizacion-add-selected">
+                        {servicioSeleccionado ? (
+                          <>
+                            <span className="av-credito-ref">
+                              {normalizeRef(servicioSeleccionado.referencia)}
+                            </span>
+                            <strong>{servicioSeleccionado.nombre || 'Servicio'}</strong>
+                            <span className="av-cotizacion-add-precio">
+                              {formatCop(servicioSeleccionado.costo || 0)}
+                            </span>
+                            <button
+                              type="button"
+                              className="av-cotizacion-add-clear"
+                              onClick={clearServicioSeleccionado}
+                              disabled={submitting || generatingResumen}
+                              aria-label="Quitar selección"
+                            >
+                              <X size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="av-cotizacion-add-placeholder">
+                            Selecciona un servicio de la lista o escribe el código
+                          </span>
+                        )}
+                      </div>
+
+                      <label className="login-field" htmlFor="av-plan-codigo">
+                        Código
+                        <input
+                          id="av-plan-codigo"
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={4}
+                          value={codigoBusqueda}
+                          onChange={(event) => {
+                            const next = event.target.value.replace(/\D/g, '').slice(0, 4)
+                            setCodigoBusqueda(next)
+                            setCodigoFeedback('')
+                            if (next.length === 4) {
+                              const match = servicios.find(
+                                (item) => normalizeRef(item.referencia) === next,
+                              )
+                              if (match) {
+                                setServicioSeleccionado(match)
+                                setCodigoFeedback(
+                                  `Seleccionado: ${normalizeRef(match.referencia)} · ${match.nombre || 'Servicio'}. Define la cantidad y pulsa Agregar.`,
+                                )
+                              } else {
+                                setServicioSeleccionado(null)
+                                setCodigoFeedback(`No hay servicio con código ${next}.`)
+                              }
+                            } else if (
+                              servicioSeleccionado &&
+                              normalizeRef(servicioSeleccionado.referencia) !==
+                                next.padStart(4, '0').slice(-4)
+                            ) {
+                              setServicioSeleccionado(null)
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              if (servicioSeleccionado) {
+                                addServicioSeleccionado()
+                              } else {
+                                seleccionarPorCodigo()
+                              }
+                            }
+                          }}
+                          placeholder="0421"
+                          disabled={submitting || generatingResumen}
+                          autoComplete="off"
+                        />
+                      </label>
+
+                      <label className="login-field" htmlFor="av-plan-unidades-add">
+                        Unidades
+                        <input
+                          id="av-plan-unidades-add"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={unidadesAdd}
+                          onChange={(event) => setUnidadesAdd(event.target.value)}
+                          disabled={submitting || generatingResumen}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={addServicioSeleccionado}
+                        disabled={
+                          submitting || generatingResumen || !servicioSeleccionado
+                        }
+                      >
+                        <Plus size={14} strokeWidth={2} aria-hidden />
+                        Agregar
+                      </button>
+                    </div>
+
                     {codigoFeedback ? (
                       <p
                         className={`av-plan-codigo-feedback ${
-                          codigoFeedback.startsWith('Agregado') ? 'is-ok' : 'is-error'
+                          codigoFeedback.startsWith('Agregado') ||
+                          codigoFeedback.startsWith('Seleccionado')
+                            ? 'is-ok'
+                            : 'is-error'
                         }`}
                         role="status"
                       >
                         {codigoFeedback}
                       </p>
                     ) : null}
-                  </div>
-                ) : null}
+                  </>
+                )}
 
-                <div className="av-plan-servicios-list">
-                  {servicioRows.map((row) => {
-                    const servicio = serviciosById.get(row.servicioId)
-                    const unidades = Math.floor(Number(row.unidades))
-                    const subtotal =
-                      servicio && Number.isFinite(unidades) && unidades > 0
-                        ? servicio.costo * unidades
-                        : 0
-                    return (
-                      <div key={row.key} className="av-plan-servicio-row">
-                        <label className="login-field">
-                          Servicio
-                          <select
-                            value={row.servicioId}
-                            onChange={(event) =>
-                              updateServicioRow(row.key, { servicioId: event.target.value })
-                            }
-                            disabled={submitting || servicios.length === 0}
-                            required
+                {servicioRows.length > 0 ? (
+                  <ul className="av-cotizacion-items-list">
+                    {servicioRows.map((row) => {
+                      const servicio = serviciosById.get(row.servicioId)
+                      const unidades = Math.floor(Number(row.unidades))
+                      const subtotal =
+                        servicio && Number.isFinite(unidades) && unidades > 0
+                          ? servicio.costo * unidades
+                          : 0
+                      return (
+                        <li key={row.key}>
+                          <div className="av-cotizacion-item-main">
+                            <span className="av-credito-ref">
+                              {normalizeRef(servicio?.referencia)}
+                            </span>
+                            <strong>{servicio?.nombre || 'Servicio'}</strong>
+                            <span className="av-cotizacion-item-meta">
+                              {formatCop(servicio?.costo || 0)} ×{' '}
+                              <input
+                                className="av-cotizacion-item-unidades"
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={row.unidades}
+                                onChange={(event) =>
+                                  updateServicioRow(row.key, {
+                                    unidades: event.target.value,
+                                  })
+                                }
+                                disabled={submitting || generatingResumen}
+                                aria-label={`Unidades de ${servicio?.nombre || 'servicio'}`}
+                              />
+                            </span>
+                            <span>{formatCop(subtotal)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => removeServicioRow(row.key)}
+                            disabled={submitting || generatingResumen}
                           >
-                            <option value="">Selecciona un servicio</option>
-                            {servicios.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.referencia || '----'} · {item.nombre || 'Servicio'} ·{' '}
-                                {formatCop(item.costo)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="login-field">
-                          Unidades
-                          <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            inputMode="numeric"
-                            value={row.unidades}
-                            onChange={(event) =>
-                              updateServicioRow(row.key, { unidades: event.target.value })
-                            }
-                            disabled={submitting}
-                            required
-                          />
-                        </label>
-                        <div className="av-plan-servicio-subtotal" aria-live="polite">
-                          <span>Subtotal</span>
-                          <strong>{formatCop(subtotal)}</strong>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-secondary av-plan-servicio-remove"
-                          onClick={() => {
-                            if (servicioRows.length <= 1) return
-                            setServicioRows((current) =>
-                              current.filter((item) => item.key !== row.key),
-                            )
-                          }}
-                          disabled={submitting || servicioRows.length <= 1}
-                          aria-label="Quitar servicio"
-                        >
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setServicioRows((current) => [...current, newPlanServicioRow()])}
-                  disabled={submitting || servicios.length === 0}
-                >
-                  <Plus size={14} strokeWidth={2} aria-hidden />
-                  Agregar servicio
-                </button>
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            Quitar
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : (
+                  <p className="section-note">Todavía no hay servicios en el plan.</p>
+                )}
 
                 <label className="login-field" htmlFor="av-plan-descuento">
                   Descuento (%)
@@ -641,7 +855,7 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
                     value={descuento}
                     onChange={(event) => setDescuento(event.target.value)}
                     placeholder="0"
-                    disabled={submitting}
+                    disabled={submitting || generatingResumen}
                   />
                 </label>
 
@@ -664,16 +878,48 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
               </fieldset>
 
               <label className="login-field" htmlFor="av-plan-descripcion">
-                Descripción
+                Descripción corta
                 <textarea
                   id="av-plan-descripcion"
                   value={descripcion}
                   onChange={(event) => setDescripcion(event.target.value)}
-                  rows={3}
-                  placeholder="Detalle del plan"
-                  disabled={submitting}
+                  rows={2}
+                  placeholder="Nota interna o título comercial breve"
+                  disabled={submitting || generatingResumen}
                 />
               </label>
+
+              <div className="av-combo-resumen">
+                <div className="av-combo-resumen-head">
+                  <label className="login-field" htmlFor="av-plan-resumen">
+                    Resumen del combo
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => void handleGenerateResumen()}
+                    disabled={submitting || generatingResumen || !canSavePlan}
+                  >
+                    {generatingResumen ? (
+                      <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                    ) : (
+                      <Sparkles size={14} strokeWidth={2} aria-hidden />
+                    )}
+                    {generatingResumen ? 'Generando…' : 'Generar con IA'}
+                  </button>
+                </div>
+                <textarea
+                  id="av-plan-resumen"
+                  value={resumen}
+                  onChange={(event) => setResumen(event.target.value)}
+                  rows={4}
+                  placeholder="Resume qué incluye el plan según servicios, cantidades y entregables. Puedes escribirlo o generarlo con IA."
+                  disabled={submitting || generatingResumen}
+                />
+                <p className="section-note">
+                  La IA usa nombre, descripción, entregables y unidades de cada servicio del plan.
+                </p>
+              </div>
 
               <label className="av-plan-activo" htmlFor="av-plan-activo">
                 <input
@@ -681,7 +927,7 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
                   type="checkbox"
                   checked={activo}
                   onChange={(event) => setActivo(event.target.checked)}
-                  disabled={submitting}
+                  disabled={submitting || generatingResumen}
                 />
                 Plan activo (visible en Finanzas → Ingresos)
               </label>
@@ -694,13 +940,20 @@ export function AvPlanesPanel({ readOnly = false }: { readOnly?: boolean }) {
               ) : null}
 
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal} disabled={submitting}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeModal}
+                  disabled={submitting || generatingResumen}
+                >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={submitting || !canSavePlan || servicios.length === 0}
+                  disabled={
+                    submitting || generatingResumen || !canSavePlan || servicios.length === 0
+                  }
                 >
                   {submitting ? (
                     <>

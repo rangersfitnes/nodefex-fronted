@@ -36,12 +36,26 @@ type DistRow = {
   porcentaje: string
 }
 
+type EntregableRow = {
+  key: string
+  id?: string
+  texto: string
+}
+
 function newDistRow(partial?: Partial<DistRow>): DistRow {
   return {
     key: `row-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     id: partial?.id,
     concepto: partial?.concepto || '',
     porcentaje: partial?.porcentaje || '',
+  }
+}
+
+function newEntregableRow(partial?: Partial<EntregableRow>): EntregableRow {
+  return {
+    key: `ent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    id: partial?.id,
+    texto: partial?.texto || '',
   }
 }
 
@@ -226,6 +240,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [costo, setCosto] = useState('')
+  const [entregables, setEntregables] = useState<EntregableRow[]>([newEntregableRow()])
   const [distribucion, setDistribucion] = useState<DistRow[]>([newDistRow()])
   const [plantillaId, setPlantillaId] = useState('')
   const [formError, setFormError] = useState('')
@@ -308,6 +323,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     setNombre('')
     setDescripcion('')
     setCosto('')
+    setEntregables([newEntregableRow()])
     setDistribucion([newDistRow()])
     setPlantillaId('')
     setFormError('')
@@ -320,6 +336,13 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     setNombre(servicio.nombre || '')
     setDescripcion(servicio.descripcion || '')
     setCosto(String(servicio.costo || ''))
+    setEntregables(
+      (servicio.entregables || []).length > 0
+        ? servicio.entregables.map((item) =>
+            newEntregableRow({ id: item.id, texto: item.texto }),
+          )
+        : [newEntregableRow()],
+    )
     setDistribucion(rowsFromItems(servicio.distribucion))
     setPlantillaId(servicio.distribucionPlantillaId || '')
     setFormError('')
@@ -384,6 +407,19 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       setFormError('El costo debe ser un valor en dinero mayor a 0.')
       return
     }
+
+    const entregablesPayload = entregables
+      .map((row) => ({
+        id: row.id,
+        texto: row.texto.trim(),
+      }))
+      .filter((row) => row.texto)
+
+    if (!entregablesPayload.length) {
+      setFormError('Agrega al menos un entregable que reciba el cliente.')
+      return
+    }
+
     if (!distStats.exact100) {
       if (distStats.restante > 0) {
         setFormError(
@@ -414,6 +450,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
         nombre: nombreValue,
         descripcion: descripcionValue,
         costo: Math.round(costoValue),
+        entregables: entregablesPayload,
         distribucion: distribucionPayload,
         distribucionPlantillaId: plantilla?.id || null,
         distribucionPlantillaNombre: plantilla?.nombre || null,
@@ -710,6 +747,9 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                     <span className="av-servicio-card-summary">
                       <span className="av-servicio-card-costo">{formatCop(servicio.costo || 0)}</span>
                       <span className="av-servicio-card-meta">
+                        {(servicio.entregables || []).length} entregable
+                        {(servicio.entregables || []).length === 1 ? '' : 's'}
+                        {' · '}
                         {distCount} partida{distCount === 1 ? '' : 's'}
                         {servicio.distribucionPlantillaNombre
                           ? ` · ${servicio.distribucionPlantillaNombre}`
@@ -729,6 +769,16 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                   <div className="av-servicio-card-body">
                     {servicio.descripcion ? (
                       <p className="av-servicio-card-desc">{servicio.descripcion}</p>
+                    ) : null}
+                    {(servicio.entregables || []).length > 0 ? (
+                      <div className="av-servicio-entregables-preview">
+                        <span className="av-servicio-entregables-label">Entregables</span>
+                        <ul>
+                          {servicio.entregables.map((item) => (
+                            <li key={item.id}>{item.texto}</li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : null}
                     {servicio.distribucionPlantillaNombre ? (
                       <p className="av-servicio-plantilla-tag">
@@ -846,6 +896,62 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                   required
                 />
               </label>
+
+              <fieldset className="av-servicio-entregables" disabled={submitting}>
+                <legend>Entregables al cliente</legend>
+                <p className="section-note">
+                  Lista qué recibe el cliente con este servicio (archivos, piezas, sesiones, etc.).
+                </p>
+                <div className="av-servicio-entregables-list">
+                  {entregables.map((row, index) => (
+                    <div key={row.key} className="av-servicio-entregable-row">
+                      <label className="login-field">
+                        Entregable {index + 1}
+                        <input
+                          type="text"
+                          value={row.texto}
+                          onChange={(event) =>
+                            setEntregables((current) =>
+                              current.map((item) =>
+                                item.key === row.key
+                                  ? { ...item, texto: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Ej. Video editado en 4K, 60 s"
+                          disabled={submitting}
+                          required={index === 0}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-secondary av-servicio-entregable-remove"
+                        onClick={() =>
+                          setEntregables((current) =>
+                            current.length <= 1
+                              ? [newEntregableRow()]
+                              : current.filter((item) => item.key !== row.key),
+                          )
+                        }
+                        disabled={submitting}
+                        aria-label={`Quitar entregable ${index + 1}`}
+                      >
+                        <Trash2 size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setEntregables((current) => [...current, newEntregableRow()])}
+                  disabled={submitting || entregables.length >= 40}
+                >
+                  <Plus size={14} strokeWidth={2} aria-hidden />
+                  Agregar entregable
+                </button>
+              </fieldset>
 
               <label className="login-field" htmlFor="av-servicio-costo">
                 Costo del servicio

@@ -32,6 +32,7 @@ export {
   Globe,
   HardDrive,
   Hexagon,
+  History,
   Home,
   IdCard,
   Key,

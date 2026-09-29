@@ -21,6 +21,7 @@ export type AvPlan = {
   descuentoValor: number
   precio: number
   descripcion: string | null
+  resumen: string | null
   activo: boolean
   orden: number
   servicios: AvPlanServicioItem[]
@@ -221,6 +222,7 @@ export async function createAvPlan(
   payload: {
     nombre: string
     descripcion?: string
+    resumen?: string
     activo?: boolean
     orden?: number
     descuentoPorcentaje?: number
@@ -240,6 +242,7 @@ export async function updateAvPlan(
   payload: Partial<{
     nombre: string
     descripcion: string | null
+    resumen: string | null
     activo: boolean
     orden: number
     descuentoPorcentaje: number
@@ -255,6 +258,42 @@ export async function updateAvPlan(
     },
   )
   return data.plan
+}
+
+export async function generateAvPlanResumen(
+  token: string,
+  payload: {
+    nombre?: string
+    servicios: Array<{ servicioId: string; unidades: number }>
+  },
+): Promise<string> {
+  const data = await apiFetch<{ resumen: string }>(
+    '/api/audiovisual/planes/generar-resumen',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.resumen
+}
+
+export async function generateAvCotizacionResumen(
+  token: string,
+  payload: {
+    clienteNombre?: string
+    items: Array<{ servicioId?: string; referencia?: string; unidades?: number }>
+  },
+): Promise<string> {
+  const data = await apiFetch<{ resumen: string }>(
+    '/api/audiovisual/cotizaciones/generar-resumen',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.resumen
 }
 
 export async function deleteAvPlan(token: string, id: string): Promise<void> {
@@ -304,18 +343,49 @@ export type AvEquipoSalidaItem = {
   observacion: string | null
 }
 
-export type AvEquipoSalidaEquipo = {
+export type AvEquipoMovimientoEquipo = {
   equipoId: string
   nombre: string | null
+  codigo?: string | null
+  responsableUid?: string | null
+  responsableNombre?: string | null
+  responsableRol?: string | null
   items: AvEquipoSalidaItem[]
 }
 
+export type AvEquipoSalidaEquipo = AvEquipoMovimientoEquipo
+
 export type AvEquipoSalida = {
   id: string
+  tipo?: 'salida'
   responsableUid: string | null
   responsableNombre: string | null
   responsableRol: string | null
-  equipos: AvEquipoSalidaEquipo[]
+  equipos: AvEquipoMovimientoEquipo[]
+  creadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+}
+
+export type AvEquipoIngreso = {
+  id: string
+  tipo?: 'ingreso'
+  responsableUid?: string | null
+  responsableNombre?: string | null
+  responsableRol?: string | null
+  equipos: AvEquipoMovimientoEquipo[]
+  creadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+}
+
+export type AvEquipoMovimiento = {
+  id: string
+  tipo: 'salida' | 'ingreso'
+  responsableUid: string | null
+  responsableNombre: string | null
+  responsableRol: string | null
+  equipos: AvEquipoMovimientoEquipo[]
   creadoEn: string | null
   createdBy: string | null
   createdByNombre: string | null
@@ -332,6 +402,23 @@ export async function listAvEquiposResponsables(token: string): Promise<AvEquipo
     token,
   )
   return data.responsables
+}
+
+export async function listAvEquiposHistorial(
+  token: string,
+  options: { limit?: number; tipo?: 'salida' | 'ingreso' | ''; equipoId?: string; q?: string } = {},
+): Promise<AvEquipoMovimiento[]> {
+  const params = new URLSearchParams()
+  if (options.limit) params.set('limit', String(options.limit))
+  if (options.tipo) params.set('tipo', options.tipo)
+  if (options.equipoId) params.set('equipoId', options.equipoId)
+  if (options.q) params.set('q', options.q)
+  const query = params.toString()
+  const data = await apiFetch<{ movimientos: AvEquipoMovimiento[] }>(
+    `/api/audiovisual/equipos/historial${query ? `?${query}` : ''}`,
+    token,
+  )
+  return data.movimientos
 }
 
 export async function createAvEquipoSalida(
@@ -354,14 +441,6 @@ export async function createAvEquipoSalida(
       body: JSON.stringify(payload),
     },
   )
-}
-
-export type AvEquipoIngreso = {
-  id: string
-  equipos: AvEquipoSalidaEquipo[]
-  creadoEn: string | null
-  createdBy: string | null
-  createdByNombre: string | null
 }
 
 export async function createAvEquipoIngreso(
@@ -981,11 +1060,17 @@ export type AvServicioDistribucionPlantilla = {
   createdBy: string | null
 }
 
+export type AvServicioEntregable = {
+  id: string
+  texto: string
+}
+
 export type AvServicioCredito = {
   id: string
   nombre: string | null
   descripcion: string | null
   costo: number
+  entregables: AvServicioEntregable[]
   distribucion: AvServicioDistribucionItem[]
   distribucionPlantillaId?: string | null
   distribucionPlantillaNombre?: string | null
@@ -1009,6 +1094,7 @@ export async function createAvServicioCredito(
     nombre: string
     descripcion: string
     costo: number
+    entregables: Array<{ id?: string; texto: string }>
     distribucion: Array<{ id?: string; concepto: string; porcentaje: number }>
     distribucionPlantillaId?: string | null
     distribucionPlantillaNombre?: string | null
@@ -1032,6 +1118,7 @@ export async function updateAvServicioCredito(
     nombre: string
     descripcion: string
     costo: number
+    entregables: Array<{ id?: string; texto: string }>
     distribucion: Array<{ id?: string; concepto: string; porcentaje: number }>
     distribucionPlantillaId: string | null
     distribucionPlantillaNombre: string | null
@@ -1768,6 +1855,10 @@ export type AvEmpresaGenio = {
 export type AvCotizacionItem = {
   concepto: string
   valor: number
+  servicioId?: string | null
+  referencia?: string | null
+  unidades?: number | null
+  costoUnitario?: number | null
 }
 
 export type AvCotizacion = {
