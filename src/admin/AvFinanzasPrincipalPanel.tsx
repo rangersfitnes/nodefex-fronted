@@ -10,6 +10,7 @@ const EMPTY_RESUMEN: AvFinanzasResumen = {
   disponible: 0,
   cantidadIngresos: 0,
   cantidadEgresos: 0,
+  porMetodo: [],
 }
 
 export function AvFinanzasPrincipalPanel() {
@@ -51,7 +52,9 @@ export function AvFinanzasPrincipalPanel() {
       <div className="av-ingresos-toolbar">
         <div>
           <h3>Principal</h3>
-          <p className="section-note">Resumen general de ingresos, egresos y disponible.</p>
+          <p className="section-note">
+            Resumen general y disponible por almacenamiento de presupuesto.
+          </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
           <button
@@ -82,29 +85,55 @@ export function AvFinanzasPrincipalPanel() {
       ) : null}
 
       {!loading && !error ? (
-        <div className="pagos-table-wrap">
-          <table className="pagos-table av-resumen-table">
-            <thead>
-              <tr>
-                <th>Concepto</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Ingresos totales</td>
-                <td>{formatCop(resumen.ingresosTotales)}</td>
-              </tr>
-              <tr>
-                <td>Egresos totales</td>
-                <td>{formatCop(resumen.egresosTotales)}</td>
-              </tr>
-              <tr className="av-resumen-disponible">
-                <td>Disponible actualmente</td>
-                <td>{formatCop(resumen.disponible)}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="av-finanzas-principal-grid">
+          <div className="pagos-table-wrap">
+            <table className="pagos-table av-resumen-table">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ingresos totales</td>
+                  <td>{formatCop(resumen.ingresosTotales)}</td>
+                </tr>
+                <tr>
+                  <td>Egresos totales</td>
+                  <td>{formatCop(resumen.egresosTotales)}</td>
+                </tr>
+                <tr className="av-resumen-disponible">
+                  <td>Disponible actualmente</td>
+                  <td>{formatCop(resumen.disponible)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="pagos-table-wrap">
+            <table className="pagos-table av-resumen-table">
+              <thead>
+                <tr>
+                  <th>Almacenamiento</th>
+                  <th>Disponible</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(resumen.porMetodo || []).map((item) => (
+                  <tr key={item.tipo}>
+                    <td>{item.label}</td>
+                    <td>{formatCop(item.disponible)}</td>
+                  </tr>
+                ))}
+                {(resumen.porMetodo || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={2}>Sin movimientos por almacenamiento aún.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </div>

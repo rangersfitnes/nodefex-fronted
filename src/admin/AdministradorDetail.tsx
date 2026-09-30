@@ -16,6 +16,11 @@ import {
   type ProyectoAccesoNivel,
 } from '../api/administradores'
 import {
+  getAvFinanzasResumen,
+  type AvFinanzasResumen,
+  type AvMetodoPagoTipo,
+} from '../api/audiovisual'
+import {
   esProyectoAudiovisual,
   esProyectoContable,
   listProyectos,
@@ -30,13 +35,49 @@ import {
   Hexagon,
   LoaderCircle,
   LogOut,
+  Plus,
   Shield,
+  Trash2,
   Users,
   X,
 } from '../icons'
 
 type AccessChoice = 'none' | ProyectoAccesoNivel
 type CapabilityMode = 'none' | 'view' | 'manage'
+
+type LiquidarParteForm = {
+  id: string
+  tipo: AvMetodoPagoTipo
+  valor: string
+  cuenta: string
+  detalle: string
+}
+
+const METODO_PAGO_LABEL: Record<AvMetodoPagoTipo, string> = {
+  efectivo: 'Efectivo',
+  cuenta_bancaria: 'Transferencia / cuenta',
+  pasarela: 'Pasarela (Wompi)',
+}
+
+const EMPTY_RESUMEN: AvFinanzasResumen = {
+  ingresosTotales: 0,
+  egresosTotales: 0,
+  disponible: 0,
+  cantidadIngresos: 0,
+  cantidadEgresos: 0,
+  porMetodo: [],
+}
+
+function newLiquidarParte(partial?: Partial<LiquidarParteForm>): LiquidarParteForm {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    tipo: 'efectivo',
+    valor: '',
+    cuenta: '',
+    detalle: '',
+    ...partial,
+  }
+}
 
 function formatFecha(iso: string | null) {
   if (!iso) return '—'
@@ -100,6 +141,11 @@ export function AdministradorDetail() {
   const [liquidarOpen, setLiquidarOpen] = useState(false)
   const [liquidating, setLiquidating] = useState(false)
   const [liquidarError, setLiquidarError] = useState('')
+  const [liquidarPartes, setLiquidarPartes] = useState<LiquidarParteForm[]>([
+    newLiquidarParte({ valor: '' }),
+  ])
+  const [presupuesto, setPresupuesto] = useState<AvFinanzasResumen>(EMPTY_RESUMEN)
+  const [presupuestoLoading, setPresupuestoLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -275,8 +321,75 @@ export function AdministradorDetail() {
     }
   }
 
+  async function openLiquidarModal() {
+    setLiquidarError('')
+    setLiquidarPartes([
+      newLiquidarParte({
+        tipo: 'efectivo',
+        valor: pendienteTotal > 0 ? String(Math.round(pendienteTotal)) : '',
+      }),
+    ])
+    setLiquidarOpen(true)
+    if (!user) return
+    setPresupuestoLoading(true)
+    try {
+      const token = await user.getIdToken()
+      const resumen = await getAvFinanzasResumen(token)
+      setPresupuesto(resumen)
+    } catch {
+      setPresupuesto(EMPTY_RESUMEN)
+    } finally {
+      setPresupuestoLoading(false)
+    }
+  }
+
+  function updateLiquidarParte(id: string, patch: Partial<LiquidarParteForm>) {
+    setLiquidarPartes((current) =>
+      current.map((parte) => (parte.id === id ? { ...parte, ...patch } : parte)),
+    )
+  }
+
   async function handleLiquidar() {
     if (!user || !admin || liquidating) return
+
+    const partesPayload: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }> = []
+
+    for (const parte of liquidarPartes) {
+      const parteValor = Number(String(parte.valor).replace(/,/g, '').trim())
+      if (!Number.isFinite(parteValor) || parteValor <= 0) {
+        setLiquidarError('Cada almacenamiento debe tener un valor mayor a 0.')
+        return
+      }
+      if (parte.tipo === 'cuenta_bancaria' && !parte.cuenta.trim()) {
+        setLiquidarError('Indica la cuenta / transferencia para esa parte.')
+        return
+      }
+      partesPayload.push({
+        tipo: parte.tipo,
+        valor: parteValor,
+        cuenta: parte.tipo === 'cuenta_bancaria' ? parte.cuenta.trim() : undefined,
+        detalle: parte.tipo === 'pasarela' ? parte.detalle.trim() || 'Wompi' : undefined,
+      })
+    }
+
+    if (!partesPayload.length) {
+      setLiquidarError('Indica de qué almacenamientos sale el presupuesto.')
+      return
+    }
+
+    const suma = partesPayload.reduce((sum, parte) => sum + parte.valor, 0)
+    if (Math.abs(suma - pendienteTotal) > 0.0001) {
+      setLiquidarError(
+        `La suma (${formatCop(suma)}) debe coincidir con el total a liquidar (${formatCop(pendienteTotal)}).`,
+      )
+      return
+    }
+
     setLiquidating(true)
     setLiquidarError('')
     try {
@@ -284,6 +397,10 @@ export function AdministradorDetail() {
       const { administrador, liquidacion } = await liquidarAdministradorGanancias(
         token,
         admin.uid,
+        {
+          partes: partesPayload,
+          beneficiarioNombre: admin.nombre || admin.email || undefined,
+        },
       )
       setAdmin(administrador)
       const nextTotales: Record<string, number> = {}
@@ -296,7 +413,7 @@ export function AdministradorDetail() {
       setLiquidaciones((current) => [liquidacion, ...current].slice(0, 20))
       setLiquidarOpen(false)
       setSuccess(
-        `Se liquidaron ${formatCop(liquidacion.monto)} y se reinició el acumulado de ganancias.`,
+        `Se liquidó la nómina por ${formatCop(liquidacion.monto)} y se descontó el presupuesto (${liquidacion.metodoPago || 'varios almacenamientos'}).`,
       )
     } catch (err) {
       setLiquidarError(err instanceof Error ? err.message : 'No se pudieron liquidar las ganancias')
@@ -353,13 +470,10 @@ export function AdministradorDetail() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => {
-                  setLiquidarError('')
-                  setLiquidarOpen(true)
-                }}
+                onClick={() => void openLiquidarModal()}
               >
                 <Banknote size={18} strokeWidth={2} aria-hidden />
-                Liquidar ganancias
+                Liquidar nómina
               </button>
             ) : null}
           </div>
@@ -444,6 +558,7 @@ export function AdministradorDetail() {
                       <span>
                         {formatFecha(item.createdAt)} · {item.conceptos.length} concepto
                         {item.conceptos.length === 1 ? '' : 's'}
+                        {item.metodoPago ? ` · ${item.metodoPago}` : ''}
                       </span>
                       <strong>{formatCop(item.monto)}</strong>
                     </li>
@@ -674,7 +789,7 @@ export function AdministradorDetail() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="liquidar-ganancias-title">Liquidar ganancias</h2>
+              <h2 id="liquidar-ganancias-title">Liquidar nómina</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -686,8 +801,9 @@ export function AdministradorDetail() {
               </button>
             </div>
             <p className="modal-confirm-text">
-              Se pagará a {admin.nombre || admin.email} el acumulado actual. Al liquidar se
-              guarda el registro y el contador de ganancias vuelve a cero.
+              Se pagará a {admin.nombre || admin.email} el acumulado actual. Indica de qué
+              almacenamientos de presupuesto sale el pago (efectivo, transferencia, Wompi…). La
+              suma debe coincidir con el total y se descontará de cada caja.
             </p>
             {movimientos.length === 0 ? (
               <p className="admin-ganancia-empty">No hay conceptos pendientes.</p>
@@ -705,6 +821,130 @@ export function AdministradorDetail() {
               Total a liquidar
               <strong>{formatCop(pendienteTotal)}</strong>
             </p>
+
+            <section className="av-pago-partes liquidar-presupuesto">
+              <div className="av-pago-partes-head">
+                <h3>Presupuesto de salida</h3>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setLiquidarPartes((current) => [...current, newLiquidarParte()])
+                  }
+                  disabled={liquidating}
+                >
+                  <Plus size={14} strokeWidth={2} aria-hidden />
+                  Dividir
+                </button>
+              </div>
+
+              {presupuestoLoading ? (
+                <p className="section-note">Cargando disponible por almacenamiento…</p>
+              ) : (
+                <ul className="liquidar-presupuesto-saldos">
+                  {(presupuesto.porMetodo || []).map((item) => (
+                    <li key={item.tipo}>
+                      <span>{item.label}</span>
+                      <strong>{formatCop(item.disponible)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {liquidarPartes.map((parte, index) => (
+                <div key={parte.id} className="av-pago-parte">
+                  <div className="av-pago-parte-grid">
+                    <label className="login-field" htmlFor={`liq-tipo-${parte.id}`}>
+                      Almacenamiento {liquidarPartes.length > 1 ? index + 1 : ''}
+                      <select
+                        id={`liq-tipo-${parte.id}`}
+                        value={parte.tipo}
+                        onChange={(event) =>
+                          updateLiquidarParte(parte.id, {
+                            tipo: event.target.value as AvMetodoPagoTipo,
+                          })
+                        }
+                        disabled={liquidating}
+                      >
+                        {(Object.keys(METODO_PAGO_LABEL) as AvMetodoPagoTipo[]).map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {METODO_PAGO_LABEL[tipo]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="login-field" htmlFor={`liq-valor-${parte.id}`}>
+                      Valor
+                      <input
+                        id={`liq-valor-${parte.id}`}
+                        type="number"
+                        inputMode="decimal"
+                        min="1"
+                        step="1"
+                        value={parte.valor}
+                        onChange={(event) =>
+                          updateLiquidarParte(parte.id, { valor: event.target.value })
+                        }
+                        disabled={liquidating}
+                        required
+                      />
+                    </label>
+                    {parte.tipo === 'cuenta_bancaria' ? (
+                      <label
+                        className="login-field av-ingresos-span-2"
+                        htmlFor={`liq-cuenta-${parte.id}`}
+                      >
+                        Cuenta / transferencia
+                        <input
+                          id={`liq-cuenta-${parte.id}`}
+                          type="text"
+                          value={parte.cuenta}
+                          onChange={(event) =>
+                            updateLiquidarParte(parte.id, { cuenta: event.target.value })
+                          }
+                          placeholder="Bancolombia ahorros…"
+                          disabled={liquidating}
+                        />
+                      </label>
+                    ) : null}
+                    {parte.tipo === 'pasarela' ? (
+                      <label
+                        className="login-field av-ingresos-span-2"
+                        htmlFor={`liq-pasarela-${parte.id}`}
+                      >
+                        Pasarela
+                        <input
+                          id={`liq-pasarela-${parte.id}`}
+                          type="text"
+                          value={parte.detalle}
+                          onChange={(event) =>
+                            updateLiquidarParte(parte.id, { detalle: event.target.value })
+                          }
+                          placeholder="Wompi"
+                          disabled={liquidating}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                  {liquidarPartes.length > 1 ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() =>
+                        setLiquidarPartes((current) =>
+                          current.filter((item) => item.id !== parte.id),
+                        )
+                      }
+                      disabled={liquidating}
+                      aria-label="Quitar parte"
+                    >
+                      <Trash2 size={14} strokeWidth={2} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </section>
+
             {liquidarError ? (
               <p className="proyectos-status proyectos-status-error" role="alert">
                 <AlertCircle size={16} strokeWidth={2} aria-hidden />
@@ -734,7 +974,7 @@ export function AdministradorDetail() {
                 ) : (
                   <>
                     <Banknote size={16} strokeWidth={2} aria-hidden />
-                    Liquidar
+                    Liquidar y descontar
                   </>
                 )}
               </button>

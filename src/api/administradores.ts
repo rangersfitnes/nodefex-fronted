@@ -223,6 +223,14 @@ export type GananciaLiquidacion = {
     reference: string | null
   }>
   desglose: Record<string, number>
+  partes?: Array<{
+    tipo: 'efectivo' | 'cuenta_bancaria' | 'pasarela'
+    valor: number
+    cuenta: string | null
+    detalle: string | null
+  }>
+  metodoPago?: string | null
+  egresoId?: string | null
   createdBy: string | null
   createdAt: string | null
 }
@@ -240,10 +248,19 @@ export async function getAdministradorGanancias(
 export async function liquidarAdministradorGanancias(
   token: string,
   uid: string,
+  payload: {
+    partes: Array<{
+      tipo: 'efectivo' | 'cuenta_bancaria' | 'pasarela'
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
+    beneficiarioNombre?: string
+  },
 ): Promise<{ liquidacion: GananciaLiquidacion; administrador: Administrador }> {
   return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias/liquidar`, token, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
   })
 }
 

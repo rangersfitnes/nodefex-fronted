@@ -741,6 +741,12 @@ export type AvEgreso = {
   concepto: string | null
   valor: number
   unidad: 'COP'
+  metodoPago: string | null
+  partes: AvPagoParte[]
+  origen: string | null
+  liquidacionId: string | null
+  beneficiarioUid: string | null
+  beneficiarioNombre: string | null
   creadoEn: string | null
   actualizadoEn: string | null
   createdBy: string | null
@@ -760,7 +766,17 @@ export async function listAvEgresos(token: string): Promise<{
 
 export async function createAvEgreso(
   token: string,
-  payload: { fecha: string; concepto: string; valor: number },
+  payload: {
+    fecha: string
+    concepto: string
+    valor: number
+    partes: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
+  },
 ): Promise<AvEgreso> {
   const data = await apiFetch<{ egreso: AvEgreso }>('/api/audiovisual/egresos', token, {
     method: 'POST',
@@ -772,7 +788,17 @@ export async function createAvEgreso(
 export async function updateAvEgreso(
   token: string,
   id: string,
-  payload: Partial<{ fecha: string; concepto: string; valor: number }>,
+  payload: Partial<{
+    fecha: string
+    concepto: string
+    valor: number
+    partes: Array<{
+      tipo: AvMetodoPagoTipo
+      valor: number
+      cuenta?: string
+      detalle?: string
+    }>
+  }>,
 ): Promise<AvEgreso> {
   const data = await apiFetch<{ egreso: AvEgreso }>(
     `/api/audiovisual/egresos/${encodeURIComponent(id)}`,
@@ -791,12 +817,22 @@ export async function deleteAvEgreso(token: string, id: string): Promise<void> {
   })
 }
 
+export type AvPresupuestoMetodo = {
+  tipo: AvMetodoPagoTipo
+  label: string
+  ingresos: number
+  egresos: number
+  disponible: number
+}
+
 export type AvFinanzasResumen = {
   ingresosTotales: number
   egresosTotales: number
   disponible: number
   cantidadIngresos: number
   cantidadEgresos: number
+  egresosSinPartes?: number
+  porMetodo?: AvPresupuestoMetodo[]
 }
 
 export async function getAvFinanzasResumen(token: string): Promise<AvFinanzasResumen> {
