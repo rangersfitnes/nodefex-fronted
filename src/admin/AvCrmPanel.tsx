@@ -42,12 +42,7 @@ import {
   type AvEquipoEstadistica,
   type AvVenta,
 } from '../api/audiovisual'
-import {
-  ADMIN_ACCIONES_AUDIOVISUAL,
-  formatCop,
-  type AdminAccion,
-} from '../api/administradores'
-import { esProyectoAudiovisual } from '../api/proyectos'
+import { formatCop, type AdminAccion } from '../api/administradores'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
@@ -76,27 +71,14 @@ import {
 import { buildAvCotizacionPdf } from './avCotizacionPdf'
 import { AvCrmAutoMensajesPanel } from './AvCrmAutoMensajesPanel'
 import { AvCrmMensajesPanel } from './AvCrmMensajesPanel'
+import {
+  AV_STAFF_TABS,
+  modesFromAvAccesos,
+  modesToAvAccionesVisualizar,
+  type CapabilityMode,
+} from './avStaffPermisos'
 
-const VENDEDOR_ACCIONES = ADMIN_ACCIONES_AUDIOVISUAL.filter(
-  (item) => item.id !== 'av_accesos',
-)
-
-function getVendedorAvAcciones(vendedor: AvCrmVendedor): AdminAccion[] {
-  const accesos = vendedor.accesos || {}
-  for (const [key, value] of Object.entries(accesos)) {
-    if (!esProyectoAudiovisual(key)) continue
-    if (value.nivel === 'manage') {
-      return VENDEDOR_ACCIONES.map((item) => item.id)
-    }
-    const acciones = Array.isArray(value.acciones)
-      ? value.acciones.filter((id): id is AdminAccion =>
-          VENDEDOR_ACCIONES.some((item) => item.id === id),
-        )
-      : []
-    return Array.from(new Set<AdminAccion>(['av_crm', ...acciones]))
-  }
-  return ['av_crm']
-}
+const VENDEDOR_ACCIONES = AV_STAFF_TABS
 
 const EMPTY_STATUS: AvCrmWhatsappStatus = {
   status: 'idle',
@@ -1132,7 +1114,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [vendedorSaving, setVendedorSaving] = useState(false)
   const [vendedorDeletingUid, setVendedorDeletingUid] = useState<string | null>(null)
   const [vendedorExpandedUid, setVendedorExpandedUid] = useState<string | null>(null)
-  const [vendedorDraftAcciones, setVendedorDraftAcciones] = useState<AdminAccion[]>(['av_crm'])
+  const [vendedorDraftModes, setVendedorDraftModes] = useState<
+    Record<AdminAccion, CapabilityMode>
+  >(() => modesFromAvAccesos(null))
   const [vendedorAccesosSaving, setVendedorAccesosSaving] = useState(false)
   const [vendedorVentas, setVendedorVentas] = useState<AvVenta[]>([])
   const [vendedorVentasLoading, setVendedorVentasLoading] = useState(false)
@@ -1882,7 +1866,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     setVendedorPassword('')
     setVendedorRolNuevo('vendedor')
     setVendedorExpandedUid(null)
-    setVendedorDraftAcciones(['av_crm'])
+    setVendedorDraftModes(modesFromAvAccesos(null))
     setVendedorVentas([])
     setVendedoresLoading(true)
     try {
@@ -1918,7 +1902,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       return
     }
     setVendedorExpandedUid(item.uid)
-    setVendedorDraftAcciones(getVendedorAvAcciones(item))
+    setVendedorDraftModes(modesFromAvAccesos(item.accesos))
     setVendedoresError('')
     setVendedorVentasLoading(true)
     try {
@@ -1933,14 +1917,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  function toggleVendedorAccion(accion: AdminAccion) {
+  function setVendedorCapabilityMode(accion: AdminAccion, mode: CapabilityMode) {
     if (accion === 'av_crm') return
-    setVendedorDraftAcciones((current) => {
-      if (current.includes(accion)) {
-        return current.filter((item) => item !== accion)
-      }
-      return [...current, accion]
-    })
+    setVendedorDraftModes((current) => ({ ...current, [accion]: mode }))
   }
 
   async function handleSaveVendedorAccesos(item: AvCrmVendedor) {
@@ -1948,12 +1927,13 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     setVendedorAccesosSaving(true)
     setVendedoresError('')
     try {
+      const { acciones, visualizar } = modesToAvAccionesVisualizar(vendedorDraftModes)
       const token = await user.getIdToken()
-      const updated = await saveAvCrmVendedorAccesos(token, item.uid, vendedorDraftAcciones)
+      const updated = await saveAvCrmVendedorAccesos(token, item.uid, acciones, visualizar)
       setVendedores((current) =>
         current.map((vendedor) => (vendedor.uid === updated.uid ? updated : vendedor)),
       )
-      setVendedorDraftAcciones(getVendedorAvAcciones(updated))
+      setVendedorDraftModes(modesFromAvAccesos(updated.accesos))
     } catch (err) {
       setVendedoresError(
         err instanceof Error ? err.message : 'No se pudieron guardar los accesos del vendedor',
@@ -2002,7 +1982,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         },
       }))
       setVendedorExpandedUid(created.uid)
-      setVendedorDraftAcciones(getVendedorAvAcciones(created))
+      setVendedorDraftModes(modesFromAvAccesos(created.accesos))
       setVendedorVentas([])
       setVendedorNombre('')
       setVendedorCedula('')
@@ -3250,29 +3230,63 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       {expanded ? (
                         <div className="av-crm-vendedor-permisos">
                           <p className="section-note">
-                            Marca las funciones que este{' '}
-                            {item.rol === 'admin' ? 'administrador' : 'vendedor'} puede gestionar.
+                            Define por pestaña si puede gestionar, solo visualizar o no tiene acceso.
+                            CRM siempre queda en gestionar. Los cambios se sincronizan con
+                            Administradores (El Genio) y el detalle global del perfil.
                           </p>
-                          <div className="av-crm-vendedor-checks" role="group" aria-label="Funciones">
+                          <div className="av-admins-permisos-list">
                             {VENDEDOR_ACCIONES.map((accion) => {
                               const locked = accion.id === 'av_crm'
-                              const checked = vendedorDraftAcciones.includes(accion.id)
+                              const mode = vendedorDraftModes[accion.id] ?? 'none'
                               return (
-                                <label
-                                  key={accion.id}
-                                  className={`av-crm-vendedor-check ${locked ? 'is-locked' : ''}`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={locked || vendedorAccesosSaving}
-                                    onChange={() => toggleVendedorAccion(accion.id)}
-                                  />
-                                  <span>
+                                <div key={accion.id} className="admin-capability-row">
+                                  <span className="admin-capability-label">
                                     {accion.label}
                                     {locked ? ' (base)' : ''}
                                   </span>
-                                </label>
+                                  <div
+                                    className="admin-capability-modes"
+                                    role="radiogroup"
+                                    aria-label={`Permiso ${accion.label}`}
+                                  >
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`crm-perm-${item.uid}-${accion.id}`}
+                                        checked={mode === 'none'}
+                                        disabled={locked || vendedorAccesosSaving}
+                                        onChange={() =>
+                                          setVendedorCapabilityMode(accion.id, 'none')
+                                        }
+                                      />
+                                      Sin acceso
+                                    </label>
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`crm-perm-${item.uid}-${accion.id}`}
+                                        checked={mode === 'view'}
+                                        disabled={locked || vendedorAccesosSaving}
+                                        onChange={() =>
+                                          setVendedorCapabilityMode(accion.id, 'view')
+                                        }
+                                      />
+                                      Solo visualizar
+                                    </label>
+                                    <label>
+                                      <input
+                                        type="radio"
+                                        name={`crm-perm-${item.uid}-${accion.id}`}
+                                        checked={mode === 'manage'}
+                                        disabled={locked || vendedorAccesosSaving}
+                                        onChange={() =>
+                                          setVendedorCapabilityMode(accion.id, 'manage')
+                                        }
+                                      />
+                                      Puede gestionar
+                                    </label>
+                                  </div>
+                                </div>
                               )
                             })}
                           </div>

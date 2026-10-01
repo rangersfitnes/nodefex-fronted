@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
 import {
-  ADMIN_ACCIONES_AUDIOVISUAL,
   formatCop,
   getAdministradorGanancias,
   liquidarAdministradorGanancias,
@@ -16,7 +15,6 @@ import {
   type AvFinanzasResumen,
   type AvMetodoPagoTipo,
 } from '../api/audiovisual'
-import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
@@ -30,41 +28,17 @@ import {
   Users,
   X,
 } from '../icons'
+import {
+  AV_STAFF_TABS,
+  modesFromAvAccesos,
+  modesToAvAccionesVisualizar,
+  type CapabilityMode,
+} from './avStaffPermisos'
 
-type CapabilityMode = 'none' | 'view' | 'manage'
-
-const STAFF_TABS = ADMIN_ACCIONES_AUDIOVISUAL
+const STAFF_TABS = AV_STAFF_TABS
 
 function emptyModes(): Record<AdminAccion, CapabilityMode> {
-  const modes = {} as Record<AdminAccion, CapabilityMode>
-  for (const tab of STAFF_TABS) modes[tab.id] = 'none'
-  modes.av_crm = 'manage'
-  return modes
-}
-
-function modesFromItem(item: AvAdministradorProyecto): Record<AdminAccion, CapabilityMode> {
-  const modes = emptyModes()
-  const accesos = item.accesos || {}
-  for (const [key, value] of Object.entries(accesos)) {
-    if (!esProyectoAudiovisual(key)) continue
-    if (value.nivel === 'manage') {
-      for (const tab of STAFF_TABS) modes[tab.id] = 'manage'
-      break
-    }
-    if (value.nivel === 'view') {
-      for (const tab of STAFF_TABS) modes[tab.id] = 'view'
-      modes.av_crm = 'manage'
-      break
-    }
-    for (const id of value.acciones || []) {
-      if (modes[id as AdminAccion] !== undefined) modes[id as AdminAccion] = 'manage'
-    }
-    for (const id of value.visualizar || []) {
-      if (modes[id as AdminAccion] === 'none') modes[id as AdminAccion] = 'view'
-    }
-  }
-  modes.av_crm = 'manage'
-  return modes
+  return modesFromAvAccesos(null)
 }
 
 type LiquidarParteForm = {
@@ -190,7 +164,7 @@ export function AvAdministradoresPanel() {
           }),
       )
       if (expandedUid === item.uid) {
-        setDraftModes(modesFromItem({ ...item, ...updated }))
+        setDraftModes(modesFromAvAccesos(updated.accesos))
       }
       setSuccess(
         `Rol en El Genio actualizado: ${updated.nombre || updated.email} → ${
@@ -210,7 +184,7 @@ export function AvAdministradoresPanel() {
       return
     }
     setExpandedUid(item.uid)
-    setDraftModes(modesFromItem(item))
+    setDraftModes(modesFromAvAccesos(item.accesos))
     setError('')
   }
 
@@ -225,15 +199,7 @@ export function AvAdministradoresPanel() {
     setError('')
     setSuccess('')
     try {
-      const acciones: AdminAccion[] = []
-      const visualizar: AdminAccion[] = []
-      for (const tab of STAFF_TABS) {
-        const mode = draftModes[tab.id] ?? 'none'
-        if (tab.id === 'av_crm' || mode === 'manage') acciones.push(tab.id)
-        else if (mode === 'view') visualizar.push(tab.id)
-      }
-      if (!acciones.includes('av_crm')) acciones.push('av_crm')
-
+      const { acciones, visualizar } = modesToAvAccionesVisualizar(draftModes)
       const token = await user.getIdToken()
       const updated = await saveAvCrmVendedorAccesos(token, item.uid, acciones, visualizar)
       setItems((current) =>
@@ -246,12 +212,7 @@ export function AvAdministradoresPanel() {
             : row,
         ),
       )
-      setDraftModes(
-        modesFromItem({
-          ...item,
-          accesos: updated.accesos,
-        }),
-      )
+      setDraftModes(modesFromAvAccesos(updated.accesos))
       setSuccess(`Permisos actualizados para ${item.nombre || item.email}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron guardar los permisos')

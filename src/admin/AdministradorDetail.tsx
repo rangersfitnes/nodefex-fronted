@@ -28,6 +28,7 @@ import {
   listProyectos,
   type Proyecto,
 } from '../api/proyectos'
+import { resolveAvAccess } from './avStaffPermisos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
@@ -111,10 +112,21 @@ function modeFromAccess(
   return 'none'
 }
 
+function accessForProyecto(
+  accesos: Record<string, ProyectoAccesoConfig> | null | undefined,
+  proyectoId: string,
+): ProyectoAccesoConfig | undefined {
+  if (esProyectoAudiovisual(proyectoId)) return resolveAvAccess(accesos)
+  return accesos?.[proyectoId]
+}
+
 function emptyModesForProyecto(proyectoId: string): Record<AdminAccion, CapabilityMode> {
   const modes = {} as Record<AdminAccion, CapabilityMode>
   for (const accion of accionesDisponiblesParaProyecto(proyectoId)) {
     modes[accion.id] = 'none'
+  }
+  if (esProyectoAudiovisual(proyectoId)) {
+    modes.av_crm = 'manage'
   }
   return modes
 }
@@ -183,12 +195,15 @@ export function AdministradorDetail() {
         const nextPct: Record<string, string> = {}
         const nextTotales: Record<string, number> = {}
         for (const proyecto of proyectosData) {
-          const access = profile.accesos?.[proyecto.id]
+          const access = accessForProyecto(profile.accesos, proyecto.id)
           const ganancia = profile.ganancias?.[proyecto.id]
           nextChoices[proyecto.id] = access?.nivel ?? 'none'
           const modes = emptyModesForProyecto(proyecto.id)
           for (const accion of accionesDisponiblesParaProyecto(proyecto.id)) {
             modes[accion.id] = modeFromAccess(access, accion.id)
+          }
+          if (esProyectoAudiovisual(proyecto.id)) {
+            modes.av_crm = 'manage'
           }
           nextModes[proyecto.id] = modes
           nextOn[proyecto.id] = Boolean(ganancia?.activa)
@@ -238,11 +253,13 @@ export function AdministradorDetail() {
   }
 
   function setCapabilityMode(proyectoId: string, accion: AdminAccion, mode: CapabilityMode) {
+    if (esProyectoAudiovisual(proyectoId) && accion === 'av_crm') return
     setCapabilityModes((current) => ({
       ...current,
       [proyectoId]: {
         ...(current[proyectoId] ?? emptyModesForProyecto(proyectoId)),
         [accion]: mode,
+        ...(esProyectoAudiovisual(proyectoId) ? { av_crm: 'manage' as CapabilityMode } : {}),
       },
     }))
     setChoices((current) => ({ ...current, [proyectoId]: 'custom' }))
@@ -261,7 +278,8 @@ export function AdministradorDetail() {
       const ganancias: Record<string, { activa: boolean; porcentaje: number }> = {}
       for (const [proyectoId, choice] of Object.entries(choices)) {
         if (choice === 'none') continue
-        const previousRol = admin.accesos?.[proyectoId]?.rol
+        const previous = accessForProyecto(admin.accesos, proyectoId)
+        const previousRol = previous?.rol
         const projectRol =
           previousRol === 'admin' || previousRol === 'vendedor'
             ? previousRol
@@ -273,9 +291,15 @@ export function AdministradorDetail() {
           const acciones: AdminAccion[] = []
           const visualizar: AdminAccion[] = []
           for (const accion of accionesDisponiblesParaProyecto(proyectoId)) {
-            const mode = modes[accion.id] ?? 'none'
+            const mode =
+              esProyectoAudiovisual(proyectoId) && accion.id === 'av_crm'
+                ? 'manage'
+                : (modes[accion.id] ?? 'none')
             if (mode === 'manage') acciones.push(accion.id)
             if (mode === 'view') visualizar.push(accion.id)
+          }
+          if (esProyectoAudiovisual(proyectoId) && !acciones.includes('av_crm')) {
+            acciones.push('av_crm')
           }
           if (acciones.length === 0 && visualizar.length === 0) {
             accesos[proyectoId] = {
@@ -320,12 +344,15 @@ export function AdministradorDetail() {
       const nextPct: Record<string, string> = {}
       const nextTotales: Record<string, number> = {}
       for (const proyecto of proyectos) {
-        const access = updated.accesos?.[proyecto.id]
+        const access = accessForProyecto(updated.accesos, proyecto.id)
         const ganancia = updated.ganancias?.[proyecto.id]
         nextChoices[proyecto.id] = access?.nivel ?? 'none'
         const modes = emptyModesForProyecto(proyecto.id)
         for (const accion of accionesDisponiblesParaProyecto(proyecto.id)) {
           modes[accion.id] = modeFromAccess(access, accion.id)
+        }
+        if (esProyectoAudiovisual(proyecto.id)) {
+          modes.av_crm = 'manage'
         }
         nextModes[proyecto.id] = modes
         nextOn[proyecto.id] = Boolean(ganancia?.activa)
@@ -728,10 +755,15 @@ export function AdministradorDetail() {
                             </p>
                           ) : (
                             capacidades.map((accion) => {
-                              const mode = modes[accion.id] ?? 'none'
+                              const locked =
+                                esProyectoAudiovisual(proyecto.id) && accion.id === 'av_crm'
+                              const mode = locked ? 'manage' : (modes[accion.id] ?? 'none')
                               return (
                                 <div key={accion.id} className="admin-capability-row">
-                                  <span className="admin-capability-label">{accion.label}</span>
+                                  <span className="admin-capability-label">
+                                    {accion.label}
+                                    {locked ? ' (base)' : ''}
+                                  </span>
                                   <div className="admin-capability-modes">
                                     <label>
                                       <input
@@ -741,7 +773,7 @@ export function AdministradorDetail() {
                                         onChange={() =>
                                           setCapabilityMode(proyecto.id, accion.id, 'none')
                                         }
-                                        disabled={saving}
+                                        disabled={saving || locked}
                                       />
                                       Sin acceso
                                     </label>
@@ -753,7 +785,7 @@ export function AdministradorDetail() {
                                         onChange={() =>
                                           setCapabilityMode(proyecto.id, accion.id, 'view')
                                         }
-                                        disabled={saving}
+                                        disabled={saving || locked}
                                       />
                                       Solo visualizar
                                     </label>
@@ -765,7 +797,7 @@ export function AdministradorDetail() {
                                         onChange={() =>
                                           setCapabilityMode(proyecto.id, accion.id, 'manage')
                                         }
-                                        disabled={saving}
+                                        disabled={saving || locked}
                                       />
                                       Puede gestionar
                                     </label>
