@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, User, Users, Video } from '../icons'
+import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, Receipt, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvCotizacionesPanel } from './AvCotizacionesPanel'
@@ -19,6 +19,7 @@ import { AvMiPerfilPanel } from './AvMiPerfilPanel'
 import { AvMovimientosPanel } from './AvMovimientosPanel'
 import { AvOwnerGestionPanel } from './AvOwnerGestionPanel'
 import { AvPlanesPanel } from './AvPlanesPanel'
+import { AvVentasPanel } from './AvVentasPanel'
 
 type AudiovisualVista =
   | 'finanzas'
@@ -28,6 +29,7 @@ type AudiovisualVista =
   | 'accesos'
   | 'creditos'
   | 'cotizaciones'
+  | 'ventas'
   | 'crm'
   | 'movimientos'
   | 'mi-perfil'
@@ -41,12 +43,14 @@ const TABS: {
   action: AdminAccion | null
   ownerOnly?: boolean
   adminOnly?: boolean
+  staffOnly?: boolean
   shared?: boolean
 }[] = [
   // CRM primero: admins con muchas pestañas no lo pierden fuera del scroll.
   { id: 'crm', label: 'CRM', icon: MessageCircle, action: 'av_crm' },
   { id: 'clientes', label: 'Clientes', icon: Users, action: 'av_clientes' },
   { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText, action: 'av_cotizaciones' },
+  { id: 'ventas', label: 'Ventas', icon: Receipt, action: 'av_ventas' },
   { id: 'finanzas', label: 'Finanzas', icon: Banknote, action: 'av_finanzas' },
   { id: 'planes', label: 'Planes', icon: Layers, action: 'av_planes' },
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
@@ -71,7 +75,7 @@ const TABS: {
     label: 'Mi perfil',
     icon: User,
     action: null,
-    adminOnly: true,
+    staffOnly: true,
   },
 ]
 
@@ -183,13 +187,14 @@ export function AudiovisualPanel({
     () =>
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
+        if (tab.staffOnly) return (isAdmin || isVendedor) && !isOwner
         if (tab.adminOnly) return isAdmin && !isOwner
         // Accesos: solo quien tiene av_accesos / view / manage (no inflar la barra).
         if (tab.shared) return isOwner || canViewAvTab(access, 'av_accesos')
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
-    [access, isOwner, isAdmin],
+    [access, isOwner, isAdmin, isVendedor],
   )
 
   const [vista, setVista] = useState<AudiovisualVista>(
@@ -210,6 +215,7 @@ export function AudiovisualPanel({
   const clientesReadOnly = !canEditAvTab(access, 'av_clientes')
   const creditosReadOnly = !canEditAvTab(access, 'av_creditos')
   const cotizacionesReadOnly = !canEditAvTab(access, 'av_cotizaciones')
+  const ventasReadOnly = !canEditAvTab(access, 'av_ventas')
   const crmReadOnly = !canEditAvTab(access, 'av_crm')
   const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
   const showEquiposAviso = Boolean(user) && (isAdmin || isOwner || isVendedor || Boolean(access))
@@ -352,13 +358,15 @@ export function AudiovisualPanel({
         <AvCotizacionesPanel readOnly={cotizacionesReadOnly} />
       ) : null}
 
+      {vista === 'ventas' ? <AvVentasPanel readOnly={ventasReadOnly} /> : null}
+
       {vista === 'crm' && hasCrmTab ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 
       {vista === 'contrato-avisos' && isOwner ? <AvOwnerGestionPanel /> : null}
 
-      {vista === 'mi-perfil' && isAdmin && !isOwner ? (
+      {vista === 'mi-perfil' && (isAdmin || isVendedor) && !isOwner ? (
         <AvMiPerfilPanel access={access} />
       ) : null}
     </section>

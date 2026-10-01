@@ -10,9 +10,11 @@ import {
   getAvContrato,
   getAvGenioAdmin,
   listAvNotificaciones,
+  listAvVentas,
   type AvContrato,
   type AvGenioAdmin,
   type AvNotificacion,
+  type AvVenta,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -117,6 +119,7 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
   const [contrato, setContrato] = useState<AvContrato | null>(null)
   const [genioAdmin, setGenioAdmin] = useState<AvGenioAdmin | null>(null)
   const [notificaciones, setNotificaciones] = useState<AvNotificacion[]>([])
+  const [ventas, setVentas] = useState<AvVenta[]>([])
   const [extraLoading, setExtraLoading] = useState(true)
   const [extraError, setExtraError] = useState('')
 
@@ -124,20 +127,22 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
     let cancelled = false
 
     async function load() {
-      if (!user) return
+      if (!user || !administrador?.uid) return
       setExtraLoading(true)
       setExtraError('')
       try {
         const token = await user.getIdToken()
-        const [contratoData, genioData, notificacionesData] = await Promise.all([
+        const [contratoData, genioData, notificacionesData, ventasData] = await Promise.all([
           getAvContrato(token),
           getAvGenioAdmin(token),
           listAvNotificaciones(token),
+          listAvVentas(token, { vendedorUid: administrador.uid }).catch(() => [] as AvVenta[]),
         ])
         if (cancelled) return
         setContrato(contratoData)
         setGenioAdmin(genioData)
         setNotificaciones(notificacionesData)
+        setVentas(ventasData)
       } catch (err) {
         if (!cancelled) {
           setExtraError(
@@ -153,14 +158,14 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, administrador?.uid])
 
   if (!administrador) {
     return (
       <div className="av-mi-perfil" role="tabpanel" aria-label="Mi perfil">
         <div className="proyectos-empty">
           <User size={28} strokeWidth={1.75} aria-hidden />
-          <p>No se pudo cargar tu perfil de administrador.</p>
+          <p>No se pudo cargar tu perfil.</p>
         </div>
       </div>
     )
@@ -171,6 +176,8 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
     access,
   )
   const ganancia = resolveAudiovisualGanancia(administrador.ganancias, proyectoId)
+  const rolLabel = administrador.rol === 'vendedor' ? 'Vendedor' : 'Administrador'
+  const ventasTotal = ventas.reduce((sum, item) => sum + (item.cotizacionSubtotal || 0), 0)
 
   return (
     <div className="av-mi-perfil" role="tabpanel" aria-label="Mi perfil">
@@ -178,7 +185,7 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
         <div>
           <h3>Mi perfil</h3>
           <p className="section-note">
-            Tu información como administrador en Nodefex Audio Visual.
+            Tu información y ventas registradas en Nodefex Audio Visual.
           </p>
         </div>
       </div>
@@ -186,13 +193,13 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
       <div className="av-ingresos-detail">
         <div className="av-ingresos-detail-head">
           <div>
-            <p className="av-ingresos-kicker">Administrador</p>
+            <p className="av-ingresos-kicker">{rolLabel}</p>
             <h3>{administrador.nombre || administrador.email || 'Sin nombre'}</h3>
             <p className="section-note">{administrador.email || 'Sin correo'}</p>
           </div>
           <span className="av-estado av-estado-parcial">
             <Shield size={14} strokeWidth={2} aria-hidden />
-            Admin
+            {rolLabel}
           </span>
         </div>
 
@@ -216,7 +223,7 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
           </div>
           <div>
             <dt>Rol</dt>
-            <dd>Administrador</dd>
+            <dd>{rolLabel}</dd>
           </div>
           <div>
             <dt>Cuenta creada</dt>
@@ -227,6 +234,59 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
             <dd>{formatFecha(administrador.lastSignInAt)}</dd>
           </div>
         </dl>
+
+        <section className="av-cliente-section">
+          <h3>Mis ventas</h3>
+          <p className="section-note">
+            {ventas.length} venta{ventas.length === 1 ? '' : 's'} · Total {formatCop(ventasTotal)}
+          </p>
+          {extraLoading ? (
+            <div className="proyectos-status">
+              <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
+              Cargando ventas...
+            </div>
+          ) : ventas.length === 0 ? (
+            <p className="section-note">Aún no tienes ventas asignadas a tu perfil.</p>
+          ) : (
+            <div className="pagos-table-wrap">
+              <table className="pagos-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Cotización</th>
+                    <th>Pago</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventas.map((venta) => (
+                    <tr key={venta.id}>
+                      <td>{formatFecha(venta.creadoEn)}</td>
+                      <td>
+                        <strong>{venta.clienteNombre || '—'}</strong>
+                        {venta.clienteDocumento ? (
+                          <div className="section-note">Doc. {venta.clienteDocumento}</div>
+                        ) : null}
+                      </td>
+                      <td>{venta.cotizacionNumero || '—'}</td>
+                      <td>
+                        {venta.metodoPagoTipo === 'efectivo'
+                          ? 'Efectivo'
+                          : venta.metodoPagoTipo === 'cuenta_bancaria'
+                            ? venta.metodoPagoCuenta
+                              ? `Transferencia · ${venta.metodoPagoCuenta}`
+                              : 'Transferencia'
+                            : venta.metodoPago || '—'}
+                      </td>
+                      <td>{formatCop(venta.cotizacionSubtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <section className="av-cliente-section">
           <h3>Acceso a Nodefex Audio Visual</h3>

@@ -1820,12 +1820,33 @@ export type AvCrmVendedor = {
   lastSignInAt: string | null
 }
 
+export type AvEquipoEstadistica = {
+  uid: string
+  email: string | null
+  nombre: string | null
+  cedula: string | null
+  rol: 'vendedor' | 'admin'
+  ventasCount: number
+  cotizacionesCount: number
+  ventasTotal: number
+  createdAt: string | null
+  lastSignInAt: string | null
+}
+
 export async function listAvCrmVendedores(token: string): Promise<AvCrmVendedor[]> {
   const data = await apiFetch<{ vendedores: AvCrmVendedor[] }>(
     '/api/audiovisual/crm/vendedores',
     token,
   )
   return data.vendedores
+}
+
+export async function listAvEquipoEstadisticas(token: string): Promise<AvEquipoEstadistica[]> {
+  const data = await apiFetch<{ equipo: AvEquipoEstadistica[] }>(
+    '/api/audiovisual/equipo/estadisticas',
+    token,
+  )
+  return data.equipo
 }
 
 export async function createAvCrmVendedor(
@@ -1900,6 +1921,7 @@ export type AvCotizacionItem = {
 export type AvCotizacion = {
   id: string
   numero: string | null
+  clienteId: string | null
   clienteNombre: string | null
   clienteDocumento: string | null
   clienteCorreo: string | null
@@ -1941,7 +1963,8 @@ export async function listAvCotizaciones(token: string): Promise<AvCotizacion[]>
 export async function createAvCotizacion(
   token: string,
   payload: {
-    clienteNombre: string
+    clienteId: string
+    clienteNombre?: string
     clienteDocumento?: string
     clienteCorreo?: string
     clienteTelefono?: string
@@ -1958,6 +1981,71 @@ export async function createAvCotizacion(
 
 export async function deleteAvCotizacion(token: string, id: string): Promise<void> {
   await apiFetch(`/api/audiovisual/cotizaciones/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
+}
+
+export type AvVenta = {
+  id: string
+  clienteId: string | null
+  clienteNombre: string | null
+  clienteDocumento: string | null
+  clienteCorreo: string | null
+  clienteTelefono: string | null
+  cotizacionId: string | null
+  cotizacionNumero: string | null
+  cotizacionSubtotal: number
+  cotizacionResumen: string | null
+  vendedorUid: string | null
+  vendedorNombre: string | null
+  vendedorCedula: string | null
+  vendedorEmail: string | null
+  vendedorRol: string | null
+  metodoPagoTipo: 'efectivo' | 'cuenta_bancaria' | null
+  metodoPagoCuenta: string | null
+  metodoPago: string | null
+  ingresoId: string | null
+  notas: string | null
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+  createdByNombre: string | null
+}
+
+export async function listAvVentas(
+  token: string,
+  options?: { vendedorUid?: string },
+): Promise<AvVenta[]> {
+  const params = new URLSearchParams()
+  if (options?.vendedorUid) params.set('vendedorUid', options.vendedorUid)
+  const qs = params.toString()
+  const data = await apiFetch<{ ventas: AvVenta[] }>(
+    `/api/audiovisual/ventas${qs ? `?${qs}` : ''}`,
+    token,
+  )
+  return data.ventas
+}
+
+export async function createAvVenta(
+  token: string,
+  payload: {
+    clienteId: string
+    cotizacionId: string
+    vendedorUid: string
+    metodoPagoTipo: 'efectivo' | 'cuenta_bancaria'
+    metodoPagoCuenta?: string
+    notas?: string
+  },
+): Promise<AvVenta> {
+  const data = await apiFetch<{ venta: AvVenta }>('/api/audiovisual/ventas', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.venta
+}
+
+export async function deleteAvVenta(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/ventas/${encodeURIComponent(id)}`, token, {
     method: 'DELETE',
   })
 }

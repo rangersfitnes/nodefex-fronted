@@ -10,6 +10,8 @@ const TIPO_LABEL: Record<string, string> = {
   pago: 'Pago',
   ingreso: 'Ingreso',
   egreso: 'Egreso',
+  venta: 'Venta',
+  cotizacion: 'Cotización',
 }
 
 const ACCION_LABEL: Record<string, string> = {

@@ -17,8 +17,10 @@ import {
 } from '../api/administradores'
 import {
   getAvFinanzasResumen,
+  listAvVentas,
   type AvFinanzasResumen,
   type AvMetodoPagoTipo,
+  type AvVenta,
 } from '../api/audiovisual'
 import {
   esProyectoAudiovisual,
@@ -134,6 +136,7 @@ export function AdministradorDetail() {
   const [movimientos, setMovimientos] = useState<GananciaMovimiento[]>([])
   const [liquidaciones, setLiquidaciones] = useState<GananciaLiquidacion[]>([])
   const [pendienteTotal, setPendienteTotal] = useState(0)
+  const [ventas, setVentas] = useState<AvVenta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -157,13 +160,14 @@ export function AdministradorDetail() {
       setSuccess('')
       try {
         const token = await user.getIdToken()
-        const [profile, proyectosData, gananciasData] = await Promise.all([
+        const [profile, proyectosData, gananciasData, ventasData] = await Promise.all([
           getAdministrador(token, decodedUid),
           listProyectos(token),
           getAdministradorGanancias(token, decodedUid).catch(() => ({
             pendiente: { total: 0, movimientos: [] as GananciaMovimiento[] },
             liquidaciones: [] as GananciaLiquidacion[],
           })),
+          listAvVentas(token, { vendedorUid: decodedUid }).catch(() => [] as AvVenta[]),
         ])
         if (cancelled) return
         if (profile.rol === 'owner') {
@@ -172,6 +176,7 @@ export function AdministradorDetail() {
         }
         setAdmin(profile)
         setProyectos(proyectosData)
+        setVentas(ventasData)
         const nextChoices: Record<string, AccessChoice> = {}
         const nextModes: Record<string, Partial<Record<AdminAccion, CapabilityMode>>> = {}
         const nextOn: Record<string, boolean> = {}
@@ -566,6 +571,62 @@ export function AdministradorDetail() {
                 </ul>
               </section>
             ) : null}
+
+            <section className="admin-ganancia-ledger" aria-label="Ventas del administrador">
+              <div className="admin-ganancia-ledger-head">
+                <div>
+                  <p className="dashboard-eyebrow">Comercial</p>
+                  <h2>Ventas registradas</h2>
+                </div>
+                <strong>
+                  {ventas.length} ·{' '}
+                  {formatCop(ventas.reduce((sum, item) => sum + (item.cotizacionSubtotal || 0), 0))}
+                </strong>
+              </div>
+              {ventas.length === 0 ? (
+                <p className="admin-ganancia-empty">
+                  Aún no hay ventas asignadas a este administrador.
+                </p>
+              ) : (
+                <div className="admin-ganancia-table-wrap">
+                  <table className="admin-ganancia-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Cotización</th>
+                        <th>Pago</th>
+                        <th>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ventas.map((venta) => (
+                        <tr key={venta.id}>
+                          <td>{formatFecha(venta.creadoEn)}</td>
+                          <td>
+                            <span>{venta.clienteNombre || '—'}</span>
+                            {venta.clienteDocumento ? (
+                              <small>Doc. {venta.clienteDocumento}</small>
+                            ) : null}
+                          </td>
+                          <td>{venta.cotizacionNumero || '—'}</td>
+                          <td>
+                            {venta.metodoPagoTipo === 'efectivo'
+                              ? 'Efectivo'
+                              : venta.metodoPagoTipo === 'cuenta_bancaria'
+                                ? venta.metodoPagoCuenta
+                                  ? `Transferencia · ${venta.metodoPagoCuenta}`
+                                  : 'Transferencia'
+                                : venta.metodoPago || '—'}
+                          </td>
+                          <td>{formatCop(venta.cotizacionSubtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
             <form className="admin-access-form" onSubmit={handleSave}>
             {proyectos.length === 0 ? (

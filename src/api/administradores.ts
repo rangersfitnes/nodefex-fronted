@@ -14,6 +14,7 @@ export type AdminAccion =
   | 'av_creditos'
   | 'av_cotizaciones'
   | 'av_crm'
+  | 'av_ventas'
 
 export const ADMIN_ACCIONES_MEMBRESIA: { id: AdminAccion; label: string }[] = [
   { id: 'create_users', label: 'Crear usuarios' },
@@ -31,6 +32,7 @@ export const ADMIN_ACCIONES_AUDIOVISUAL: { id: AdminAccion; label: string }[] = 
   { id: 'av_accesos', label: 'Accesos' },
   { id: 'av_creditos', label: 'Servicios' },
   { id: 'av_cotizaciones', label: 'Cotizaciones' },
+  { id: 'av_ventas', label: 'Ventas' },
   { id: 'av_crm', label: 'CRM' },
 ]
 
@@ -120,6 +122,17 @@ export async function confirmPasswordChanged(token: string): Promise<Administrad
   return data.administrador
 }
 
+export async function completeMyProfile(
+  token: string,
+  payload: { nombre: string; cedula: string },
+): Promise<Administrador> {
+  const data = await apiFetch<{ administrador: Administrador }>('/api/me/profile', token, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  return data.administrador
+}
+
 export async function listAdministradores(token: string): Promise<Administrador[]> {
   const data = await apiFetch<{ administradores: Administrador[] }>(
     '/api/administradores',
@@ -130,7 +143,7 @@ export async function listAdministradores(token: string): Promise<Administrador[
 
 export async function createAdministrador(
   token: string,
-  payload: { email: string; password: string; nombre?: string; cedula?: string },
+  payload: { email: string; password: string; nombre: string; cedula: string },
 ): Promise<Administrador> {
   const data = await apiFetch<{ administrador: Administrador }>(
     '/api/administradores',

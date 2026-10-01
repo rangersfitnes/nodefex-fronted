@@ -15,6 +15,8 @@ import {
   listAvCrmMensajesPredeterminados,
   listAvCrmRecursos,
   listAvCrmVendedores,
+  listAvEquipoEstadisticas,
+  listAvVentas,
   saveAvCrmRecursoSolicitarDatos,
   saveAvCrmVendedorAccesos,
   sendAvCrmDocument,
@@ -37,6 +39,8 @@ import {
   type AvCrmRecurso,
   type AvCrmVendedor,
   type AvCrmWhatsappStatus,
+  type AvEquipoEstadistica,
+  type AvVenta,
 } from '../api/audiovisual'
 import {
   ADMIN_ACCIONES_AUDIOVISUAL,
@@ -1117,6 +1121,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [mensajesRapidosOpen, setMensajesRapidosOpen] = useState(false)
   const [autoMensajesOpen, setAutoMensajesOpen] = useState(false)
   const [vendedores, setVendedores] = useState<AvCrmVendedor[]>([])
+  const [equipoStats, setEquipoStats] = useState<Record<string, AvEquipoEstadistica>>({})
   const [vendedoresLoading, setVendedoresLoading] = useState(false)
   const [vendedoresError, setVendedoresError] = useState('')
   const [vendedorNombre, setVendedorNombre] = useState('')
@@ -1129,6 +1134,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [vendedorExpandedUid, setVendedorExpandedUid] = useState<string | null>(null)
   const [vendedorDraftAcciones, setVendedorDraftAcciones] = useState<AdminAccion[]>(['av_crm'])
   const [vendedorAccesosSaving, setVendedorAccesosSaving] = useState(false)
+  const [vendedorVentas, setVendedorVentas] = useState<AvVenta[]>([])
+  const [vendedorVentasLoading, setVendedorVentasLoading] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const waShellRef = useRef<HTMLDivElement | null>(null)
@@ -1876,14 +1883,22 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     setVendedorRolNuevo('vendedor')
     setVendedorExpandedUid(null)
     setVendedorDraftAcciones(['av_crm'])
+    setVendedorVentas([])
     setVendedoresLoading(true)
     try {
       const token = await user.getIdToken()
-      const items = await listAvCrmVendedores(token)
+      const [items, stats] = await Promise.all([
+        listAvCrmVendedores(token),
+        listAvEquipoEstadisticas(token).catch(() => [] as AvEquipoEstadistica[]),
+      ])
       setVendedores(items)
+      const byUid: Record<string, AvEquipoEstadistica> = {}
+      for (const item of stats) byUid[item.uid] = item
+      setEquipoStats(byUid)
     } catch (err) {
       setVendedoresError(err instanceof Error ? err.message : 'No se pudo cargar el equipo')
       setVendedores([])
+      setEquipoStats({})
     } finally {
       setVendedoresLoading(false)
     }
@@ -1893,16 +1908,29 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     if (vendedorSaving || vendedorDeletingUid || vendedorAccesosSaving) return
     setVendedoresOpen(false)
     setVendedoresError('')
+    setVendedorVentas([])
   }
 
-  function toggleVendedorExpand(item: AvCrmVendedor) {
+  async function toggleVendedorExpand(item: AvCrmVendedor) {
     if (vendedorExpandedUid === item.uid) {
       setVendedorExpandedUid(null)
+      setVendedorVentas([])
       return
     }
     setVendedorExpandedUid(item.uid)
     setVendedorDraftAcciones(getVendedorAvAcciones(item))
     setVendedoresError('')
+    setVendedorVentasLoading(true)
+    try {
+      if (!user) return
+      const token = await user.getIdToken()
+      const ventas = await listAvVentas(token, { vendedorUid: item.uid })
+      setVendedorVentas(ventas)
+    } catch {
+      setVendedorVentas([])
+    } finally {
+      setVendedorVentasLoading(false)
+    }
   }
 
   function toggleVendedorAccion(accion: AdminAccion) {
@@ -1958,8 +1986,24 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
           )
         }),
       )
+      setEquipoStats((current) => ({
+        ...current,
+        [created.uid]: {
+          uid: created.uid,
+          email: created.email,
+          nombre: created.nombre,
+          cedula: created.cedula,
+          rol: created.rol,
+          ventasCount: 0,
+          cotizacionesCount: 0,
+          ventasTotal: 0,
+          createdAt: created.createdAt,
+          lastSignInAt: created.lastSignInAt,
+        },
+      }))
       setVendedorExpandedUid(created.uid)
       setVendedorDraftAcciones(getVendedorAvAcciones(created))
+      setVendedorVentas([])
       setVendedorNombre('')
       setVendedorCedula('')
       setVendedorEmail('')
@@ -1991,8 +2035,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       const token = await user.getIdToken()
       await deleteAvCrmVendedor(token, item.uid)
       setVendedores((current) => current.filter((v) => v.uid !== item.uid))
+      setEquipoStats((current) => {
+        const next = { ...current }
+        delete next[item.uid]
+        return next
+      })
       if (vendedorExpandedUid === item.uid) {
         setVendedorExpandedUid(null)
+        setVendedorVentas([])
       }
     } catch (err) {
       setVendedoresError(err instanceof Error ? err.message : 'No se pudo eliminar la cuenta')
@@ -3117,7 +3167,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
             <div className="av-crm-equipo-list-head">
               <h3 className="av-crm-vendedores-form-title">Equipo actual</h3>
               <span className="section-note">
-                {vendedoresLoading ? '…' : `${vendedores.length} cuenta${vendedores.length === 1 ? '' : 's'}`}
+                {vendedoresLoading
+                  ? '…'
+                  : `${vendedores.length} cuenta${vendedores.length === 1 ? '' : 's'} · contadores de ventas y cotizaciones`}
               </span>
             </div>
 
@@ -3137,13 +3189,17 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 {vendedores.map((item) => {
                   const expanded = vendedorExpandedUid === item.uid
                   const rolLabel = item.rol === 'admin' ? 'Admin' : 'Vendedor'
+                  const stats = equipoStats[item.uid]
+                  const ventasCount = stats?.ventasCount ?? 0
+                  const cotizacionesCount = stats?.cotizacionesCount ?? 0
+                  const ventasTotal = stats?.ventasTotal ?? 0
                   return (
                     <li key={item.uid} className={expanded ? 'is-expanded' : ''}>
                       <div className="av-crm-vendedor-row">
                         <button
                           type="button"
                           className="av-crm-vendedor-select"
-                          onClick={() => toggleVendedorExpand(item)}
+                          onClick={() => void toggleVendedorExpand(item)}
                           aria-expanded={expanded}
                         >
                           <span className="av-crm-vendedor-meta">
@@ -3157,6 +3213,13 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                             </strong>
                             <span>{item.email}</span>
                             {item.cedula ? <span>Cédula {item.cedula}</span> : null}
+                            <span className="av-crm-vendedor-counters">
+                              {ventasCount} venta{ventasCount === 1 ? '' : 's'}
+                              {ventasTotal > 0 ? ` · ${formatCop(ventasTotal)}` : ''}
+                              {' · '}
+                              {cotizacionesCount} cotización
+                              {cotizacionesCount === 1 ? '' : 'es'}
+                            </span>
                           </span>
                           <ChevronDown
                             size={18}
@@ -3234,6 +3297,27 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                 'Guardar permisos'
                               )}
                             </button>
+                          </div>
+
+                          <div className="av-crm-vendedor-ventas">
+                            <h4>Ventas de este perfil</h4>
+                            {vendedorVentasLoading ? (
+                              <p className="section-note">Cargando ventas...</p>
+                            ) : vendedorVentas.length === 0 ? (
+                              <p className="section-note">Sin ventas registradas.</p>
+                            ) : (
+                              <ul className="av-crm-vendedor-ventas-list">
+                                {vendedorVentas.slice(0, 12).map((venta) => (
+                                  <li key={venta.id}>
+                                    <span>
+                                      {venta.cotizacionNumero || 'Venta'} ·{' '}
+                                      {venta.clienteNombre || 'Cliente'}
+                                    </span>
+                                    <strong>{formatCop(venta.cotizacionSubtotal)}</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         </div>
                       ) : null}

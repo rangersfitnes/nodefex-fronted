@@ -5,8 +5,10 @@ import {
   deleteAvCotizacion,
   generateAvCotizacionResumen,
   getAvEmpresaGenio,
+  listAvClientes,
   listAvCotizaciones,
   listAvServiciosCreditos,
+  type AvCliente,
   type AvCotizacion,
   type AvCotizacionItem,
   type AvEmpresaGenio,
@@ -56,9 +58,20 @@ function formatFecha(iso: string | null): string {
   }).format(new Date(iso))
 }
 
+function clienteCatalogLabel(cliente: AvCliente): string {
+  return [
+    cliente.nombre || 'Sin nombre',
+    cliente.documento ? `Doc. ${cliente.documento}` : null,
+    cliente.telefono || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [cotizaciones, setCotizaciones] = useState<AvCotizacion[]>([])
+  const [clientes, setClientes] = useState<AvCliente[]>([])
   const [servicios, setServicios] = useState<AvServicioCredito[]>([])
   const [empresa, setEmpresa] = useState<AvEmpresaGenio | null>(null)
   const [loading, setLoading] = useState(true)
@@ -67,10 +80,12 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
   const [deletingId, setDeletingId] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [clienteId, setClienteId] = useState('')
   const [clienteNombre, setClienteNombre] = useState('')
   const [clienteDocumento, setClienteDocumento] = useState('')
   const [clienteCorreo, setClienteCorreo] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
+  const [clienteBusqueda, setClienteBusqueda] = useState('')
   const [items, setItems] = useState<DraftItem[]>([])
   const [codigoBusqueda, setCodigoBusqueda] = useState('')
   const [textoBusqueda, setTextoBusqueda] = useState('')
@@ -90,13 +105,15 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
       setError('')
       try {
         const token = await user.getIdToken()
-        const [list, empresaData, serviciosData] = await Promise.all([
+        const [list, empresaData, serviciosData, clientesData] = await Promise.all([
           listAvCotizaciones(token),
           getAvEmpresaGenio(token),
           listAvServiciosCreditos(token),
+          listAvClientes(token),
         ])
         if (cancelled) return
         setCotizaciones(list)
+        setClientes(clientesData)
         setEmpresa(empresaData)
         setServicios(serviciosData)
       } catch (err) {
@@ -119,6 +136,32 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     [items],
   )
 
+  const clienteSeleccionado = useMemo(
+    () => clientes.find((item) => item.id === clienteId) || null,
+    [clientes, clienteId],
+  )
+
+  const clientesFiltrados = useMemo(() => {
+    const q = clienteBusqueda.trim().toLowerCase()
+    if (!q) return clientes.slice(0, 20)
+    return clientes
+      .filter((cliente) => {
+        const haystack = [
+          cliente.nombre,
+          cliente.documento,
+          cliente.telefono,
+          cliente.correo,
+          cliente.ciudad,
+          cliente.contactoNombre,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(q)
+      })
+      .slice(0, 20)
+  }, [clientes, clienteBusqueda])
+
   const serviciosFiltrados = useMemo(() => {
     const q = textoBusqueda.trim().toLowerCase()
     if (!q) return servicios.slice(0, 12)
@@ -139,10 +182,12 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
   }, [servicios, textoBusqueda])
 
   function openCreate() {
+    setClienteId('')
     setClienteNombre('')
     setClienteDocumento('')
     setClienteCorreo('')
     setClienteTelefono('')
+    setClienteBusqueda('')
     setItems([])
     setCodigoBusqueda('')
     setTextoBusqueda('')
@@ -160,6 +205,25 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     setFormError('')
     setCodigoFeedback('')
     setServicioSeleccionado(null)
+  }
+
+  function seleccionarCliente(cliente: AvCliente) {
+    setClienteId(cliente.id)
+    setClienteNombre(cliente.nombre || '')
+    setClienteDocumento(cliente.documento || '')
+    setClienteCorreo(cliente.correo || '')
+    setClienteTelefono(cliente.telefono || '')
+    setClienteBusqueda('')
+    setFormError('')
+  }
+
+  function clearClienteSeleccionado() {
+    setClienteId('')
+    setClienteNombre('')
+    setClienteDocumento('')
+    setClienteCorreo('')
+    setClienteTelefono('')
+    setClienteBusqueda('')
   }
 
   async function handleGenerateResumen() {
@@ -296,8 +360,12 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
       costoUnitario: item.costoUnitario,
     }))
 
+    if (!clienteId) {
+      setFormError('Selecciona un cliente del catálogo.')
+      return
+    }
     if (!nombre) {
-      setFormError('El nombre del cliente es obligatorio.')
+      setFormError('El cliente seleccionado no tiene nombre válido.')
       return
     }
     if (!payloadItems.length) {
@@ -314,6 +382,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     try {
       const token = await user.getIdToken()
       const created = await createAvCotizacion(token, {
+        clienteId,
         clienteNombre: nombre,
         clienteDocumento: clienteDocumento.trim() || undefined,
         clienteCorreo: clienteCorreo.trim() || undefined,
@@ -355,7 +424,8 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
         <div>
           <h3>Cotizaciones</h3>
           <p className="section-note">
-            Arma cotizaciones buscando servicios por código. El valor sale del catálogo de Servicios.
+            Arma cotizaciones ligadas a un cliente del catálogo y servicios por código. Así Ventas
+            puede identificar a quién pertenece cada cotización.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -485,45 +555,83 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
 
             <form className="modal-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
               <div className="av-ingresos-form-grid">
-                <label className="login-field av-ingresos-span-2" htmlFor="av-cot-cliente">
-                  Nombre del cliente
-                  <input
-                    id="av-cot-cliente"
-                    value={clienteNombre}
-                    onChange={(e) => setClienteNombre(e.target.value)}
-                    disabled={submitting}
-                    required
-                    autoFocus
-                  />
-                </label>
-                <label className="login-field" htmlFor="av-cot-doc">
-                  Documento / NIT cliente
-                  <input
-                    id="av-cot-doc"
-                    value={clienteDocumento}
-                    onChange={(e) => setClienteDocumento(e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-                <label className="login-field" htmlFor="av-cot-tel">
-                  Teléfono cliente
-                  <input
-                    id="av-cot-tel"
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-                <label className="login-field av-ingresos-span-2" htmlFor="av-cot-mail">
-                  Correo cliente
-                  <input
-                    id="av-cot-mail"
-                    type="email"
-                    value={clienteCorreo}
-                    onChange={(e) => setClienteCorreo(e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
+                <div className="av-ingresos-span-2">
+                  <label className="login-field" htmlFor="av-cot-cliente-buscar">
+                    Cliente del catálogo
+                    <span className="av-cotizacion-buscar-wrap">
+                      <Search size={16} strokeWidth={2} aria-hidden />
+                      <input
+                        id="av-cot-cliente-buscar"
+                        value={clienteBusqueda}
+                        onChange={(event) => setClienteBusqueda(event.target.value)}
+                        placeholder="Buscar por nombre, documento, teléfono o correo…"
+                        disabled={submitting || generatingResumen || Boolean(clienteSeleccionado)}
+                        autoComplete="off"
+                        autoFocus={!clienteSeleccionado}
+                      />
+                    </span>
+                  </label>
+
+                  {clienteSeleccionado ? (
+                    <div className="av-venta-cliente-info" aria-live="polite">
+                      <p>
+                        <strong>{clienteSeleccionado.nombre || 'Sin nombre'}</strong>
+                      </p>
+                      <p className="section-note">
+                        {[
+                          clienteSeleccionado.documento
+                            ? `Doc. ${clienteSeleccionado.documento}`
+                            : null,
+                          clienteSeleccionado.telefono,
+                          clienteSeleccionado.correo,
+                          clienteSeleccionado.ciudad,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={clearClienteSeleccionado}
+                        disabled={submitting || generatingResumen}
+                      >
+                        Cambiar cliente
+                      </button>
+                    </div>
+                  ) : clientes.length === 0 ? (
+                    <p className="section-note av-readonly-banner">
+                      No hay clientes en el catálogo. Créalos primero en la pestaña Clientes.
+                    </p>
+                  ) : (
+                    <ul
+                      className="av-cotizacion-servicio-results"
+                      role="listbox"
+                      aria-label="Clientes"
+                    >
+                      {clientesFiltrados.length === 0 ? (
+                        <li className="av-cotizacion-servicio-empty">Sin resultados</li>
+                      ) : (
+                        clientesFiltrados.map((cliente) => (
+                          <li key={cliente.id}>
+                            <button
+                              type="button"
+                              className="av-cotizacion-servicio-option"
+                              onClick={() => seleccionarCliente(cliente)}
+                              disabled={submitting || generatingResumen}
+                            >
+                              <span className="av-cotizacion-servicio-option-main">
+                                <strong>{cliente.nombre || 'Sin nombre'}</strong>
+                                <span className="av-cotizacion-servicio-option-desc">
+                                  {clienteCatalogLabel(cliente)}
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               <section className="av-cotizacion-items">

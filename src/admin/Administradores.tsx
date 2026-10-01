@@ -43,6 +43,8 @@ export function Administradores() {
   const [modalOpen, setModalOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [cedula, setCedula] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [adminAEliminar, setAdminAEliminar] = useState<Administrador | null>(null)
@@ -110,6 +112,8 @@ export function Administradores() {
   function openModal() {
     setEmail('')
     setPassword('')
+    setNombre('')
+    setCedula('')
     setFormError('')
     setModalOpen(true)
   }
@@ -123,6 +127,17 @@ export function Administradores() {
     event.preventDefault()
     if (!user) return
 
+    const nombreValue = nombre.trim()
+    const cedulaValue = cedula.replace(/\D/g, '')
+    if (nombreValue.length < 2) {
+      setFormError('El nombre es obligatorio.')
+      return
+    }
+    if (cedulaValue.length < 5 || cedulaValue.length > 12) {
+      setFormError('La cédula debe tener entre 5 y 12 dígitos.')
+      return
+    }
+
     setFormError('')
     setSubmitting(true)
 
@@ -131,6 +146,8 @@ export function Administradores() {
       const created = await createAdministrador(token, {
         email: email.trim(),
         password,
+        nombre: nombreValue,
+        cedula: cedulaValue,
       })
       setAdmins((current) =>
         [...current, created].sort((a, b) => {
@@ -401,6 +418,34 @@ export function Administradores() {
             </div>
 
             <form className="modal-form" onSubmit={handleSubmit} noValidate>
+              <label className="login-field" htmlFor="admin-nombre">
+                Nombre completo
+                <input
+                  id="admin-nombre"
+                  type="text"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  required
+                  disabled={submitting}
+                  autoFocus
+                  autoComplete="off"
+                  placeholder="Nombre y apellido"
+                />
+              </label>
+              <label className="login-field" htmlFor="admin-cedula">
+                Número de cédula
+                <input
+                  id="admin-cedula"
+                  type="text"
+                  inputMode="numeric"
+                  value={cedula}
+                  onChange={(e) => setCedula(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                  required
+                  disabled={submitting}
+                  autoComplete="off"
+                  placeholder="Solo números"
+                />
+              </label>
               <label className="login-field" htmlFor="admin-email">
                 Correo
                 <input
@@ -410,7 +455,6 @@ export function Administradores() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={submitting}
-                  autoFocus
                   autoComplete="off"
                 />
               </label>
