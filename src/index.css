@@ -7107,13 +7107,28 @@ a {
   margin-top: auto;
   padding-top: 0.7rem;
   border-top: 1px solid rgba(15, 40, 70, 0.08);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
   justify-content: stretch;
 }
 
 .av-equipo-card-actions > * {
-  flex: 1 1 0;
-  justify-content: center;
+  width: 100%;
   min-width: 0;
+  justify-content: center;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.15;
+  gap: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.av-equipo-card-actions > * svg {
+  flex-shrink: 0;
 }
 
 .av-equipo-modal {
@@ -7496,12 +7511,10 @@ a {
   }
 
   .av-equipo-card-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .av-equipo-card-actions > *:last-child {
+  .av-equipo-card-actions > *:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 
