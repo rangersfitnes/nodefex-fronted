@@ -1860,6 +1860,15 @@ export type AvAdministradorProyecto = {
   proyectoRol: 'admin' | 'vendedor'
   comisionVentasPendiente?: number
   gananciaTotal?: number
+  accesos?: Record<
+    string,
+    {
+      nivel: 'view' | 'manage' | 'custom'
+      acciones: string[]
+      visualizar?: string[]
+      rol?: 'admin' | 'vendedor'
+    }
+  >
   createdAt: string | null
   lastSignInAt: string | null
 }
@@ -1923,13 +1932,14 @@ export async function saveAvCrmVendedorAccesos(
   token: string,
   uid: string,
   acciones: string[],
+  visualizar: string[] = [],
 ): Promise<AvCrmVendedor> {
   const data = await apiFetch<{ vendedor: AvCrmVendedor }>(
     `/api/audiovisual/crm/vendedores/${encodeURIComponent(uid)}/accesos`,
     token,
     {
       method: 'PUT',
-      body: JSON.stringify({ acciones }),
+      body: JSON.stringify({ acciones, visualizar }),
     },
   )
   return data.vendedor

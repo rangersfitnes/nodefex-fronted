@@ -1,22 +1,27 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
+  ADMIN_ACCIONES_AUDIOVISUAL,
   formatCop,
   getAdministradorGanancias,
   liquidarAdministradorGanancias,
+  type AdminAccion,
   type GananciaMovimiento,
 } from '../api/administradores'
 import {
   getAvFinanzasResumen,
   listAvAdministradoresProyecto,
+  saveAvCrmVendedorAccesos,
   updateAvAdministradorRol,
   type AvAdministradorProyecto,
   type AvFinanzasResumen,
   type AvMetodoPagoTipo,
 } from '../api/audiovisual'
+import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   Banknote,
+  ChevronDown,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -25,6 +30,42 @@ import {
   Users,
   X,
 } from '../icons'
+
+type CapabilityMode = 'none' | 'view' | 'manage'
+
+const STAFF_TABS = ADMIN_ACCIONES_AUDIOVISUAL
+
+function emptyModes(): Record<AdminAccion, CapabilityMode> {
+  const modes = {} as Record<AdminAccion, CapabilityMode>
+  for (const tab of STAFF_TABS) modes[tab.id] = 'none'
+  modes.av_crm = 'manage'
+  return modes
+}
+
+function modesFromItem(item: AvAdministradorProyecto): Record<AdminAccion, CapabilityMode> {
+  const modes = emptyModes()
+  const accesos = item.accesos || {}
+  for (const [key, value] of Object.entries(accesos)) {
+    if (!esProyectoAudiovisual(key)) continue
+    if (value.nivel === 'manage') {
+      for (const tab of STAFF_TABS) modes[tab.id] = 'manage'
+      break
+    }
+    if (value.nivel === 'view') {
+      for (const tab of STAFF_TABS) modes[tab.id] = 'view'
+      modes.av_crm = 'manage'
+      break
+    }
+    for (const id of value.acciones || []) {
+      if (modes[id as AdminAccion] !== undefined) modes[id as AdminAccion] = 'manage'
+    }
+    for (const id of value.visualizar || []) {
+      if (modes[id as AdminAccion] === 'none') modes[id as AdminAccion] = 'view'
+    }
+  }
+  modes.av_crm = 'manage'
+  return modes
+}
 
 type LiquidarParteForm = {
   id: string
@@ -68,6 +109,9 @@ export function AvAdministradoresPanel() {
   const [success, setSuccess] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [savingUid, setSavingUid] = useState('')
+  const [expandedUid, setExpandedUid] = useState<string | null>(null)
+  const [draftModes, setDraftModes] = useState<Record<AdminAccion, CapabilityMode>>(emptyModes)
+  const [permisosSaving, setPermisosSaving] = useState(false)
 
   const [liquidarTarget, setLiquidarTarget] = useState<AvAdministradorProyecto | null>(null)
   const [movimientos, setMovimientos] = useState<GananciaMovimiento[]>([])
@@ -145,6 +189,9 @@ export function AvAdministradoresPanel() {
             )
           }),
       )
+      if (expandedUid === item.uid) {
+        setDraftModes(modesFromItem({ ...item, ...updated }))
+      }
       setSuccess(
         `Rol en El Genio actualizado: ${updated.nombre || updated.email} → ${
           updated.proyectoRol === 'admin' ? 'Administrador' : 'Vendedor'
@@ -154,6 +201,62 @@ export function AvAdministradoresPanel() {
       setError(err instanceof Error ? err.message : 'No se pudo cambiar el rol')
     } finally {
       setSavingUid('')
+    }
+  }
+
+  function togglePermisos(item: AvAdministradorProyecto) {
+    if (expandedUid === item.uid) {
+      setExpandedUid(null)
+      return
+    }
+    setExpandedUid(item.uid)
+    setDraftModes(modesFromItem(item))
+    setError('')
+  }
+
+  function setCapabilityMode(accion: AdminAccion, mode: CapabilityMode) {
+    if (accion === 'av_crm') return
+    setDraftModes((current) => ({ ...current, [accion]: mode }))
+  }
+
+  async function handleSavePermisos(item: AvAdministradorProyecto) {
+    if (!user || permisosSaving) return
+    setPermisosSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      const acciones: AdminAccion[] = []
+      const visualizar: AdminAccion[] = []
+      for (const tab of STAFF_TABS) {
+        const mode = draftModes[tab.id] ?? 'none'
+        if (tab.id === 'av_crm' || mode === 'manage') acciones.push(tab.id)
+        else if (mode === 'view') visualizar.push(tab.id)
+      }
+      if (!acciones.includes('av_crm')) acciones.push('av_crm')
+
+      const token = await user.getIdToken()
+      const updated = await saveAvCrmVendedorAccesos(token, item.uid, acciones, visualizar)
+      setItems((current) =>
+        current.map((row) =>
+          row.uid === item.uid
+            ? {
+                ...row,
+                accesos: updated.accesos,
+              }
+            : row,
+        ),
+      )
+      setDraftModes(
+        modesFromItem({
+          ...item,
+          accesos: updated.accesos,
+        }),
+      )
+      setSuccess(`Permisos actualizados para ${item.nombre || item.email}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron guardar los permisos')
+    } finally {
+      setPermisosSaving(false)
     }
   }
 
@@ -282,7 +385,8 @@ export function AvAdministradoresPanel() {
         <div>
           <h3>Administradores y vendedores</h3>
           <p className="section-note">
-            Cada venta acredita 10% al vendedor. Aquí ves el pendiente en vivo y puedes liquidarlo.
+            Cada venta acredita 10% al vendedor. Personaliza qué pestañas puede solo ver o
+            gestionar, y liquida comisiones pendientes.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -349,57 +453,173 @@ export function AvAdministradoresPanel() {
             <tbody>
               {items.map((item) => {
                 const pendiente = Number(item.comisionVentasPendiente) || 0
+                const expanded = expandedUid === item.uid
                 return (
-                  <tr key={item.uid}>
-                    <td>
-                      <strong>{item.nombre || 'Sin nombre'}</strong>
-                      <div className="section-note">{item.email || '—'}</div>
-                    </td>
-                    <td>{item.cedula || '—'}</td>
-                    <td>
-                      <div className="av-admins-rol-switch" role="group" aria-label="Rol en El Genio">
-                        <button
-                          type="button"
-                          className={
-                            item.proyectoRol === 'admin'
-                              ? 'av-admins-rol-btn is-active is-admin'
-                              : 'av-admins-rol-btn'
-                          }
-                          disabled={Boolean(savingUid)}
-                          onClick={() => void handleChangeRol(item, 'admin')}
+                  <Fragment key={item.uid}>
+                    <tr className={expanded ? 'av-admins-row-expanded' : undefined}>
+                      <td>
+                        <strong>{item.nombre || 'Sin nombre'}</strong>
+                        <div className="section-note">{item.email || '—'}</div>
+                      </td>
+                      <td>{item.cedula || '—'}</td>
+                      <td>
+                        <div
+                          className="av-admins-rol-switch"
+                          role="group"
+                          aria-label="Rol en El Genio"
                         >
-                          Administrador
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            item.proyectoRol === 'vendedor'
-                              ? 'av-admins-rol-btn is-active is-vendedor'
-                              : 'av-admins-rol-btn'
-                          }
-                          disabled={Boolean(savingUid)}
-                          onClick={() => void handleChangeRol(item, 'vendedor')}
-                        >
-                          Vendedor
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      <strong>{formatCop(pendiente)}</strong>
-                      <div className="section-note">10% de ventas</div>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={pendiente <= 0 || Boolean(savingUid)}
-                        onClick={() => void openLiquidar(item)}
-                      >
-                        <Banknote size={14} strokeWidth={2} aria-hidden />
-                        Liquidar
-                      </button>
-                    </td>
-                  </tr>
+                          <button
+                            type="button"
+                            className={
+                              item.proyectoRol === 'admin'
+                                ? 'av-admins-rol-btn is-active is-admin'
+                                : 'av-admins-rol-btn'
+                            }
+                            disabled={Boolean(savingUid) || permisosSaving}
+                            onClick={() => void handleChangeRol(item, 'admin')}
+                          >
+                            Administrador
+                          </button>
+                          <button
+                            type="button"
+                            className={
+                              item.proyectoRol === 'vendedor'
+                                ? 'av-admins-rol-btn is-active is-vendedor'
+                                : 'av-admins-rol-btn'
+                            }
+                            disabled={Boolean(savingUid) || permisosSaving}
+                            onClick={() => void handleChangeRol(item, 'vendedor')}
+                          >
+                            Vendedor
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{formatCop(pendiente)}</strong>
+                        <div className="section-note">10% de ventas</div>
+                      </td>
+                      <td>
+                        <div className="av-admins-row-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            aria-expanded={expanded}
+                            disabled={Boolean(savingUid) || permisosSaving}
+                            onClick={() => togglePermisos(item)}
+                          >
+                            <ChevronDown
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden
+                              className={expanded ? 'av-admins-chevron is-open' : 'av-admins-chevron'}
+                            />
+                            Permisos
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            disabled={pendiente <= 0 || Boolean(savingUid) || permisosSaving}
+                            onClick={() => void openLiquidar(item)}
+                          >
+                            <Banknote size={14} strokeWidth={2} aria-hidden />
+                            Liquidar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expanded ? (
+                      <tr className="av-admins-permisos-row">
+                        <td colSpan={5}>
+                          <div className="av-admins-permisos-panel">
+                            <p className="section-note">
+                              Define por pestaña si puede gestionar, solo visualizar o no tiene
+                              acceso. CRM siempre queda en gestionar.
+                            </p>
+                            <div className="av-admins-permisos-list">
+                              {STAFF_TABS.map((tab) => {
+                                const mode = draftModes[tab.id] ?? 'none'
+                                const locked = tab.id === 'av_crm'
+                                return (
+                                  <div key={tab.id} className="admin-capability-row">
+                                    <span className="admin-capability-label">
+                                      {tab.label}
+                                      {locked ? ' (base)' : ''}
+                                    </span>
+                                    <div
+                                      className="admin-capability-modes"
+                                      role="radiogroup"
+                                      aria-label={`Permiso ${tab.label}`}
+                                    >
+                                      <label>
+                                        <input
+                                          type="radio"
+                                          name={`perm-${item.uid}-${tab.id}`}
+                                          checked={mode === 'none'}
+                                          disabled={locked || permisosSaving}
+                                          onChange={() => setCapabilityMode(tab.id, 'none')}
+                                        />
+                                        Sin acceso
+                                      </label>
+                                      <label>
+                                        <input
+                                          type="radio"
+                                          name={`perm-${item.uid}-${tab.id}`}
+                                          checked={mode === 'view'}
+                                          disabled={locked || permisosSaving}
+                                          onChange={() => setCapabilityMode(tab.id, 'view')}
+                                        />
+                                        Solo visualizar
+                                      </label>
+                                      <label>
+                                        <input
+                                          type="radio"
+                                          name={`perm-${item.uid}-${tab.id}`}
+                                          checked={mode === 'manage'}
+                                          disabled={locked || permisosSaving}
+                                          onChange={() => setCapabilityMode(tab.id, 'manage')}
+                                        />
+                                        Puede gestionar
+                                      </label>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div className="av-admins-permisos-actions">
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => setExpandedUid(null)}
+                                disabled={permisosSaving}
+                              >
+                                Cerrar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => void handleSavePermisos(item)}
+                                disabled={permisosSaving}
+                              >
+                                {permisosSaving ? (
+                                  <>
+                                    <LoaderCircle
+                                      className="spin"
+                                      size={16}
+                                      strokeWidth={2}
+                                      aria-hidden
+                                    />
+                                    Guardando...
+                                  </>
+                                ) : (
+                                  'Guardar permisos'
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 )
               })}
             </tbody>

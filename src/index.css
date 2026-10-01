@@ -2606,6 +2606,46 @@ a {
   vertical-align: middle;
 }
 
+.av-admins-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.av-admins-chevron {
+  transition: transform 0.15s ease;
+}
+
+.av-admins-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.av-admins-permisos-row > td {
+  background: rgba(248, 250, 252, 0.95);
+  border-top: 0;
+  padding-top: 0.35rem;
+  padding-bottom: 1rem;
+}
+
+.av-admins-permisos-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.35rem 0.15rem 0.15rem;
+}
+
+.av-admins-permisos-list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.av-admins-permisos-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .av-crm-presence {
   display: grid;
   gap: 0.45rem;
