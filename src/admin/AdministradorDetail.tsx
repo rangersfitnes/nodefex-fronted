@@ -261,6 +261,13 @@ export function AdministradorDetail() {
       const ganancias: Record<string, { activa: boolean; porcentaje: number }> = {}
       for (const [proyectoId, choice] of Object.entries(choices)) {
         if (choice === 'none') continue
+        const previousRol = admin.accesos?.[proyectoId]?.rol
+        const projectRol =
+          previousRol === 'admin' || previousRol === 'vendedor'
+            ? previousRol
+            : admin.rol === 'vendedor'
+              ? 'vendedor'
+              : 'admin'
         if (choice === 'custom') {
           const modes = capabilityModes[proyectoId] ?? {}
           const acciones: AdminAccion[] = []
@@ -271,13 +278,28 @@ export function AdministradorDetail() {
             if (mode === 'view') visualizar.push(accion.id)
           }
           if (acciones.length === 0 && visualizar.length === 0) {
-            accesos[proyectoId] = { nivel: 'view', acciones: [], visualizar: [] }
+            accesos[proyectoId] = {
+              nivel: 'view',
+              acciones: [],
+              visualizar: [],
+              rol: projectRol,
+            }
           } else {
-            accesos[proyectoId] = { nivel: 'custom', acciones, visualizar }
+            accesos[proyectoId] = {
+              nivel: 'custom',
+              acciones,
+              visualizar,
+              rol: projectRol,
+            }
           }
           continue
         }
-        accesos[proyectoId] = { nivel: choice, acciones: [], visualizar: [] }
+        accesos[proyectoId] = {
+          nivel: choice,
+          acciones: [],
+          visualizar: [],
+          rol: projectRol,
+        }
       }
       for (const proyecto of proyectos) {
         const activa = Boolean(gananciasOn[proyecto.id])

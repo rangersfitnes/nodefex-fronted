@@ -2556,10 +2556,54 @@ a {
 .av-crm,
 .av-movimientos,
 .av-mi-perfil,
-.av-owner-gestion {
+.av-owner-gestion,
+.av-admins-proyecto {
   display: grid;
   gap: 1rem;
   min-width: 0;
+}
+
+.av-admins-rol-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.av-admins-rol-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  appearance: none;
+  border: 1px solid rgba(15, 40, 70, 0.16);
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.av-admins-rol-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.av-admins-rol-btn.is-active.is-admin {
+  border-color: rgba(5, 150, 105, 0.45);
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+.av-admins-rol-btn.is-active.is-vendedor {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.av-admins-proyecto .pagos-table td {
+  vertical-align: middle;
 }
 
 .av-crm-presence {

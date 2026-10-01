@@ -1849,6 +1849,47 @@ export async function listAvEquipoEstadisticas(token: string): Promise<AvEquipoE
   return data.equipo
 }
 
+export type AvAdministradorProyecto = {
+  uid: string
+  email: string | null
+  nombre: string | null
+  cedula: string | null
+  /** Rol global (legacy / derivado). */
+  rol: 'admin' | 'vendedor'
+  /** Rol específico en Nodefex Audio Visual. */
+  proyectoRol: 'admin' | 'vendedor'
+  comisionVentasPendiente?: number
+  gananciaTotal?: number
+  createdAt: string | null
+  lastSignInAt: string | null
+}
+
+export async function listAvAdministradoresProyecto(
+  token: string,
+): Promise<AvAdministradorProyecto[]> {
+  const data = await apiFetch<{ administradores: AvAdministradorProyecto[] }>(
+    '/api/audiovisual/equipo/administradores',
+    token,
+  )
+  return data.administradores
+}
+
+export async function updateAvAdministradorRol(
+  token: string,
+  uid: string,
+  rol: 'admin' | 'vendedor',
+): Promise<AvAdministradorProyecto> {
+  const data = await apiFetch<{ administrador: AvAdministradorProyecto }>(
+    `/api/audiovisual/equipo/administradores/${encodeURIComponent(uid)}/rol`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ rol }),
+    },
+  )
+  return data.administrador
+}
+
 export async function createAvCrmVendedor(
   token: string,
   payload: {

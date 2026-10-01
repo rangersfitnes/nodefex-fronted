@@ -48,6 +48,8 @@ export type ProyectoAccesoConfig = {
   acciones: AdminAccion[]
   /** Secciones o capacidades en solo lectura (nivel custom). */
   visualizar?: AdminAccion[]
+  /** Rol independiente dentro de este proyecto (admin o vendedor). */
+  rol?: 'admin' | 'vendedor'
 }
 
 export type ProyectoGananciaConfig = {
@@ -67,6 +69,8 @@ export type Administrador = {
   accesos: Record<string, ProyectoAccesoConfig>
   ganancias: Record<string, ProyectoGananciaConfig>
   gananciaTotal: number
+  /** Comisiones de ventas AV pendientes de liquidar (10% por venta). */
+  comisionVentasPendiente?: number
   mustChangePassword?: boolean
   createdAt: string | null
   updatedAt: string | null
@@ -215,6 +219,8 @@ export type GananciaMovimiento = {
   id: string
   reference: string | null
   proyectoId: string | null
+  origen?: string | null
+  ventaId?: string | null
   porcentaje: number
   montoPago: number
   valor: number
@@ -251,11 +257,14 @@ export type GananciaLiquidacion = {
 export async function getAdministradorGanancias(
   token: string,
   uid: string,
+  options?: { origen?: 'venta' },
 ): Promise<{
   pendiente: { total: number; movimientos: GananciaMovimiento[] }
   liquidaciones: GananciaLiquidacion[]
+  comisionVentasPendiente?: number
 }> {
-  return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias`, token)
+  const qs = options?.origen === 'venta' ? '?origen=venta' : ''
+  return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias${qs}`, token)
 }
 
 export async function liquidarAdministradorGanancias(
@@ -269,6 +278,7 @@ export async function liquidarAdministradorGanancias(
       detalle?: string
     }>
     beneficiarioNombre?: string
+    origen?: 'venta'
   },
 ): Promise<{ liquidacion: GananciaLiquidacion; administrador: Administrador }> {
   return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias/liquidar`, token, {

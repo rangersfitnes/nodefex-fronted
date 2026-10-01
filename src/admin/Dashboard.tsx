@@ -324,6 +324,49 @@ export function Dashboard() {
                 </article>
                 <article
                   className="proyecto-card proyecto-card-clickable"
+                  onClick={() => {
+                    const genio =
+                      proyectos.find(
+                        (item) =>
+                          esProyectoAudiovisual(item.id) || esProyectoAudiovisual(item.nombre),
+                      ) || null
+                    if (!genio) {
+                      setError('No se encontró el proyecto Nodefex Audio Visual (El Genio).')
+                      return
+                    }
+                    navigate(
+                      `/admin/proyectos/${encodeURIComponent(genio.id)}?tab=administradores`,
+                    )
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      const genio =
+                        proyectos.find(
+                          (item) =>
+                            esProyectoAudiovisual(item.id) || esProyectoAudiovisual(item.nombre),
+                        ) || null
+                      if (!genio) return
+                      navigate(
+                        `/admin/proyectos/${encodeURIComponent(genio.id)}?tab=administradores`,
+                      )
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                >
+                  <div className="proyecto-card-top">
+                    <div className="proyecto-card-icon proyecto-card-icon-genio" aria-hidden>
+                      <img src="/genio/logo-icon.png" alt="" width={28} height={28} />
+                    </div>
+                  </div>
+                  <h2>Roles El Genio</h2>
+                  <p>
+                    Cambia si cada cuenta es administrador o vendedor solo en Nodefex Audio Visual.
+                  </p>
+                </article>
+                <article
+                  className="proyecto-card proyecto-card-clickable"
                   onClick={() => navigate('/admin/sitio-contacto')}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {

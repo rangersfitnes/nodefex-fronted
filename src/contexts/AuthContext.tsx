@@ -32,6 +32,7 @@ type AuthContextValue = {
   isAdmin: boolean
   isVendedor: boolean
   getProjectAccess: (proyectoId: string) => ProyectoAccesoConfig | null
+  getProjectRol: (proyectoId: string) => 'owner' | 'admin' | 'vendedor' | null
   canProjectAction: (proyectoId: string, action: AdminAccion) => boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -75,11 +76,31 @@ function resolveAccessFromMap(
         continue
       }
       if (merged.nivel === 'manage' || value.nivel === 'manage') {
-        merged = { nivel: 'manage', acciones: [], visualizar: [] }
+        merged = {
+          nivel: 'manage',
+          acciones: [],
+          visualizar: [],
+          rol:
+            merged.rol === 'admin' || value.rol === 'admin'
+              ? 'admin'
+              : merged.rol === 'vendedor' || value.rol === 'vendedor'
+                ? 'vendedor'
+                : undefined,
+        }
         continue
       }
       if (merged.nivel === 'view' || value.nivel === 'view') {
-        merged = { nivel: 'view', acciones: [], visualizar: [] }
+        merged = {
+          nivel: 'view',
+          acciones: [],
+          visualizar: [],
+          rol:
+            merged.rol === 'admin' || value.rol === 'admin'
+              ? 'admin'
+              : merged.rol === 'vendedor' || value.rol === 'vendedor'
+                ? 'vendedor'
+                : undefined,
+        }
         continue
       }
       const mergedAcciones: AdminAccion[] = [
@@ -94,7 +115,17 @@ function resolveAccessFromMap(
       const visualizar: AdminAccion[] = Array.from(new Set(mergedVisualizar)).filter(
         (item) => !acciones.includes(item),
       )
-      merged = { nivel: 'custom', acciones, visualizar }
+      merged = {
+        nivel: 'custom',
+        acciones,
+        visualizar,
+        rol:
+          merged.rol === 'admin' || value.rol === 'admin'
+            ? 'admin'
+            : merged.rol === 'vendedor' || value.rol === 'vendedor'
+              ? 'vendedor'
+              : undefined,
+      }
     }
     return merged
   }
@@ -373,6 +404,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return { nivel: 'manage', acciones: [], visualizar: [] }
           }
           return resolveAccessFromMap(administrador.accesos, proyectoId)
+        },
+        getProjectRol: (proyectoId: string) => {
+          if (!administrador) return null
+          if (administrador.rol === 'owner') return 'owner'
+          const access = resolveAccessFromMap(administrador.accesos, proyectoId)
+          if (!access) return null
+          if (access.rol === 'admin' || access.rol === 'vendedor') return access.rol
+          if (administrador.rol === 'admin' || administrador.rol === 'vendedor') {
+            return administrador.rol
+          }
+          return null
         },
         canProjectAction: (proyectoId: string, action: AdminAccion) => {
           if (!administrador) return false

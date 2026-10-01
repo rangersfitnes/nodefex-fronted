@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, Receipt, User, Users, Video } from '../icons'
+import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, Receipt, Shield, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
+import { AvAdministradoresPanel } from './AvAdministradoresPanel'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvCotizacionesPanel } from './AvCotizacionesPanel'
 import { AvCreditosPanel } from './AvCreditosPanel'
@@ -32,6 +34,7 @@ type AudiovisualVista =
   | 'ventas'
   | 'crm'
   | 'movimientos'
+  | 'administradores'
   | 'mi-perfil'
   | 'contrato-avisos'
 type FinanzasSubvista = 'principal' | 'ingresos' | 'facturacion' | 'egresos'
@@ -60,6 +63,13 @@ const TABS: {
     id: 'movimientos',
     label: 'Movimientos',
     icon: FileText,
+    action: null,
+    ownerOnly: true,
+  },
+  {
+    id: 'administradores',
+    label: 'Administradores',
+    icon: Shield,
     action: null,
     ownerOnly: true,
   },
@@ -97,11 +107,17 @@ function mergeAvAccess(
 ): ProyectoAccesoConfig | null {
   if (!a) return b ?? null
   if (!b) return a
+  const rol =
+    a.rol === 'admin' || b.rol === 'admin'
+      ? 'admin'
+      : a.rol === 'vendedor' || b.rol === 'vendedor'
+        ? 'vendedor'
+        : undefined
   if (a.nivel === 'manage' || b.nivel === 'manage') {
-    return { nivel: 'manage', acciones: [], visualizar: [] }
+    return { nivel: 'manage', acciones: [], visualizar: [], rol }
   }
   if (a.nivel === 'view' || b.nivel === 'view') {
-    return { nivel: 'view', acciones: [], visualizar: [] }
+    return { nivel: 'view', acciones: [], visualizar: [], rol }
   }
 
   const acciones = Array.from(
@@ -112,9 +128,9 @@ function mergeAvAccess(
   ).filter((item) => !acciones.includes(item))
 
   if (acciones.length === 0 && visualizar.length === 0) {
-    return { nivel: 'view', acciones: [], visualizar: [] }
+    return { nivel: 'view', acciones: [], visualizar: [], rol }
   }
-  return { nivel: 'custom', acciones, visualizar }
+  return { nivel: 'custom', acciones, visualizar, rol }
 }
 
 function canViewAvTab(
@@ -153,7 +169,8 @@ export function AudiovisualPanel({
   access: accessProp = null,
   proyectoId = null,
 }: AudiovisualPanelProps) {
-  const { isOwner, isAdmin, isVendedor, user, administrador, getProjectAccess } = useAuth()
+  const { isOwner, isAdmin, isVendedor, user, administrador, getProjectAccess, getProjectRol } =
+    useAuth()
 
   // Unir prop + todas las claves AV del perfil (evita perder av_crm por alias duplicado).
   const access = useMemo(() => {
@@ -183,24 +200,40 @@ export function AudiovisualPanel({
     return merged
   }, [accessProp, administrador, getProjectAccess, proyectoId])
 
+  const avProjectId = proyectoId || 'nodefex audio visual'
+  const projectRol = getProjectRol(avProjectId)
+  const isAvAdmin = isOwner || projectRol === 'admin' || (projectRol == null && isAdmin)
+  const isAvVendedor = !isOwner && (projectRol === 'vendedor' || (projectRol == null && isVendedor))
+
   const allowedTabs = useMemo(
     () =>
       TABS.filter((tab) => {
         if (tab.ownerOnly) return isOwner
-        if (tab.staffOnly) return (isAdmin || isVendedor) && !isOwner
-        if (tab.adminOnly) return isAdmin && !isOwner
+        if (tab.staffOnly) return (isAvAdmin || isAvVendedor) && !isOwner
+        if (tab.adminOnly) return isAvAdmin && !isOwner
         // Accesos: solo quien tiene av_accesos / view / manage (no inflar la barra).
         if (tab.shared) return isOwner || canViewAvTab(access, 'av_accesos')
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
-    [access, isOwner, isAdmin, isVendedor],
+    [access, isOwner, isAvAdmin, isAvVendedor],
   )
 
   const [vista, setVista] = useState<AudiovisualVista>(
     () => allowedTabs[0]?.id ?? 'crm',
   )
   const [finanzasVista, setFinanzasVista] = useState<FinanzasSubvista>('principal')
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (!tab) return
+    if (!allowedTabs.some((item) => item.id === tab)) return
+    setVista(tab as AudiovisualVista)
+    const next = new URLSearchParams(searchParams)
+    next.delete('tab')
+    setSearchParams(next, { replace: true })
+  }, [allowedTabs, searchParams, setSearchParams])
 
   useEffect(() => {
     if (allowedTabs.length === 0) return
@@ -218,7 +251,8 @@ export function AudiovisualPanel({
   const ventasReadOnly = !canEditAvTab(access, 'av_ventas')
   const crmReadOnly = !canEditAvTab(access, 'av_crm')
   const canEditEmpresa = isOwner || canEditAvTab(access, 'av_cotizaciones')
-  const showEquiposAviso = Boolean(user) && (isAdmin || isOwner || isVendedor || Boolean(access))
+  const showEquiposAviso =
+    Boolean(user) && (isAvAdmin || isOwner || isAvVendedor || Boolean(access))
   const hasCrmTab = allowedTabs.some((tab) => tab.id === 'crm')
 
   if (allowedTabs.length === 0) {
@@ -364,9 +398,11 @@ export function AudiovisualPanel({
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 
+      {vista === 'administradores' && isOwner ? <AvAdministradoresPanel /> : null}
+
       {vista === 'contrato-avisos' && isOwner ? <AvOwnerGestionPanel /> : null}
 
-      {vista === 'mi-perfil' && (isAdmin || isVendedor) && !isOwner ? (
+      {vista === 'mi-perfil' && (isAvAdmin || isAvVendedor) && !isOwner ? (
         <AvMiPerfilPanel access={access} />
       ) : null}
     </section>

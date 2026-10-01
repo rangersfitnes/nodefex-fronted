@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   ADMIN_ACCIONES_AUDIOVISUAL,
   formatCop,
+  getAdministradorGanancias,
   type AdminAccion,
   type ProyectoAccesoConfig,
   type ProyectoGananciaConfig,
@@ -120,45 +121,65 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
   const [genioAdmin, setGenioAdmin] = useState<AvGenioAdmin | null>(null)
   const [notificaciones, setNotificaciones] = useState<AvNotificacion[]>([])
   const [ventas, setVentas] = useState<AvVenta[]>([])
+  const [comisionPendiente, setComisionPendiente] = useState(0)
   const [extraLoading, setExtraLoading] = useState(true)
   const [extraError, setExtraError] = useState('')
 
   useEffect(() => {
     let cancelled = false
+    let first = true
 
     async function load() {
       if (!user || !administrador?.uid) return
-      setExtraLoading(true)
-      setExtraError('')
+      if (first) {
+        setExtraLoading(true)
+        setExtraError('')
+      }
       try {
         const token = await user.getIdToken()
-        const [contratoData, genioData, notificacionesData, ventasData] = await Promise.all([
-          getAvContrato(token),
-          getAvGenioAdmin(token),
-          listAvNotificaciones(token),
-          listAvVentas(token, { vendedorUid: administrador.uid }).catch(() => [] as AvVenta[]),
-        ])
+        const [contratoData, genioData, notificacionesData, ventasData, gananciasData] =
+          await Promise.all([
+            getAvContrato(token),
+            getAvGenioAdmin(token),
+            listAvNotificaciones(token),
+            listAvVentas(token, { vendedorUid: administrador.uid }).catch(() => [] as AvVenta[]),
+            getAdministradorGanancias(token, administrador.uid, { origen: 'venta' }).catch(
+              () => null,
+            ),
+          ])
         if (cancelled) return
         setContrato(contratoData)
         setGenioAdmin(genioData)
         setNotificaciones(notificacionesData)
         setVentas(ventasData)
+        const pendiente = Number(
+          gananciasData?.comisionVentasPendiente ??
+            gananciasData?.pendiente.total ??
+            administrador.comisionVentasPendiente ??
+            0,
+        )
+        setComisionPendiente(Number.isFinite(pendiente) ? Math.max(0, pendiente) : 0)
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && first) {
           setExtraError(
             err instanceof Error ? err.message : 'No se pudieron cargar avisos o contrato',
           )
         }
       } finally {
-        if (!cancelled) setExtraLoading(false)
+        if (!cancelled && first) setExtraLoading(false)
+        first = false
       }
     }
 
     void load()
+    const timer = window.setInterval(() => {
+      void load()
+    }, 15000)
     return () => {
       cancelled = true
+      window.clearInterval(timer)
     }
-  }, [user, administrador?.uid])
+  }, [user, administrador?.uid, administrador?.comisionVentasPendiente])
 
   if (!administrador) {
     return (
@@ -240,6 +261,16 @@ export function AvMiPerfilPanel({ access = null }: AvMiPerfilPanelProps) {
           <p className="section-note">
             {ventas.length} venta{ventas.length === 1 ? '' : 's'} · Total {formatCop(ventasTotal)}
           </p>
+          <div className="contable-summary" style={{ marginBottom: '0.85rem' }}>
+            <div>
+              <span>Comisión pendiente (10%)</span>
+              <strong>{formatCop(comisionPendiente)}</strong>
+            </div>
+            <div>
+              <span>Comisión estimada sobre ventas</span>
+              <strong>{formatCop(ventasTotal * 0.1)}</strong>
+            </div>
+          </div>
           {extraLoading ? (
             <div className="proyectos-status">
               <LoaderCircle className="spin" size={18} strokeWidth={2} aria-hidden />
