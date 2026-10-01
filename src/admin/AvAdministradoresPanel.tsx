@@ -60,15 +60,6 @@ function newLiquidarParte(partial?: Partial<LiquidarParteForm>): LiquidarParteFo
   }
 }
 
-function formatFecha(iso: string | null): string {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('es-CO', {
-    timeZone: 'America/Bogota',
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(iso))
-}
-
 export function AvAdministradoresPanel() {
   const { user } = useAuth()
   const [items, setItems] = useState<AvAdministradorProyecto[]>([])
