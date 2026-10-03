@@ -9,6 +9,7 @@ import { OwnerRoute } from './admin/OwnerRoute'
 import { Administradores } from './admin/Administradores'
 import { AdministradorDetail } from './admin/AdministradorDetail'
 import { SitioContactoPage } from './admin/SitioContacto'
+import { SitioWebPage } from './admin/SitioWeb'
 import { RegistroAdmin } from './admin/RegistroAdmin'
 import { VelixPublic } from './velix/VelixPublic'
 import { SistecontactPublic } from './sistecontact/SistecontactPublic'
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/admin/administradores" element={<Administradores />} />
             <Route path="/admin/administradores/:uid" element={<AdministradorDetail />} />
             <Route path="/admin/sitio-contacto" element={<SitioContactoPage />} />
+            <Route path="/admin/sitio-web" element={<SitioWebPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

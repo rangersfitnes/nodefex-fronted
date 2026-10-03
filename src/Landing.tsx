@@ -1,116 +1,371 @@
-import { useEffect, useState } from 'react'
-import { getSitioContacto, type SitioContacto } from './api/sitio'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  getSitioContacto,
+  getSitioWeb,
+  type SitioContacto,
+  type SitioMediaSlot,
+  type SitioWebContent,
+} from './api/sitio'
 import {
   ArrowRight,
-  Brain,
+  ArrowUpRight,
+  Box,
   Code2,
-  Cpu,
-  Globe,
-  Hexagon,
-  Megaphone,
+  Layers,
+  Menu,
   MessageCircle,
-  Printer,
-  Share2,
-  Smartphone,
   Video,
+  X,
 } from './icons'
 
-const SERVICES = [
-  { title: 'Software', icon: Code2 },
-  { title: 'Web', icon: Globe },
-  { title: 'Apps', icon: Smartphone },
-  { title: 'IA', icon: Brain },
-  { title: 'Audiovisual', icon: Video },
-  { title: 'Redes', icon: Share2 },
-  { title: 'Marketing', icon: Megaphone },
-  { title: '3D', icon: Printer },
-  { title: 'Hardware', icon: Cpu },
+type IconProps = { size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }
+
+function InstagramIcon({ size = 16, strokeWidth = 1.75, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function YoutubeIcon({ size = 16, strokeWidth = 1.75, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <path d="M2.5 8.5A3.5 3.5 0 0 1 6 5h12a3.5 3.5 0 0 1 3.5 3.5v7A3.5 3.5 0 0 1 18 19H6a3.5 3.5 0 0 1-3.5-3.5v-7Z" />
+      <path d="m10 9.5 5 2.5-5 2.5v-5Z" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function LinkedinIcon({ size = 16, strokeWidth = 1.75, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <path d="M8 11v7M8 8v.01M12 18v-5.5a2.5 2.5 0 1 1 5 0V18" />
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+    </svg>
+  )
+}
+
+type MediaSlotProps = {
+  slot: SitioMediaSlot | string
+  label: string
+  className?: string
+  imageUrl?: string
+}
+
+function MediaSlot({ slot, label, className = '', imageUrl }: MediaSlotProps) {
+  return (
+    <div
+      className={`nf-media-slot ${imageUrl ? 'has-image' : ''} ${className}`.trim()}
+      data-media-slot={slot}
+      role="img"
+      aria-label={label}
+      style={
+        imageUrl
+          ? {
+              backgroundImage: `url(${imageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }
+          : undefined
+      }
+    >
+      {imageUrl ? null : <span className="nf-media-placeholder">{label}</span>}
+    </div>
+  )
+}
+
+const NAV_LINKS = [
+  { href: '#inicio', label: 'Inicio' },
+  { href: '#servicios', label: 'Servicios' },
+  { href: '#proyectos', label: 'Proyectos' },
+  { href: '#nosotros', label: 'Nosotros' },
 ] as const
 
-const TESTIMONIALS = [
-  {
-    quote: 'Sistema estable y operación más ordenada desde el primer día.',
-    name: 'Camila Rojas',
-    role: 'Operaciones',
-  },
-  {
-    quote: 'El contenido y las redes nos dieron presencia real en el mercado.',
-    name: 'Andrés Mejía',
-    role: 'Fundador',
-  },
-  {
-    quote: 'De lo manual a una plataforma confiable, con un solo equipo.',
-    name: 'Laura Quintero',
-    role: 'Comercial',
-  },
-] as const
+const SERVICE_ICONS = [Code2, Box, Video, Layers] as const
+const SOCIAL_ICONS = [InstagramIcon, YoutubeIcon, LinkedinIcon] as const
+const PROJECT_SLOTS: SitioMediaSlot[] = [
+  'project-0',
+  'project-1',
+  'project-2',
+  'project-3',
+]
+
+const DEFAULT_CONTENT: SitioWebContent = {
+  brand: 'NODEFEX TECHNOLOGY',
+  navCta: 'Hablemos',
+  heroEyebrow: 'Tecnología que impulsa',
+  heroTitleLine1: 'IDEAS',
+  heroTitleLine2: 'REALES',
+  heroCta: 'Ver proyectos',
+  servicesTitle: 'Nuestros servicios',
+  services: [
+    { title: 'Software' },
+    { title: 'Impresión 3D' },
+    { title: 'Audiovisual' },
+    { title: 'Consultoría Tech' },
+  ],
+  projectsTitle: 'Proyectos destacados',
+  projectsCta: 'Ver todos',
+  projects: [
+    { name: 'Fexmenu', category: 'SAAS', href: '/fexmenu' },
+    { name: 'El Genio', category: 'AUDIOVISUAL', href: '#proyectos' },
+    { name: 'Velix', category: 'DEPORTIVO', href: '/velix' },
+    { name: 'Rangers Box', category: 'GESTIÓN', href: '#proyectos' },
+  ],
+  bandBrand: 'NODEFEX TECHNOLOGY',
+  bandTitleLine1: 'IDEAS',
+  bandTitleLine2: 'EN MOVIMIENTO',
+  footerContactLabel: 'Contacto',
+  socials: [
+    { label: 'Instagram', href: 'https://www.instagram.com/' },
+    { label: 'YouTube', href: 'https://www.youtube.com/' },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com/' },
+  ],
+  media: {},
+  mediaUrls: {},
+  updatedAt: null,
+}
+
+function isInternalPath(href: string) {
+  return href.startsWith('/') && !href.startsWith('//')
+}
 
 export function Landing() {
   const [contacto, setContacto] = useState<SitioContacto | null>(null)
+  const [content, setContent] = useState<SitioWebContent>(DEFAULT_CONTENT)
+  const [activeSection, setActiveSection] = useState('inicio')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
 
-    void getSitioContacto()
-      .then((data) => {
-        if (!cancelled) setContacto(data)
-      })
-      .catch(() => {
-        if (!cancelled) setContacto(null)
-      })
+    void Promise.all([
+      getSitioContacto().catch(() => null),
+      getSitioWeb().catch(() => null),
+    ]).then(([contactoData, webData]) => {
+      if (cancelled) return
+      setContacto(contactoData)
+      if (webData) setContent(webData)
+    })
 
     return () => {
       cancelled = true
     }
   }, [])
 
-  const showContact =
-    Boolean(contacto?.activo && contacto.href) && Boolean(contacto?.href)
+  useEffect(() => {
+    const ids = NAV_LINKS.map((item) => item.href.slice(1))
+    const elements = ids
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el))
+
+    if (elements.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (visible?.target?.id) setActiveSection(visible.target.id)
+      },
+      { rootMargin: '-35% 0px -45% 0px', threshold: [0.15, 0.4, 0.7] },
+    )
+
+    for (const el of elements) observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
+
+  const contactHref =
+    contacto?.activo && contacto.href ? contacto.href : '#contacto'
+  const showContactFab = Boolean(contacto?.activo && contacto.href)
+
+  const services = useMemo(
+    () =>
+      (content.services?.length ? content.services : DEFAULT_CONTENT.services).map(
+        (service, index) => ({
+          ...service,
+          icon: SERVICE_ICONS[index % SERVICE_ICONS.length],
+        }),
+      ),
+    [content.services],
+  )
+
+  const projects = useMemo(
+    () =>
+      (content.projects?.length ? content.projects : DEFAULT_CONTENT.projects).map(
+        (project, index) => ({
+          ...project,
+          slot: PROJECT_SLOTS[index] || (`project-${index}` as SitioMediaSlot),
+          imageUrl: content.mediaUrls?.[PROJECT_SLOTS[index] || 'project-0'],
+        }),
+      ),
+    [content.projects, content.mediaUrls],
+  )
+
+  const socials = useMemo(
+    () =>
+      (content.socials?.length ? content.socials : DEFAULT_CONTENT.socials).map(
+        (social, index) => ({
+          ...social,
+          icon: SOCIAL_ICONS[index % SOCIAL_ICONS.length],
+        }),
+      ),
+    [content.socials],
+  )
 
   return (
-    <div className="login-page landing-page">
-      <div className="login-backdrop landing-backdrop" aria-hidden />
-      <div className="landing-grid-overlay" aria-hidden />
-
-      <header className="landing-nav">
-        <a href="#inicio" className="landing-nav-brand">
-          <span className="login-mark" aria-hidden>
-            <Hexagon size={20} strokeWidth={2.25} />
-          </span>
-          <span className="landing-nav-name">Nodefex Tecnology</span>
-        </a>
-        <nav className="landing-nav-actions" aria-label="Secciones">
-          <a href="#servicios" className="landing-nav-cta">
-            Capacidades
-            <ArrowRight size={16} strokeWidth={2} aria-hidden />
+    <div className="nf-site">
+      <header className="nf-nav">
+        <div className="nf-nav-inner">
+          <a href="#inicio" className="nf-brand" onClick={() => setMenuOpen(false)}>
+            {content.brand}
           </a>
-        </nav>
+
+          <nav className="nf-nav-links" aria-label="Secciones">
+            {NAV_LINKS.map((link) => {
+              const id = link.href.slice(1)
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={activeSection === id ? 'is-active' : undefined}
+                >
+                  {link.label}
+                </a>
+              )
+            })}
+          </nav>
+
+          <div className="nf-nav-end">
+            <a className="nf-btn nf-btn-outline" href={contactHref}>
+              {content.navCta}
+              <ArrowRight size={16} strokeWidth={2} aria-hidden />
+            </a>
+            <button
+              type="button"
+              className="nf-nav-menu"
+              aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? (
+                <X size={20} strokeWidth={2} aria-hidden />
+              ) : (
+                <Menu size={20} strokeWidth={2} aria-hidden />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {menuOpen ? (
+          <nav className="nf-nav-drawer" aria-label="Menú móvil">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </a>
+            ))}
+            <a
+              className="nf-btn nf-btn-outline"
+              href={contactHref}
+              onClick={() => setMenuOpen(false)}
+            >
+              {content.navCta}
+              <ArrowRight size={16} strokeWidth={2} aria-hidden />
+            </a>
+          </nav>
+        ) : null}
       </header>
 
-      <main className="landing-main">
-        <section id="inicio" className="landing-hero" aria-labelledby="landing-brand">
-          <h1 id="landing-brand" className="landing-brand-title">
-            Nodefex Tecnology
-          </h1>
-          <p className="landing-hero-copy">
-            Software, hardware y comunicación digital — claros y a medida.
-          </p>
+      <main>
+        <section id="inicio" className="nf-hero" aria-labelledby="nf-hero-title">
+          <MediaSlot
+            slot="hero-bg"
+            label="Imagen hero"
+            className="nf-hero-media"
+            imageUrl={content.mediaUrls?.['hero-bg']}
+          />
+          <div className="nf-hero-scrim" aria-hidden />
+          <div className="nf-hero-content">
+            <p className="nf-brand-mark">{content.brand}</p>
+            <p className="nf-eyebrow">{content.heroEyebrow}</p>
+            <h1 id="nf-hero-title" className="nf-hero-title">
+              <span>{content.heroTitleLine1}</span>
+              <span className="nf-text-glow">{content.heroTitleLine2}</span>
+            </h1>
+            <a className="nf-btn nf-btn-outline" href="#proyectos">
+              {content.heroCta}
+              <ArrowRight size={16} strokeWidth={2} aria-hidden />
+            </a>
+          </div>
         </section>
 
-        <section id="servicios" className="landing-services" aria-labelledby="servicios-title">
-          <div className="landing-section-head">
-            <h2 id="servicios-title">Capacidades</h2>
-          </div>
-
-          <ul className="landing-service-list">
-            {SERVICES.map((service) => {
+        <section
+          id="servicios"
+          className="nf-section nf-services"
+          aria-labelledby="servicios-title"
+        >
+          <h2 id="servicios-title" className="nf-section-label">
+            {content.servicesTitle}
+          </h2>
+          <ul className="nf-service-grid">
+            {services.map((service) => {
               const Icon = service.icon
               return (
-                <li key={service.title} className="landing-service-item">
-                  <span className="landing-service-icon" aria-hidden>
-                    <Icon size={18} strokeWidth={1.75} />
-                  </span>
-                  <h3>{service.title}</h3>
+                <li key={service.title}>
+                  <a href="#servicios" className="nf-service-item">
+                    <span className="nf-service-icon" aria-hidden>
+                      <Icon size={22} strokeWidth={1.6} />
+                    </span>
+                    <span className="nf-service-title">{service.title}</span>
+                    <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
+                  </a>
                 </li>
               )
             })}
@@ -118,40 +373,121 @@ export function Landing() {
         </section>
 
         <section
-          id="comentarios"
-          className="landing-testimonials"
-          aria-labelledby="comentarios-title"
+          id="proyectos"
+          className="nf-section nf-projects"
+          aria-labelledby="proyectos-title"
         >
-          <div className="landing-section-head">
-            <h2 id="comentarios-title">Comentarios</h2>
+          <div className="nf-section-row">
+            <h2 id="proyectos-title" className="nf-section-label">
+              {content.projectsTitle}
+            </h2>
+            <a className="nf-link-all" href="#proyectos">
+              {content.projectsCta}
+              <span className="nf-icon-circle" aria-hidden>
+                <ArrowRight size={14} strokeWidth={2} />
+              </span>
+            </a>
           </div>
 
-          <div className="landing-testimonial-track">
-            {TESTIMONIALS.map((item) => (
-              <figure key={item.name} className="landing-testimonial">
-                <blockquote>
-                  <p>“{item.quote}”</p>
-                </blockquote>
-                <figcaption>
-                  <span className="landing-testimonial-name">{item.name}</span>
-                  <span className="landing-testimonial-role">{item.role}</span>
-                </figcaption>
-              </figure>
-            ))}
+          <ul className="nf-project-grid">
+            {projects.map((project) => {
+              const inner = (
+                <>
+                  <MediaSlot
+                    slot={project.slot}
+                    label={`Imagen ${project.name}`}
+                    className="nf-project-media"
+                    imageUrl={project.imageUrl}
+                  />
+                  <div className="nf-project-meta">
+                    <div>
+                      <h3>{project.name}</h3>
+                      <p>{project.category}</p>
+                    </div>
+                    <span className="nf-icon-circle" aria-hidden>
+                      <ArrowUpRight size={14} strokeWidth={2} />
+                    </span>
+                  </div>
+                </>
+              )
+
+              return (
+                <li key={`${project.name}-${project.slot}`}>
+                  {isInternalPath(project.href) ? (
+                    <Link to={project.href} className="nf-project-card">
+                      {inner}
+                    </Link>
+                  ) : (
+                    <a href={project.href || '#proyectos'} className="nf-project-card">
+                      {inner}
+                    </a>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+
+        <section
+          id="nosotros"
+          className="nf-band"
+          aria-labelledby="nosotros-title"
+        >
+          <MediaSlot
+            slot="band-bg"
+            label="Imagen ideas en movimiento"
+            className="nf-band-media"
+            imageUrl={content.mediaUrls?.['band-bg']}
+          />
+          <div className="nf-band-scrim" aria-hidden />
+          <div className="nf-band-content">
+            <p className="nf-band-brand">
+              <span>{content.bandBrand}</span>
+            </p>
+            <h2 id="nosotros-title" className="nf-band-title">
+              <span>{content.bandTitleLine1}</span>
+              <span className="nf-text-glow">{content.bandTitleLine2}</span>
+            </h2>
+            <a
+              className="nf-icon-circle nf-band-cta"
+              href={contactHref}
+              aria-label="Continuar a contacto"
+            >
+              <ArrowRight size={22} strokeWidth={2} aria-hidden />
+            </a>
           </div>
         </section>
       </main>
 
-      <footer className="landing-footer">
-        <div className="landing-footer-inner">
-          <p className="landing-footer-brand">Nodefex Tecnology</p>
-          <p>© {new Date().getFullYear()}</p>
+      <footer id="contacto" className="nf-footer">
+        <div className="nf-footer-inner">
+          <p className="nf-brand">{content.brand}</p>
+          <div className="nf-footer-links">
+            <a href={contactHref}>{content.footerContactLabel}</a>
+            <span className="nf-footer-sep" aria-hidden />
+            <div className="nf-socials">
+              {socials.map((social) => {
+                const Icon = social.icon
+                return (
+                  <a
+                    key={`${social.label}-${social.href}`}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                  >
+                    <Icon size={16} strokeWidth={1.75} aria-hidden />
+                  </a>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </footer>
 
-      {showContact && contacto ? (
+      {showContactFab && contacto ? (
         <a
-          className="landing-contact-fab"
+          className="nf-contact-fab"
           href={contacto.href}
           target="_blank"
           rel="noopener noreferrer"

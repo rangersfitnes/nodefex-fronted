@@ -7,6 +7,8 @@ export {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
+  Box,
   BadgeCheck,
   Banknote,
   Bell,

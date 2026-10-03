@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatCop } from '../api/administradores'
 import {
   AlertCircle,
+  Globe,
   Hexagon,
   LayoutDashboard,
   LoaderCircle,
@@ -364,6 +365,26 @@ export function Dashboard() {
                   <p>
                     Cambia si cada cuenta es administrador o vendedor solo en Nodefex Audio Visual.
                   </p>
+                </article>
+                <article
+                  className="proyecto-card proyecto-card-clickable"
+                  onClick={() => navigate('/admin/sitio-web')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      navigate('/admin/sitio-web')
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                >
+                  <div className="proyecto-card-top">
+                    <div className="proyecto-card-icon" aria-hidden>
+                      <Globe size={20} strokeWidth={1.75} />
+                    </div>
+                  </div>
+                  <h2>Sitio web</h2>
+                  <p>Personaliza textos e imágenes de la página principal de Nodefex.</p>
                 </article>
                 <article
                   className="proyecto-card proyecto-card-clickable"
