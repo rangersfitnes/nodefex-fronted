@@ -548,8 +548,15 @@ a {
   border-radius: 1.15rem;
   overflow: hidden;
   text-decoration: none;
+  color: inherit;
+  cursor: pointer;
   isolation: isolate;
   transition: transform 0.3s ease;
+}
+
+.nf-project-card .nf-project-media,
+.nf-project-card .nf-project-meta {
+  pointer-events: none;
 }
 
 .nf-project-card:hover {

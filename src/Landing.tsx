@@ -178,6 +178,35 @@ function isInternalPath(href: string) {
   return href.startsWith('/') && !href.startsWith('//')
 }
 
+/** Normaliza el campo «Enlace» del CMS para que la card navegue bien. */
+function resolveProjectHref(raw: string | undefined | null): string {
+  const href = String(raw ?? '').trim()
+  if (!href || href === '#') return '#proyectos'
+  if (
+    href.startsWith('#') ||
+    href.startsWith('/') ||
+    href.startsWith('mailto:') ||
+    href.startsWith('tel:') ||
+    /^https?:\/\//i.test(href)
+  ) {
+    return href
+  }
+  // Dominio sin protocolo (ej. elgenio.co o www.elgenio.co)
+  if (/^(www\.)?[\w.-]+\.[\w.-]+/i.test(href)) {
+    return `https://${href}`
+  }
+  return href
+}
+
+function isExternalHref(href: string) {
+  return (
+    /^https?:\/\//i.test(href) ||
+    href.startsWith('//') ||
+    href.startsWith('mailto:') ||
+    href.startsWith('tel:')
+  )
+}
+
 export function Landing() {
   const [contacto, setContacto] = useState<SitioContacto | null>(null)
   const [content, setContent] = useState<SitioWebContent>(DEFAULT_CONTENT)
@@ -441,6 +470,7 @@ export function Landing() {
             data-count={projects.length <= 4 ? String(projects.length) : 'many'}
           >
             {projects.map((project) => {
+              const href = resolveProjectHref(project.href)
               const inner = (
                 <>
                   <MediaSlot
@@ -470,12 +500,18 @@ export function Landing() {
 
               return (
                 <li key={project.mediaSlot || `${project.name}-${project.slot}`}>
-                  {isInternalPath(project.href) ? (
-                    <Link to={project.href} className="nf-project-card">
+                  {isInternalPath(href) ? (
+                    <Link to={href} className="nf-project-card">
                       {inner}
                     </Link>
                   ) : (
-                    <a href={project.href || '#proyectos'} className="nf-project-card">
+                    <a
+                      href={href}
+                      className="nf-project-card"
+                      {...(isExternalHref(href)
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
                       {inner}
                     </a>
                   )}
