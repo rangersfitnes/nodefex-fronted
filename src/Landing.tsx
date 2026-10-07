@@ -7,6 +7,7 @@ import {
   type SitioMediaSlot,
   type SitioWebContent,
 } from './api/sitio'
+import { resolveSitioMediaSrc } from './utils/sitioMedia'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -84,18 +85,33 @@ type MediaSlotProps = {
   label: string
   className?: string
   imageUrl?: string
+  priority?: boolean
 }
 
-function MediaSlot({ slot, label, className = '', imageUrl }: MediaSlotProps) {
+function MediaSlot({
+  slot,
+  label,
+  className = '',
+  imageUrl,
+  priority = false,
+}: MediaSlotProps) {
+  const src = resolveSitioMediaSrc(imageUrl)
   return (
     <div
-      className={`nf-media-slot ${imageUrl ? 'has-image' : ''} ${className}`.trim()}
+      className={`nf-media-slot ${src ? 'has-image' : ''} ${className}`.trim()}
       data-media-slot={slot}
       role="img"
       aria-label={label}
     >
-      {imageUrl ? (
-        <img className="nf-media-img" src={imageUrl} alt="" decoding="async" />
+      {src ? (
+        <img
+          className="nf-media-img"
+          src={src}
+          alt=""
+          decoding="async"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+        />
       ) : (
         <span className="nf-media-placeholder">{label}</span>
       )}
@@ -398,6 +414,7 @@ export function Landing() {
             label="Imagen hero"
             className="nf-hero-media"
             imageUrl={content.mediaUrls?.['hero-bg']}
+            priority
           />
           <div className="nf-hero-scrim" aria-hidden />
           <div className="nf-hero-content">

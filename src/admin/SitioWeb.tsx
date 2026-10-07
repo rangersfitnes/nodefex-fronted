@@ -26,59 +26,11 @@ import {
   Trash2,
   Upload,
 } from '../icons'
-
-async function compressImageForUpload(file: File): Promise<{
-  fileName: string
-  mimeType: string
-  contentBase64: string
-}> {
-  const objectUrl = URL.createObjectURL(file)
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('No se pudo leer la imagen'))
-      img.src = objectUrl
-    })
-
-    const maxSide = 1920
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
-    const width = Math.max(1, Math.round(image.width * scale))
-    const height = Math.max(1, Math.round(image.height * scale))
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('No se pudo procesar la imagen')
-    ctx.drawImage(image, 0, 0, width, height)
-
-    const qualities = [0.82, 0.7, 0.58, 0.45]
-    let best: { mimeType: string; contentBase64: string; size: number } | null = null
-    for (const quality of qualities) {
-      const dataUrl = canvas.toDataURL('image/jpeg', quality)
-      const contentBase64 = dataUrl.split(',')[1] || ''
-      const size = Math.ceil((contentBase64.length * 3) / 4)
-      best = { mimeType: 'image/jpeg', contentBase64, size }
-      if (size <= 650 * 1024) break
-    }
-
-    if (!best?.contentBase64) throw new Error('No se pudo comprimir la imagen')
-    if (best.size > 700 * 1024) {
-      throw new Error(
-        'La imagen es demasiado grande incluso comprimida. Usa otra de menor resolución.',
-      )
-    }
-
-    const baseName = file.name.replace(/\.[^.]+$/, '') || 'imagen'
-    return {
-      fileName: `${baseName}.jpg`,
-      mimeType: best.mimeType,
-      contentBase64: best.contentBase64,
-    }
-  } finally {
-    URL.revokeObjectURL(objectUrl)
-  }
-}
+import {
+  compressSitioImage,
+  compressSitioImageFromUrl,
+  resolveSitioMediaSrc,
+} from '../utils/sitioMedia'
 
 function MediaEditor({
   label,
@@ -99,7 +51,7 @@ function MediaEditor({
     <div className="sitio-web-media-card">
       <div className="sitio-web-media-preview">
         {url ? (
-          <img src={url} alt={label} />
+          <img src={resolveSitioMediaSrc(url)} alt={label} loading="lazy" decoding="async" />
         ) : (
           <span className="sitio-web-media-empty">Sin imagen</span>
         )}
@@ -258,12 +210,56 @@ export function SitioWebPage() {
     setSuccess('')
     try {
       const token = await user.getIdToken()
-      const compressed = await compressImageForUpload(file)
-      const saved = await uploadSitioWebMedia(token, slot, compressed)
+      const compressed = await compressSitioImage(file, slot, file.name)
+      const saved = await uploadSitioWebMedia(token, slot, {
+        fileName: compressed.fileName,
+        mimeType: compressed.mimeType,
+        contentBase64: compressed.contentBase64,
+      })
       applyContent(saved)
-      setSuccess(`Imagen actualizada: ${slot}`)
+      const kb = Math.round(compressed.size / 1024)
+      setSuccess(`Imagen optimizada (${kb} KB): ${slot}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo subir la imagen')
+    } finally {
+      setMediaBusy(false)
+    }
+  }
+
+  async function handleOptimizeAllMedia() {
+    if (!user || mediaBusy) return
+    const slots = Object.keys(mediaUrls).filter((slot) => Boolean(mediaUrls[slot as SitioMediaSlot]))
+    if (!slots.length) {
+      setError('No hay imágenes para optimizar')
+      return
+    }
+    const ok = window.confirm(
+      `Se recomprimirán ${slots.length} imagen(es) para acelerar la carga del sitio. ¿Continuar?`,
+    )
+    if (!ok) return
+
+    setMediaBusy(true)
+    setError('')
+    setSuccess('')
+    try {
+      const token = await user.getIdToken()
+      let optimized = 0
+      let last = null as SitioWebContent | null
+      for (const slot of slots) {
+        const url = mediaUrls[slot as SitioMediaSlot]
+        if (!url) continue
+        const compressed = await compressSitioImageFromUrl(url, slot)
+        last = await uploadSitioWebMedia(token, slot as SitioMediaSlot, {
+          fileName: compressed.fileName,
+          mimeType: compressed.mimeType,
+          contentBase64: compressed.contentBase64,
+        })
+        optimized += 1
+      }
+      if (last) applyContent(last)
+      setSuccess(`Imágenes optimizadas: ${optimized}. La página pública debería cargar más rápido.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron optimizar las imágenes')
     } finally {
       setMediaBusy(false)
     }
@@ -364,10 +360,25 @@ export function SitioWebPage() {
                 guardar.
               </p>
             </div>
-            <a className="btn-secondary" href="/" target="_blank" rel="noreferrer">
-              Ver sitio
-              <ArrowRight size={16} strokeWidth={2} aria-hidden />
-            </a>
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={busy || Object.keys(mediaUrls).length === 0}
+                onClick={() => void handleOptimizeAllMedia()}
+              >
+                {mediaBusy ? (
+                  <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Upload size={16} strokeWidth={2} aria-hidden />
+                )}
+                Optimizar imágenes
+              </button>
+              <a className="btn-secondary" href="/" target="_blank" rel="noreferrer">
+                Ver sitio
+                <ArrowRight size={16} strokeWidth={2} aria-hidden />
+              </a>
+            </div>
           </div>
         </section>
 
