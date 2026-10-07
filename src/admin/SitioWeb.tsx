@@ -109,10 +109,15 @@ export function SitioWebPage() {
   const [projectsTitle, setProjectsTitle] = useState('Proyectos destacados')
   const [projectsCta, setProjectsCta] = useState('Ver todos')
   const [projects, setProjects] = useState<SitioProjectItem[]>([])
-  const [bandBrand, setBandBrand] = useState('NODEFEX TECHNOLOGY')
-  const [bandTitleLine1, setBandTitleLine1] = useState('IDEAS')
-  const [bandTitleLine2, setBandTitleLine2] = useState('EN MOVIMIENTO')
   const [footerContactLabel, setFooterContactLabel] = useState('Contacto')
+  const [legalCompanyName, setLegalCompanyName] = useState('NODEFEX TECHNOLOGY')
+  const [legalNit, setLegalNit] = useState('')
+  const [legalAddress, setLegalAddress] = useState('')
+  const [legalCity, setLegalCity] = useState('Colombia')
+  const [legalEmail, setLegalEmail] = useState('contacto@nodefex.com')
+  const [legalPhone, setLegalPhone] = useState('')
+  const [termsText, setTermsText] = useState('')
+  const [privacyText, setPrivacyText] = useState('')
   const [socials, setSocials] = useState<SitioSocialItem[]>([])
 
   useEffect(() => {
@@ -157,10 +162,15 @@ export function SitioWebPage() {
         mediaSlot: project.mediaSlot || (`project-${index}` as SitioMediaSlot),
       })),
     )
-    setBandBrand(data.bandBrand)
-    setBandTitleLine1(data.bandTitleLine1)
-    setBandTitleLine2(data.bandTitleLine2)
     setFooterContactLabel(data.footerContactLabel)
+    setLegalCompanyName(data.legalCompanyName || data.brand || 'NODEFEX TECHNOLOGY')
+    setLegalNit(data.legalNit || '')
+    setLegalAddress(data.legalAddress || '')
+    setLegalCity(data.legalCity || 'Colombia')
+    setLegalEmail(data.legalEmail || '')
+    setLegalPhone(data.legalPhone || '')
+    setTermsText(data.termsText || '')
+    setPrivacyText(data.privacyText || '')
     setSocials(data.socials)
     setMediaUrls(data.mediaUrls || {})
   }
@@ -188,10 +198,15 @@ export function SitioWebPage() {
         projectsTitle,
         projectsCta,
         projects,
-        bandBrand,
-        bandTitleLine1,
-        bandTitleLine2,
         footerContactLabel,
+        legalCompanyName,
+        legalNit,
+        legalAddress,
+        legalCity,
+        legalEmail,
+        legalPhone,
+        termsText,
+        privacyText,
         socials,
       })
       applyContent(saved)
@@ -620,47 +635,92 @@ export function SitioWebPage() {
               </fieldset>
 
               <fieldset className="sitio-web-fieldset">
-                <legend>Banda «Nosotros»</legend>
+                <legend>Información legal</legend>
+                <div className="sitio-web-grid-2">
+                  <label className="login-field">
+                    Razón social / nombre comercial
+                    <input
+                      type="text"
+                      value={legalCompanyName}
+                      onChange={(e) => setLegalCompanyName(e.target.value)}
+                      disabled={busy}
+                      maxLength={120}
+                    />
+                  </label>
+                  <label className="login-field">
+                    NIT
+                    <input
+                      type="text"
+                      value={legalNit}
+                      onChange={(e) => setLegalNit(e.target.value)}
+                      disabled={busy}
+                      maxLength={40}
+                      placeholder="900.000.000-0"
+                    />
+                  </label>
+                </div>
                 <label className="login-field">
-                  Marca
+                  Dirección
                   <input
                     type="text"
-                    value={bandBrand}
-                    onChange={(e) => setBandBrand(e.target.value)}
+                    value={legalAddress}
+                    onChange={(e) => setLegalAddress(e.target.value)}
                     disabled={busy}
-                    maxLength={80}
+                    maxLength={200}
                   />
                 </label>
                 <div className="sitio-web-grid-2">
                   <label className="login-field">
-                    Título línea 1
+                    Ciudad / país
                     <input
                       type="text"
-                      value={bandTitleLine1}
-                      onChange={(e) => setBandTitleLine1(e.target.value)}
+                      value={legalCity}
+                      onChange={(e) => setLegalCity(e.target.value)}
                       disabled={busy}
-                      maxLength={40}
+                      maxLength={80}
                     />
                   </label>
                   <label className="login-field">
-                    Título línea 2 (acento)
+                    Teléfono
                     <input
                       type="text"
-                      value={bandTitleLine2}
-                      onChange={(e) => setBandTitleLine2(e.target.value)}
+                      value={legalPhone}
+                      onChange={(e) => setLegalPhone(e.target.value)}
                       disabled={busy}
                       maxLength={40}
                     />
                   </label>
                 </div>
-                <MediaEditor
-                  label="Imagen banda"
-                  slot="band-bg"
-                  url={mediaUrls['band-bg']}
-                  busy={busy}
-                  onUpload={handleUpload}
-                  onDelete={handleDeleteMedia}
-                />
+                <label className="login-field">
+                  Correo de contacto / PQRS
+                  <input
+                    type="email"
+                    value={legalEmail}
+                    onChange={(e) => setLegalEmail(e.target.value)}
+                    disabled={busy}
+                    maxLength={120}
+                  />
+                </label>
+                <label className="login-field">
+                  Términos y condiciones
+                  <textarea
+                    value={termsText}
+                    onChange={(e) => setTermsText(e.target.value)}
+                    disabled={busy}
+                    maxLength={8000}
+                    rows={6}
+                  />
+                </label>
+                <label className="login-field">
+                  Política de privacidad / datos personales
+                  <textarea
+                    value={privacyText}
+                    onChange={(e) => setPrivacyText(e.target.value)}
+                    disabled={busy}
+                    maxLength={8000}
+                    rows={6}
+                  />
+                </label>
               </fieldset>
 
               <fieldset className="sitio-web-fieldset">

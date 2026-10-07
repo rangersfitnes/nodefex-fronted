@@ -64,6 +64,14 @@ export type SitioWebContent = {
   bandTitleLine1: string
   bandTitleLine2: string
   footerContactLabel: string
+  legalCompanyName: string
+  legalNit: string
+  legalAddress: string
+  legalCity: string
+  legalEmail: string
+  legalPhone: string
+  termsText: string
+  privacyText: string
   socials: SitioSocialItem[]
   media: Record<
     string,
@@ -91,10 +99,18 @@ export type SitioWebPayload = {
   projectsTitle: string
   projectsCta: string
   projects: SitioProjectItem[]
-  bandBrand: string
-  bandTitleLine1: string
-  bandTitleLine2: string
+  bandBrand?: string
+  bandTitleLine1?: string
+  bandTitleLine2?: string
   footerContactLabel: string
+  legalCompanyName: string
+  legalNit: string
+  legalAddress: string
+  legalCity: string
+  legalEmail: string
+  legalPhone: string
+  termsText: string
+  privacyText: string
   socials: SitioSocialItem[]
 }
 

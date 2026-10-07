@@ -121,9 +121,9 @@ function MediaSlot({
 
 const NAV_LINKS = [
   { href: '#inicio', label: 'Inicio' },
-  { href: '#servicios', label: 'Servicios' },
   { href: '#proyectos', label: 'Proyectos' },
-  { href: '#nosotros', label: 'Nosotros' },
+  { href: '#servicios', label: 'Servicios' },
+  { href: '#legal', label: 'Legal' },
 ] as const
 
 const SERVICE_ICONS = [Code2, Box, Video, Layers] as const
@@ -180,6 +180,16 @@ const DEFAULT_CONTENT: SitioWebContent = {
   bandTitleLine1: 'IDEAS',
   bandTitleLine2: 'EN MOVIMIENTO',
   footerContactLabel: 'Contacto',
+  legalCompanyName: 'NODEFEX TECHNOLOGY',
+  legalNit: '',
+  legalAddress: '',
+  legalCity: 'Colombia',
+  legalEmail: 'contacto@nodefex.com',
+  legalPhone: '',
+  termsText:
+    'Al acceder y utilizar este sitio web, usted acepta estos términos y condiciones. El contenido, marcas, software y materiales publicados pertenecen a NODEFEX TECHNOLOGY o a sus licenciantes y no pueden reproducirse sin autorización. Los servicios ofrecidos (software, impresión 3D, producción audiovisual y consultoría tecnológica) se contratan de forma independiente según propuesta o acuerdo comercial. Nos reservamos el derecho de actualizar la información del sitio sin previo aviso. El uso indebido de la plataforma, intentos de acceso no autorizado o actividades ilícitas están prohibidos. Para controversias se aplicará la legislación colombiana.',
+  privacyText:
+    'En cumplimiento de la Ley 1581 de 2012 y normas complementarias sobre protección de datos personales en Colombia, informamos que los datos recolectados a través de formularios, WhatsApp u otros canales de contacto se usan para atender solicitudes, prestar servicios y enviar comunicaciones relacionadas con NODEFEX TECHNOLOGY. El titular puede conocer, actualizar, rectificar u oponerse al tratamiento de sus datos escribiendo al correo de contacto indicado en este sitio. No vendemos datos personales a terceros. Conservamos la información el tiempo necesario para las finalidades autorizadas o exigidas por ley.',
   socials: [
     { label: 'Instagram', href: 'https://www.instagram.com/' },
     { label: 'YouTube', href: 'https://www.youtube.com/' },
@@ -223,11 +233,15 @@ function isExternalHref(href: string) {
   )
 }
 
+const PROJECT_DESC_PREVIEW_CHARS = 90
+
 export function Landing() {
   const [contacto, setContacto] = useState<SitioContacto | null>(null)
   const [content, setContent] = useState<SitioWebContent>(DEFAULT_CONTENT)
   const [activeSection, setActiveSection] = useState('inicio')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [expandedProject, setExpandedProject] = useState<string | null>(null)
+  const [legalPanel, setLegalPanel] = useState<'terms' | 'privacy' | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -440,6 +454,111 @@ export function Landing() {
         </section>
 
         <section
+          id="proyectos"
+          className="nf-section nf-projects"
+          aria-labelledby="proyectos-title"
+        >
+          <div className="nf-section-row">
+            <h2 id="proyectos-title" className="nf-section-label">
+              {content.projectsTitle}
+            </h2>
+            <a className="nf-link-all" href="#proyectos">
+              {content.projectsCta}
+              <span className="nf-icon-circle" aria-hidden>
+                <ArrowRight size={14} strokeWidth={2} />
+              </span>
+            </a>
+          </div>
+
+          <ul
+            className="nf-project-grid"
+            data-count={projects.length <= 4 ? String(projects.length) : 'many'}
+          >
+            {projects.map((project) => {
+              const href = resolveProjectHref(project.href)
+              const cardKey = project.mediaSlot || `${project.name}-${project.slot}`
+              const description = project.description?.trim() || ''
+              const canExpand = description.length > PROJECT_DESC_PREVIEW_CHARS
+              const isExpanded = expandedProject === cardKey
+              const preview =
+                canExpand && !isExpanded
+                  ? `${description.slice(0, PROJECT_DESC_PREVIEW_CHARS).trimEnd()}…`
+                  : description
+
+              const inner = (
+                <>
+                  <MediaSlot
+                    slot={project.slot}
+                    label={`Imagen ${project.name}`}
+                    className="nf-project-media"
+                    imageUrl={project.imageUrl}
+                  />
+                  <div className="nf-project-meta">
+                    <div className="nf-project-meta-main">
+                      <div className="nf-project-meta-top">
+                        <div>
+                          <h3>{project.name}</h3>
+                          <p className="nf-project-category">{project.category}</p>
+                        </div>
+                        <span className="nf-icon-circle" aria-hidden>
+                          <ArrowUpRight size={14} strokeWidth={2} />
+                        </span>
+                      </div>
+                      {description ? (
+                        <p
+                          className={`nf-project-desc${isExpanded ? ' is-expanded' : ''}`}
+                        >
+                          {preview}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </>
+              )
+
+              return (
+                <li
+                  key={cardKey}
+                  className={`nf-project-item${isExpanded ? ' is-expanded' : ''}`}
+                >
+                  {isInternalPath(href) ? (
+                    <Link to={href} className="nf-project-card">
+                      {inner}
+                    </Link>
+                  ) : (
+                    <a
+                      href={href}
+                      className="nf-project-card"
+                      {...(isExternalHref(href)
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                    >
+                      {inner}
+                    </a>
+                  )}
+                  {canExpand ? (
+                    <button
+                      type="button"
+                      className="nf-project-more"
+                      aria-expanded={isExpanded}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setExpandedProject((current) =>
+                          current === cardKey ? null : cardKey,
+                        )
+                      }}
+                    >
+                      {isExpanded ? 'Ver menos' : 'Ver más'}
+                    </button>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+
+        <section
           id="servicios"
           className="nf-section nf-services"
           aria-labelledby="servicios-title"
@@ -465,115 +584,124 @@ export function Landing() {
           </ul>
         </section>
 
-        <section
-          id="proyectos"
-          className="nf-section nf-projects"
-          aria-labelledby="proyectos-title"
-        >
-          <div className="nf-section-row">
-            <h2 id="proyectos-title" className="nf-section-label">
-              {content.projectsTitle}
-            </h2>
-            <a className="nf-link-all" href="#proyectos">
-              {content.projectsCta}
-              <span className="nf-icon-circle" aria-hidden>
-                <ArrowRight size={14} strokeWidth={2} />
-              </span>
-            </a>
-          </div>
-
-          <ul
-            className="nf-project-grid"
-            data-count={projects.length <= 4 ? String(projects.length) : 'many'}
-          >
-            {projects.map((project) => {
-              const href = resolveProjectHref(project.href)
-              const inner = (
-                <>
-                  <MediaSlot
-                    slot={project.slot}
-                    label={`Imagen ${project.name}`}
-                    className="nf-project-media"
-                    imageUrl={project.imageUrl}
-                  />
-                  <div className="nf-project-meta">
-                    <div className="nf-project-meta-main">
-                      <div className="nf-project-meta-top">
-                        <div>
-                          <h3>{project.name}</h3>
-                          <p className="nf-project-category">{project.category}</p>
-                        </div>
-                        <span className="nf-icon-circle" aria-hidden>
-                          <ArrowUpRight size={14} strokeWidth={2} />
-                        </span>
-                      </div>
-                      {project.description ? (
-                        <p className="nf-project-desc">{project.description}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                </>
-              )
-
-              return (
-                <li key={project.mediaSlot || `${project.name}-${project.slot}`}>
-                  {isInternalPath(href) ? (
-                    <Link to={href} className="nf-project-card">
-                      {inner}
-                    </Link>
-                  ) : (
-                    <a
-                      href={href}
-                      className="nf-project-card"
-                      {...(isExternalHref(href)
-                        ? { target: '_blank', rel: 'noopener noreferrer' }
-                        : {})}
-                    >
-                      {inner}
-                    </a>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-
-        <section
-          id="nosotros"
-          className="nf-band"
-          aria-labelledby="nosotros-title"
-        >
-          <MediaSlot
-            slot="band-bg"
-            label="Imagen ideas en movimiento"
-            className="nf-band-media"
-            imageUrl={content.mediaUrls?.['band-bg']}
-          />
-          <div className="nf-band-scrim" aria-hidden />
-          <div className="nf-band-content">
-            <p className="nf-band-brand">
-              <span>{content.bandBrand}</span>
-            </p>
-            <h2 id="nosotros-title" className="nf-band-title">
-              <span>{content.bandTitleLine1}</span>
-              <span className="nf-text-glow">{content.bandTitleLine2}</span>
-            </h2>
-            <a
-              className="nf-icon-circle nf-band-cta"
-              href={contactHref}
-              aria-label="Continuar a contacto"
-            >
-              <ArrowRight size={22} strokeWidth={2} aria-hidden />
-            </a>
-          </div>
-        </section>
       </main>
 
       <footer id="contacto" className="nf-footer">
+        <section
+          id="legal"
+          className="nf-legal"
+          aria-labelledby="legal-title"
+        >
+          <div className="nf-legal-inner">
+            <div className="nf-legal-intro">
+              <p className="nf-section-label" id="legal-title">
+                Información legal
+              </p>
+              <p className="nf-legal-company">
+                {content.legalCompanyName || content.brand}
+              </p>
+              <ul className="nf-legal-meta">
+                {content.legalNit ? (
+                  <li>
+                    <span>NIT</span>
+                    <strong>{content.legalNit}</strong>
+                  </li>
+                ) : null}
+                {content.legalAddress ? (
+                  <li>
+                    <span>Dirección</span>
+                    <strong>{content.legalAddress}</strong>
+                  </li>
+                ) : null}
+                {content.legalCity ? (
+                  <li>
+                    <span>Ciudad / país</span>
+                    <strong>{content.legalCity}</strong>
+                  </li>
+                ) : null}
+                {content.legalEmail ? (
+                  <li>
+                    <span>Correo</span>
+                    <strong>
+                      <a href={`mailto:${content.legalEmail}`}>{content.legalEmail}</a>
+                    </strong>
+                  </li>
+                ) : null}
+                {content.legalPhone ? (
+                  <li>
+                    <span>Teléfono</span>
+                    <strong>
+                      <a href={`tel:${content.legalPhone.replace(/\s+/g, '')}`}>
+                        {content.legalPhone}
+                      </a>
+                    </strong>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+
+            <div className="nf-legal-actions">
+              <button
+                type="button"
+                className={`nf-legal-toggle${legalPanel === 'terms' ? ' is-open' : ''}`}
+                aria-expanded={legalPanel === 'terms'}
+                onClick={() =>
+                  setLegalPanel((current) => (current === 'terms' ? null : 'terms'))
+                }
+              >
+                Términos y condiciones
+              </button>
+              <button
+                type="button"
+                className={`nf-legal-toggle${legalPanel === 'privacy' ? ' is-open' : ''}`}
+                aria-expanded={legalPanel === 'privacy'}
+                onClick={() =>
+                  setLegalPanel((current) =>
+                    current === 'privacy' ? null : 'privacy',
+                  )
+                }
+              >
+                Política de privacidad
+              </button>
+            </div>
+
+            {legalPanel === 'terms' ? (
+              <div className="nf-legal-panel" role="region" aria-label="Términos y condiciones">
+                <h3>Términos y condiciones</h3>
+                <p>{content.termsText}</p>
+              </div>
+            ) : null}
+
+            {legalPanel === 'privacy' ? (
+              <div
+                className="nf-legal-panel"
+                role="region"
+                aria-label="Política de privacidad"
+              >
+                <h3>Política de privacidad y tratamiento de datos</h3>
+                <p>{content.privacyText}</p>
+              </div>
+            ) : null}
+
+            <p className="nf-legal-note">
+              El uso de este sitio implica la aceptación de los términos y de la política de
+              tratamiento de datos personales conforme a la legislación colombiana vigente.
+            </p>
+          </div>
+        </section>
+
         <div className="nf-footer-inner">
-          <p className="nf-brand">{content.brand}</p>
+          <div className="nf-footer-brand-block">
+            <p className="nf-brand">{content.brand}</p>
+            <p className="nf-footer-copy">
+              © {new Date().getFullYear()} {content.legalCompanyName || content.brand}. Todos
+              los derechos reservados.
+              {content.legalNit ? ` NIT ${content.legalNit}.` : ''}
+            </p>
+          </div>
           <div className="nf-footer-links">
             <a href={contactHref}>{content.footerContactLabel}</a>
+            <a href="#legal">Legal</a>
             <span className="nf-footer-sep" aria-hidden />
             <div className="nf-socials">
               {socials.map((social) => {
