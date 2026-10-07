@@ -14,8 +14,15 @@ createRoot(document.getElementById('root')!).render(
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.warn('[pwa] No se pudo registrar el service worker', error)
-    })
+    void navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        // Fuerza tomar el SW nuevo (v3+) en cuanto esté listo.
+        if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+        registration.update().catch(() => {})
+      })
+      .catch((error) => {
+        console.warn('[pwa] No se pudo registrar el service worker', error)
+      })
   })
 }

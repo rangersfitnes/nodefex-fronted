@@ -93,17 +93,12 @@ function MediaSlot({ slot, label, className = '', imageUrl }: MediaSlotProps) {
       data-media-slot={slot}
       role="img"
       aria-label={label}
-      style={
-        imageUrl
-          ? {
-              backgroundImage: `url(${imageUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }
-          : undefined
-      }
     >
-      {imageUrl ? null : <span className="nf-media-placeholder">{label}</span>}
+      {imageUrl ? (
+        <img className="nf-media-img" src={imageUrl} alt="" decoding="async" />
+      ) : (
+        <span className="nf-media-placeholder">{label}</span>
+      )}
     </div>
   )
 }

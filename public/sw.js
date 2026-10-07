@@ -1,9 +1,8 @@
-/* Service worker para instalar la PWA del panel admin.
- * Navegaciones (HTML) van siempre a red: evita que Safari abra la landing
- * cacheada en "/" al entrar a /admin.
+/* Service worker PWA (panel admin).
+ * Prioriza red para HTML/JS/CSS y evita mostrar una landing o bundle viejos.
  */
-const CACHE = 'nodefex-shell-v2'
-const PRECACHE = ['/admin', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
+const CACHE = 'nodefex-shell-v3'
+const PRECACHE = ['/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,6 +28,21 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+})
+
+function isShellAsset(url) {
+  return (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.map')
+  )
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -36,8 +50,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // Documentos / rutas SPA: red primero (nunca servir "/" para "/admin").
+  // Documentos / rutas SPA: siempre red primero.
   if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => response)
+        .catch(async () => {
+          const cachedExact = await caches.match(request)
+          if (cachedExact) return cachedExact
+          return (await caches.match('/admin')) || Response.error()
+        }),
+    )
+    return
+  }
+
+  // JS/CSS del bundle: red primero (evita UI pública desactualizada).
+  if (isShellAsset(url) || request.destination === 'script' || request.destination === 'style') {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -47,17 +75,12 @@ self.addEventListener('fetch', (event) => {
           }
           return response
         })
-        .catch(async () => {
-          const cachedExact = await caches.match(request)
-          if (cachedExact) return cachedExact
-          // Fallback offline del shell admin (no la landing).
-          return (await caches.match('/admin')) || (await caches.match('/index.html'))
-        }),
+        .catch(() => caches.match(request)),
     )
     return
   }
 
-  // Assets estáticos: cache con actualización en segundo plano.
+  // Iconos y estáticos menores: cache con actualización en segundo plano.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)
