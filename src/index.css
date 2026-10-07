@@ -1074,7 +1074,9 @@ a {
 
   .nf-projects {
     padding-bottom: 2.5rem;
-    overflow: visible;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   .nf-project-grid,
@@ -1084,17 +1086,21 @@ a {
   .nf-project-grid[data-count='4'],
   .nf-project-grid[data-count='many'] {
     display: grid;
-    max-width: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     grid-auto-flow: column;
     grid-template-rows: repeat(2, auto);
     grid-template-columns: none;
-    grid-auto-columns: min(68vw, 220px);
+    /* % del contenedor (no vw) para no empujar el ancho de la página */
+    grid-auto-columns: min(72%, 210px);
     gap: 0.75rem;
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
     padding: 0.15rem 0 0.85rem;
-    margin: 0 -0.15rem;
-    padding-left: 0.15rem;
-    padding-right: 0.15rem;
+    margin: 0;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -1107,10 +1113,12 @@ a {
   .nf-project-grid > li {
     scroll-snap-align: start;
     min-width: 0;
+    max-width: 100%;
   }
 
   .nf-project-card {
     aspect-ratio: 3 / 4;
+    max-width: 100%;
   }
 
   .nf-project-meta h3 {
@@ -1177,7 +1185,7 @@ a {
   .nf-project-grid[data-count='3'],
   .nf-project-grid[data-count='4'],
   .nf-project-grid[data-count='many'] {
-    grid-auto-columns: min(74vw, 210px);
+    grid-auto-columns: min(78%, 200px);
   }
 }
 
