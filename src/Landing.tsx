@@ -112,19 +112,14 @@ const NAV_LINKS = [
 
 const SERVICE_ICONS = [Code2, Box, Video, Layers] as const
 const SOCIAL_ICONS = [InstagramIcon, YoutubeIcon, LinkedinIcon] as const
-const PROJECT_SLOTS: SitioMediaSlot[] = [
-  'project-0',
-  'project-1',
-  'project-2',
-  'project-3',
-]
 
 const DEFAULT_CONTENT: SitioWebContent = {
   brand: 'NODEFEX TECHNOLOGY',
   navCta: 'Hablemos',
-  heroEyebrow: 'Tecnología que impulsa',
-  heroTitleLine1: 'IDEAS',
-  heroTitleLine2: 'REALES',
+  heroTitle: 'WE BUILD.',
+  heroEyebrow: '',
+  heroTitleLine1: 'WE BUILD.',
+  heroTitleLine2: '',
   heroCta: 'Ver proyectos',
   servicesTitle: 'Nuestros servicios',
   services: [
@@ -136,10 +131,34 @@ const DEFAULT_CONTENT: SitioWebContent = {
   projectsTitle: 'Proyectos destacados',
   projectsCta: 'Ver todos',
   projects: [
-    { name: 'Fexmenu', category: 'SAAS', href: '/fexmenu' },
-    { name: 'El Genio', category: 'AUDIOVISUAL', href: '#proyectos' },
-    { name: 'Velix', category: 'DEPORTIVO', href: '/velix' },
-    { name: 'Rangers Box', category: 'GESTIÓN', href: '#proyectos' },
+    {
+      name: 'Fexmenu',
+      category: 'SAAS',
+      description: '',
+      href: '/fexmenu',
+      mediaSlot: 'project-0',
+    },
+    {
+      name: 'El Genio',
+      category: 'AUDIOVISUAL',
+      description: '',
+      href: '#proyectos',
+      mediaSlot: 'project-1',
+    },
+    {
+      name: 'Velix',
+      category: 'DEPORTIVO',
+      description: '',
+      href: '/velix',
+      mediaSlot: 'project-2',
+    },
+    {
+      name: 'Rangers Box',
+      category: 'GESTIÓN',
+      description: '',
+      href: '#proyectos',
+      mediaSlot: 'project-3',
+    },
   ],
   bandBrand: 'NODEFEX TECHNOLOGY',
   bandTitleLine1: 'IDEAS',
@@ -209,8 +228,13 @@ export function Landing() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMenuOpen(false)
     }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKey)
+    }
   }, [menuOpen])
 
   const contactHref =
@@ -231,11 +255,18 @@ export function Landing() {
   const projects = useMemo(
     () =>
       (content.projects?.length ? content.projects : DEFAULT_CONTENT.projects).map(
-        (project, index) => ({
-          ...project,
-          slot: PROJECT_SLOTS[index] || (`project-${index}` as SitioMediaSlot),
-          imageUrl: content.mediaUrls?.[PROJECT_SLOTS[index] || 'project-0'],
-        }),
+        (project, index) => {
+          const slot =
+            project.mediaSlot ||
+            (`project-${index}` as SitioMediaSlot)
+          return {
+            ...project,
+            description: project.description || '',
+            mediaSlot: slot,
+            slot,
+            imageUrl: content.mediaUrls?.[slot],
+          }
+        },
       ),
     [content.projects, content.mediaUrls],
   )
@@ -251,12 +282,16 @@ export function Landing() {
     [content.socials],
   )
 
+  const brandShort =
+    content.brand.replace(/\s+TECHNOLOGY$/i, '').trim() || content.brand
+
   return (
-    <div className="nf-site">
+    <div className={`nf-site ${menuOpen ? 'is-menu-open' : ''}`.trim()}>
       <header className="nf-nav">
         <div className="nf-nav-inner">
           <a href="#inicio" className="nf-brand" onClick={() => setMenuOpen(false)}>
-            {content.brand}
+            <span className="nf-brand-full">{content.brand}</span>
+            <span className="nf-brand-short">{brandShort}</span>
           </a>
 
           <nav className="nf-nav-links" aria-label="Secciones">
@@ -275,7 +310,7 @@ export function Landing() {
           </nav>
 
           <div className="nf-nav-end">
-            <a className="nf-btn nf-btn-outline" href={contactHref}>
+            <a className="nf-btn nf-btn-outline nf-nav-cta-desktop" href={contactHref}>
               {content.navCta}
               <ArrowRight size={16} strokeWidth={2} aria-hidden />
             </a>
@@ -296,25 +331,34 @@ export function Landing() {
         </div>
 
         {menuOpen ? (
-          <nav className="nf-nav-drawer" aria-label="Menú móvil">
-            {NAV_LINKS.map((link) => (
+          <div className="nf-nav-overlay">
+            <button
+              type="button"
+              className="nf-nav-overlay-dismiss"
+              aria-label="Cerrar menú"
+              onClick={() => setMenuOpen(false)}
+            />
+            <nav className="nf-nav-drawer" aria-label="Menú móvil">
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={activeSection === link.href.slice(1) ? 'is-active' : undefined}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </a>
+              ))}
               <a
-                key={link.href}
-                href={link.href}
+                className="nf-btn nf-btn-outline nf-nav-drawer-cta"
+                href={contactHref}
                 onClick={() => setMenuOpen(false)}
               >
-                {link.label}
+                {content.navCta}
+                <ArrowRight size={16} strokeWidth={2} aria-hidden />
               </a>
-            ))}
-            <a
-              className="nf-btn nf-btn-outline"
-              href={contactHref}
-              onClick={() => setMenuOpen(false)}
-            >
-              {content.navCta}
-              <ArrowRight size={16} strokeWidth={2} aria-hidden />
-            </a>
-          </nav>
+            </nav>
+          </div>
         ) : null}
       </header>
 
@@ -328,16 +372,24 @@ export function Landing() {
           />
           <div className="nf-hero-scrim" aria-hidden />
           <div className="nf-hero-content">
-            <p className="nf-brand-mark">{content.brand}</p>
-            <p className="nf-eyebrow">{content.heroEyebrow}</p>
-            <h1 id="nf-hero-title" className="nf-hero-title">
-              <span>{content.heroTitleLine1}</span>
-              <span className="nf-text-glow">{content.heroTitleLine2}</span>
+            <h1 id="nf-hero-title" className="nf-hero-kicker">
+              {content.heroTitle || content.heroTitleLine1 || 'WE BUILD.'}
             </h1>
-            <a className="nf-btn nf-btn-outline" href="#proyectos">
-              {content.heroCta}
-              <ArrowRight size={16} strokeWidth={2} aria-hidden />
-            </a>
+            <div className="nf-hero-actions">
+              <a className="nf-btn nf-btn-outline" href="#proyectos">
+                {content.heroCta || 'Ver proyectos'}
+                <ArrowRight size={16} strokeWidth={2} aria-hidden />
+              </a>
+              <a
+                className="nf-btn nf-btn-solid"
+                href="https://elgenio.co"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Producción audiovisual
+                <ArrowRight size={16} strokeWidth={2} aria-hidden />
+              </a>
+            </div>
           </div>
         </section>
 
@@ -384,7 +436,10 @@ export function Landing() {
             </a>
           </div>
 
-          <ul className="nf-project-grid">
+          <ul
+            className="nf-project-grid"
+            data-count={projects.length <= 4 ? String(projects.length) : 'many'}
+          >
             {projects.map((project) => {
               const inner = (
                 <>
@@ -395,19 +450,26 @@ export function Landing() {
                     imageUrl={project.imageUrl}
                   />
                   <div className="nf-project-meta">
-                    <div>
-                      <h3>{project.name}</h3>
-                      <p>{project.category}</p>
+                    <div className="nf-project-meta-main">
+                      <div className="nf-project-meta-top">
+                        <div>
+                          <h3>{project.name}</h3>
+                          <p className="nf-project-category">{project.category}</p>
+                        </div>
+                        <span className="nf-icon-circle" aria-hidden>
+                          <ArrowUpRight size={14} strokeWidth={2} />
+                        </span>
+                      </div>
+                      {project.description ? (
+                        <p className="nf-project-desc">{project.description}</p>
+                      ) : null}
                     </div>
-                    <span className="nf-icon-circle" aria-hidden>
-                      <ArrowUpRight size={14} strokeWidth={2} />
-                    </span>
                   </div>
                 </>
               )
 
               return (
-                <li key={`${project.name}-${project.slot}`}>
+                <li key={project.mediaSlot || `${project.name}-${project.slot}`}>
                   {isInternalPath(project.href) ? (
                     <Link to={project.href} className="nf-project-card">
                       {inner}

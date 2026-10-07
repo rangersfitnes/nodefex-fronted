@@ -1,8 +1,13 @@
 /* Service worker PWA (panel admin).
  * Prioriza red para HTML/JS/CSS y evita mostrar una landing o bundle viejos.
  */
-const CACHE = 'nodefex-shell-v3'
-const PRECACHE = ['/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
+const CACHE = 'nodefex-shell-v4'
+const PRECACHE = [
+  '/favicon.ico',
+  '/favicon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

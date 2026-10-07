@@ -12,13 +12,9 @@ export type SitioContacto = {
   updatedAt: string | null
 }
 
-export type SitioMediaSlot =
-  | 'hero-bg'
-  | 'band-bg'
-  | 'project-0'
-  | 'project-1'
-  | 'project-2'
-  | 'project-3'
+export type SitioMediaSlot = 'hero-bg' | 'band-bg' | `project-${number}`
+
+export const MAX_SITIO_PROJECTS = 12
 
 export type SitioServiceItem = {
   title: string
@@ -27,7 +23,22 @@ export type SitioServiceItem = {
 export type SitioProjectItem = {
   name: string
   category: string
+  description: string
   href: string
+  mediaSlot: SitioMediaSlot
+}
+
+export function projectMediaSlot(index: number): SitioMediaSlot {
+  return `project-${index}` as SitioMediaSlot
+}
+
+export function nextProjectMediaSlot(projects: SitioProjectItem[]): SitioMediaSlot {
+  const used = new Set(projects.map((project) => project.mediaSlot))
+  for (let i = 0; i < MAX_SITIO_PROJECTS; i += 1) {
+    const slot = projectMediaSlot(i)
+    if (!used.has(slot)) return slot
+  }
+  return projectMediaSlot(0)
 }
 
 export type SitioSocialItem = {
@@ -38,6 +49,8 @@ export type SitioSocialItem = {
 export type SitioWebContent = {
   brand: string
   navCta: string
+  /** Texto único del hero minimalista (ej. WE BUILD.). */
+  heroTitle: string
   heroEyebrow: string
   heroTitleLine1: string
   heroTitleLine2: string
@@ -68,10 +81,11 @@ export type SitioWebContent = {
 export type SitioWebPayload = {
   brand: string
   navCta: string
-  heroEyebrow: string
-  heroTitleLine1: string
-  heroTitleLine2: string
-  heroCta: string
+  heroTitle: string
+  heroEyebrow?: string
+  heroTitleLine1?: string
+  heroTitleLine2?: string
+  heroCta?: string
   servicesTitle: string
   services: SitioServiceItem[]
   projectsTitle: string

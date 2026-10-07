@@ -1,14 +1,14 @@
 {
-  "name": "Nodefex Admin",
+  "name": "Nodefex Technology",
   "short_name": "Nodefex",
-  "description": "Panel administrativo de Nodefex Tecnology",
-  "id": "/admin",
-  "start_url": "/admin",
+  "description": "Nodefex Technology — software, hardware y comunicación digital.",
+  "id": "/",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#0b1f3a",
-  "theme_color": "#1f5fbf",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#05070d",
   "lang": "es",
   "icons": [
     {

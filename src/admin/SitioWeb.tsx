@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   deleteSitioWebMedia,
   getSitioWeb,
+  MAX_SITIO_PROJECTS,
+  nextProjectMediaSlot,
   saveSitioWeb,
   uploadSitioWebMedia,
   type SitioMediaSlot,
@@ -20,16 +22,10 @@ import {
   Hexagon,
   LoaderCircle,
   LogOut,
+  Plus,
   Trash2,
   Upload,
 } from '../icons'
-
-const PROJECT_SLOTS: SitioMediaSlot[] = [
-  'project-0',
-  'project-1',
-  'project-2',
-  'project-3',
-]
 
 async function compressImageForUpload(file: File): Promise<{
   fileName: string
@@ -154,9 +150,7 @@ export function SitioWebPage() {
 
   const [brand, setBrand] = useState('NODEFEX TECHNOLOGY')
   const [navCta, setNavCta] = useState('Hablemos')
-  const [heroEyebrow, setHeroEyebrow] = useState('Tecnología que impulsa')
-  const [heroTitleLine1, setHeroTitleLine1] = useState('IDEAS')
-  const [heroTitleLine2, setHeroTitleLine2] = useState('REALES')
+  const [heroTitle, setHeroTitle] = useState('WE BUILD.')
   const [heroCta, setHeroCta] = useState('Ver proyectos')
   const [servicesTitle, setServicesTitle] = useState('Nuestros servicios')
   const [services, setServices] = useState<SitioServiceItem[]>([])
@@ -196,15 +190,21 @@ export function SitioWebPage() {
   function applyContent(data: SitioWebContent) {
     setBrand(data.brand)
     setNavCta(data.navCta)
-    setHeroEyebrow(data.heroEyebrow)
-    setHeroTitleLine1(data.heroTitleLine1)
-    setHeroTitleLine2(data.heroTitleLine2)
-    setHeroCta(data.heroCta)
+    setHeroTitle(data.heroTitle || data.heroTitleLine1 || 'WE BUILD.')
+    setHeroCta(data.heroCta || 'Ver proyectos')
     setServicesTitle(data.servicesTitle)
     setServices(data.services)
     setProjectsTitle(data.projectsTitle)
     setProjectsCta(data.projectsCta)
-    setProjects(data.projects)
+    setProjects(
+      (data.projects || []).map((project, index) => ({
+        name: project.name || '',
+        category: project.category || '',
+        description: project.description || '',
+        href: project.href || '#proyectos',
+        mediaSlot: project.mediaSlot || (`project-${index}` as SitioMediaSlot),
+      })),
+    )
     setBandBrand(data.bandBrand)
     setBandTitleLine1(data.bandTitleLine1)
     setBandTitleLine2(data.bandTitleLine2)
@@ -229,9 +229,7 @@ export function SitioWebPage() {
       const saved = await saveSitioWeb(token, {
         brand,
         navCta,
-        heroEyebrow,
-        heroTitleLine1,
-        heroTitleLine2,
+        heroTitle,
         heroCta,
         servicesTitle,
         services,
@@ -287,6 +285,43 @@ export function SitioWebPage() {
       setError(err instanceof Error ? err.message : 'No se pudo eliminar la imagen')
     } finally {
       setMediaBusy(false)
+    }
+  }
+
+  function handleAddProject() {
+    if (projects.length >= MAX_SITIO_PROJECTS) return
+    const mediaSlot = nextProjectMediaSlot(projects)
+    setProjects((current) => [
+      ...current,
+      {
+        name: `Proyecto ${current.length + 1}`,
+        category: 'PROYECTO',
+        description: '',
+        href: '#proyectos',
+        mediaSlot,
+      },
+    ])
+  }
+
+  async function handleRemoveProject(index: number) {
+    if (projects.length <= 1) return
+    const target = projects[index]
+    if (!target) return
+    const ok = window.confirm(
+      `¿Eliminar “${target.name || `Proyecto ${index + 1}`}” del portafolio?`,
+    )
+    if (!ok) return
+
+    setProjects((current) => current.filter((_, i) => i !== index))
+
+    if (user && mediaUrls[target.mediaSlot]) {
+      try {
+        const token = await user.getIdToken()
+        const saved = await deleteSitioWebMedia(token, target.mediaSlot)
+        setMediaUrls(saved.mediaUrls || {})
+      } catch {
+        /* La card ya se quitó; la imagen se puede limpiar luego. */
+      }
     }
   }
 
@@ -371,37 +406,16 @@ export function SitioWebPage() {
               <fieldset className="sitio-web-fieldset">
                 <legend>Hero</legend>
                 <label className="login-field">
-                  Texto superior
+                  Texto del hero
                   <input
                     type="text"
-                    value={heroEyebrow}
-                    onChange={(e) => setHeroEyebrow(e.target.value)}
+                    value={heroTitle}
+                    onChange={(e) => setHeroTitle(e.target.value)}
                     disabled={busy}
                     maxLength={80}
+                    placeholder="WE BUILD."
                   />
                 </label>
-                <div className="sitio-web-grid-2">
-                  <label className="login-field">
-                    Título línea 1
-                    <input
-                      type="text"
-                      value={heroTitleLine1}
-                      onChange={(e) => setHeroTitleLine1(e.target.value)}
-                      disabled={busy}
-                      maxLength={40}
-                    />
-                  </label>
-                  <label className="login-field">
-                    Título línea 2 (acento)
-                    <input
-                      type="text"
-                      value={heroTitleLine2}
-                      onChange={(e) => setHeroTitleLine2(e.target.value)}
-                      disabled={busy}
-                      maxLength={40}
-                    />
-                  </label>
-                </div>
                 <label className="login-field">
                   Botón del hero
                   <input
@@ -410,6 +424,7 @@ export function SitioWebPage() {
                     onChange={(e) => setHeroCta(e.target.value)}
                     disabled={busy}
                     maxLength={40}
+                    placeholder="Ver proyectos"
                   />
                 </label>
                 <MediaEditor
@@ -482,8 +497,21 @@ export function SitioWebPage() {
                   </label>
                 </div>
                 {projects.map((project, index) => (
-                  <div key={`project-${index}`} className="sitio-web-project-block">
-                    <p className="dashboard-eyebrow">Proyecto {index + 1}</p>
+                  <div key={project.mediaSlot} className="sitio-web-project-block">
+                    <div className="sitio-web-project-head">
+                      <p className="dashboard-eyebrow">Proyecto {index + 1}</p>
+                      {projects.length > 1 ? (
+                        <button
+                          type="button"
+                          className="btn-secondary sitio-web-project-remove"
+                          disabled={busy}
+                          onClick={() => void handleRemoveProject(index)}
+                        >
+                          <Trash2 size={14} strokeWidth={2} aria-hidden />
+                          Quitar
+                        </button>
+                      ) : null}
+                    </div>
                     <div className="sitio-web-grid-2">
                       <label className="login-field">
                         Nombre
@@ -521,6 +549,24 @@ export function SitioWebPage() {
                       </label>
                     </div>
                     <label className="login-field">
+                      Descripción
+                      <textarea
+                        value={project.description}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          setProjects((current) =>
+                            current.map((item, i) =>
+                              i === index ? { ...item, description: value } : item,
+                            ),
+                          )
+                        }}
+                        disabled={busy}
+                        maxLength={220}
+                        rows={3}
+                        placeholder="Breve descripción del proyecto"
+                      />
+                    </label>
+                    <label className="login-field">
                       Enlace
                       <input
                         type="text"
@@ -540,14 +586,26 @@ export function SitioWebPage() {
                     </label>
                     <MediaEditor
                       label={`Imagen ${project.name || `proyecto ${index + 1}`}`}
-                      slot={PROJECT_SLOTS[index] || 'project-0'}
-                      url={mediaUrls[PROJECT_SLOTS[index] || 'project-0']}
+                      slot={project.mediaSlot}
+                      url={mediaUrls[project.mediaSlot]}
                       busy={busy}
                       onUpload={handleUpload}
                       onDelete={handleDeleteMedia}
                     />
                   </div>
                 ))}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={busy || projects.length >= MAX_SITIO_PROJECTS}
+                  onClick={handleAddProject}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden />
+                  Agregar proyecto
+                  {projects.length >= MAX_SITIO_PROJECTS
+                    ? ` (máx. ${MAX_SITIO_PROJECTS})`
+                    : ''}
+                </button>
               </fieldset>
 
               <fieldset className="sitio-web-fieldset">
