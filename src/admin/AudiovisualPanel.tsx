@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import type { AdminAccion, ProyectoAccesoConfig } from '../api/administradores'
 import { esProyectoAudiovisual } from '../api/proyectos'
 import { useAuth } from '../contexts/AuthContext'
-import { Banknote, Bell, Coins, FileText, Key, Layers, MessageCircle, Package, Receipt, Shield, User, Users, Video } from '../icons'
+import { Banknote, Bell, Code2, Coins, FileText, Key, Layers, MessageCircle, Package, Receipt, Shield, User, Users, Video } from '../icons'
 import { AvAccesosPanel } from './AvAccesosPanel'
 import { AvAdministradoresPanel } from './AvAdministradoresPanel'
+import { AvApiPanel } from './AvApiPanel'
 import { AvClientesPanel } from './AvClientesPanel'
 import { AvCotizacionesPanel } from './AvCotizacionesPanel'
 import { AvCreditosPanel } from './AvCreditosPanel'
@@ -33,6 +34,7 @@ type AudiovisualVista =
   | 'cotizaciones'
   | 'ventas'
   | 'crm'
+  | 'api'
   | 'movimientos'
   | 'administradores'
   | 'mi-perfil'
@@ -58,6 +60,7 @@ const TABS: {
   { id: 'planes', label: 'Planes', icon: Layers, action: 'av_planes' },
   { id: 'equipos', label: 'Equipos', icon: Package, action: 'av_equipos' },
   { id: 'creditos', label: 'Servicios', icon: Coins, action: 'av_creditos' },
+  { id: 'api', label: 'Api', icon: Code2, action: 'av_api', shared: true },
   { id: 'accesos', label: 'Accesos', icon: Key, action: 'av_accesos', shared: true },
   {
     id: 'movimientos',
@@ -211,8 +214,20 @@ export function AudiovisualPanel({
         if (tab.ownerOnly) return isOwner
         if (tab.staffOnly) return (isAvAdmin || isAvVendedor) && !isOwner
         if (tab.adminOnly) return isAvAdmin && !isOwner
-        // Accesos: solo quien tiene av_accesos / view / manage (no inflar la barra).
-        if (tab.shared) return isOwner || canViewAvTab(access, 'av_accesos')
+        // Accesos / Api: visibles con su permiso (o view/manage / owner).
+        if (tab.shared) {
+          if (tab.id === 'api') {
+            return (
+              isOwner ||
+              canViewAvTab(access, 'av_api') ||
+              canViewAvTab(access, 'av_creditos') ||
+              canViewAvTab(access, 'av_planes') ||
+              canViewAvTab(access, 'av_clientes') ||
+              canViewAvTab(access, 'av_equipos')
+            )
+          }
+          return isOwner || canViewAvTab(access, 'av_accesos')
+        }
         if (!tab.action) return false
         return canViewAvTab(access, tab.action)
       }),
@@ -395,6 +410,8 @@ export function AudiovisualPanel({
       {vista === 'ventas' ? <AvVentasPanel readOnly={ventasReadOnly} /> : null}
 
       {vista === 'crm' && hasCrmTab ? <AvCrmPanel readOnly={crmReadOnly && !isOwner} /> : null}
+
+      {vista === 'api' ? <AvApiPanel /> : null}
 
       {vista === 'movimientos' && isOwner ? <AvMovimientosPanel /> : null}
 

@@ -98,7 +98,7 @@ function MediaSlot({
   const src = resolveSitioMediaSrc(imageUrl)
   return (
     <div
-      className={`nf-media-slot ${src ? 'has-image' : ''} ${className}`.trim()}
+      className={`nf-media-slot ${src ? 'has-image' : 'is-empty'} ${className}`.trim()}
       data-media-slot={slot}
       role="img"
       aria-label={label}
@@ -112,9 +112,7 @@ function MediaSlot({
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
         />
-      ) : (
-        <span className="nf-media-placeholder">{label}</span>
-      )}
+      ) : null}
     </div>
   )
 }

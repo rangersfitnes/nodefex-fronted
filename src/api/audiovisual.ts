@@ -1124,6 +1124,49 @@ export async function listAvServiciosCreditos(token: string): Promise<AvServicio
   return data.servicios
 }
 
+/** Catálogo de solo lectura (pestaña Api). */
+export async function listAvCatalogoServicios(token: string): Promise<{
+  readonly: boolean
+  resource: string
+  count: number
+  servicios: AvServicioCredito[]
+}> {
+  return apiFetch('/api/audiovisual/catalogo/servicios', token)
+}
+
+export async function listAvCatalogoPlanes(
+  token: string,
+  options: { activos?: boolean } = {},
+): Promise<{
+  readonly: boolean
+  resource: string
+  count: number
+  planes: AvPlan[]
+}> {
+  const params = new URLSearchParams()
+  if (options.activos) params.set('activos', '1')
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch(`/api/audiovisual/catalogo/planes${query}`, token)
+}
+
+export async function listAvCatalogoClientes(token: string): Promise<{
+  readonly: boolean
+  resource: string
+  count: number
+  clientes: AvCliente[]
+}> {
+  return apiFetch('/api/audiovisual/catalogo/clientes', token)
+}
+
+export async function listAvCatalogoEquipos(token: string): Promise<{
+  readonly: boolean
+  resource: string
+  count: number
+  equipos: AvEquipo[]
+}> {
+  return apiFetch('/api/audiovisual/catalogo/equipos', token)
+}
+
 export async function createAvServicioCredito(
   token: string,
   payload: {
