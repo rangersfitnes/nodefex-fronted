@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
 import {
   createAvServicioCredito,
   createAvServicioDistribucion,
@@ -387,9 +387,8 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     setDistribucion(rowsFromItems(plantilla.items))
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!user) return
+  async function saveServicio() {
+    if (!user || submitting) return
 
     const nombreValue = nombre.trim()
     const descripcionValue = descripcion.trim()
@@ -434,6 +433,10 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       setFormError('Cada ítem necesita concepto y un porcentaje mayor a 0.')
       return
     }
+    if (modalMode === 'editar' && !editing) {
+      setFormError('No se encontró el servicio a editar. Vuelve a abrir el modal.')
+      return
+    }
 
     const plantilla = plantillas.find((item) => item.id === plantillaId) || null
     const distribucionPayload = distStats.rows.map((row) => ({
@@ -463,13 +466,34 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
         setServicios((current) =>
           current.map((item) => (item.id === updated.id ? updated : item)),
         )
+      } else {
+        setFormError('No se pudo determinar el servicio a guardar.')
+        return
       }
+      // Solo cerrar tras guardar con éxito.
       setModalOpen(false)
+      setRefreshTick((tick) => tick + 1)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo guardar el servicio')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    await saveServicio()
+  }
+
+  /** Enter en inputs no debe cerrar el modal a medias: guarda o muestra error. */
+  function handleFormKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== 'Enter') return
+    const target = event.target as HTMLElement | null
+    if (target?.tagName === 'TEXTAREA' || target?.tagName === 'BUTTON') return
+    event.preventDefault()
+    event.stopPropagation()
+    void saveServicio()
   }
 
   async function handleDistSubmit(event: FormEvent<HTMLFormElement>) {
@@ -860,7 +884,12 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
               </button>
             </div>
 
-            <form className="modal-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
+            <form
+              className="modal-form"
+              onSubmit={(event) => void handleSubmit(event)}
+              onKeyDown={handleFormKeyDown}
+              noValidate
+            >
               {modalMode === 'editar' && editing?.referencia ? (
                 <p className="section-note">
                   Referencia: <strong className="av-credito-ref">{editing.referencia}</strong> (no

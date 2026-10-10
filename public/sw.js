@@ -1,7 +1,7 @@
 /* Service worker PWA (panel admin).
  * Prioriza red para HTML/JS/CSS y evita mostrar una landing o bundle viejos.
  */
-const CACHE = 'nodefex-shell-v4'
+const CACHE = 'nodefex-shell-v5'
 const PRECACHE = [
   '/favicon.ico',
   '/favicon.svg',
