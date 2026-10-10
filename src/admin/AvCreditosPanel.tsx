@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
 import {
+  createAvConceptoParticion,
   createAvServicioCredito,
   createAvServicioDistribucion,
+  deleteAvConceptoParticion,
   deleteAvServicioCredito,
   deleteAvServicioDistribucion,
+  listAvConceptosParticion,
   listAvServicioDistribuciones,
   listAvServiciosCreditos,
+  updateAvConceptoParticion,
   updateAvServicioCredito,
   updateAvServicioDistribucion,
+  type AvConceptoParticion,
   type AvServicioCredito,
   type AvServicioDistribucionItem,
   type AvServicioDistribucionPlantilla,
@@ -23,6 +28,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Tags,
   Trash2,
   X,
 } from '../icons'
@@ -65,56 +71,106 @@ function parsePct(raw: string): number {
   return Math.round(n * 100) / 100
 }
 
-function rowsFromItems(items: AvServicioDistribucionItem[] | undefined): DistRow[] {
-  if (!items?.length) return [newDistRow()]
-  return items.map((item) =>
-    newDistRow({
-      id: item.id,
-      concepto: item.concepto,
-      porcentaje: String(item.porcentaje),
-    }),
-  )
+function normalizeConceptoKey(nombre: string): string {
+  return nombre.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function useDistStats(distribucion: DistRow[], costoNum = 0) {
+function rowsFromItems(
+  items: AvServicioDistribucionItem[] | undefined,
+  conceptos: AvConceptoParticion[] = [],
+): DistRow[] {
+  if (!items?.length) return [newDistRow()]
+  const byKey = new Map(
+    conceptos
+      .map((item) => [normalizeConceptoKey(item.nombre || ''), item.nombre || ''] as const)
+      .filter(([key, nombre]) => key && nombre),
+  )
+  return items.map((item) => {
+    const key = normalizeConceptoKey(item.concepto)
+    const canonical = byKey.get(key) || item.concepto
+    return newDistRow({
+      id: item.id,
+      concepto: canonical,
+      porcentaje: String(item.porcentaje),
+    })
+  })
+}
+
+function useDistStats(
+  distribucion: DistRow[],
+  costoNum = 0,
+  allowedConceptos: AvConceptoParticion[] = [],
+) {
   return useMemo(() => {
-    const rows = distribucion.map((row) => ({
-      ...row,
-      pct: parsePct(row.porcentaje),
-      conceptoOk: Boolean(row.concepto.trim()),
-    }))
+    const allowedKeys = new Set(
+      allowedConceptos
+        .map((item) => normalizeConceptoKey(item.nombre || ''))
+        .filter(Boolean),
+    )
+    const usedKeys = new Set<string>()
+    let hasDupes = false
+    const rows = distribucion.map((row) => {
+      const key = normalizeConceptoKey(row.concepto)
+      const inCatalog = Boolean(key) && allowedKeys.has(key)
+      if (inCatalog) {
+        if (usedKeys.has(key)) hasDupes = true
+        else usedKeys.add(key)
+      }
+      return {
+        ...row,
+        pct: parsePct(row.porcentaje),
+        conceptoOk: inCatalog,
+      }
+    })
     const totalCents = rows.reduce((acc, row) => acc + Math.round(row.pct * 100), 0)
     const totalPct = totalCents / 100
     const restante = Math.round(10000 - totalCents) / 100
-    const allConceptos = rows.every((row) => row.conceptoOk)
+    const allConceptos = rows.every((row) => row.conceptoOk) && !hasDupes
     const allPctPositive = rows.every((row) => row.pct > 0)
     const exact100 = totalCents === 10000
+    const catalogReady = allowedKeys.size > 0
     return {
       rows,
       totalPct,
       restante,
       exact100,
-      canSave: rows.length > 0 && allConceptos && allPctPositive && exact100 && (costoNum <= 0 || costoNum > 0),
+      hasDupes,
+      catalogReady,
+      canSave:
+        catalogReady &&
+        rows.length > 0 &&
+        allConceptos &&
+        allPctPositive &&
+        exact100 &&
+        (costoNum <= 0 || costoNum > 0),
       canSaveWithCosto:
-        rows.length > 0 && allConceptos && allPctPositive && exact100 && costoNum > 0,
+        catalogReady &&
+        rows.length > 0 &&
+        allConceptos &&
+        allPctPositive &&
+        exact100 &&
+        costoNum > 0,
     }
-  }, [distribucion, costoNum])
+  }, [distribucion, costoNum, allowedConceptos])
 }
 
 function DistRowsEditor({
   rows,
   onChange,
+  conceptos,
   costoNum = 0,
   showMoney = true,
   submitting = false,
 }: {
   rows: DistRow[]
   onChange: (next: DistRow[]) => void
+  conceptos: AvConceptoParticion[]
   costoNum?: number
   showMoney?: boolean
   submitting?: boolean
 }) {
-  const stats = useDistStats(rows, costoNum)
+  const stats = useDistStats(rows, costoNum, conceptos)
+  const conceptoNombres = conceptos.map((item) => item.nombre || '').filter(Boolean)
 
   function updateRow(key: string, patch: Partial<DistRow>) {
     onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)))
@@ -122,22 +178,52 @@ function DistRowsEditor({
 
   return (
     <>
+      {conceptoNombres.length === 0 ? (
+        <p className="section-note av-concepto-empty-hint">
+          Primero crea conceptos de partición con el botón «Conceptos de partición». Sin ellos no se
+          puede armar la distribución.
+        </p>
+      ) : null}
       <div className="av-servicio-dist-list">
         {rows.map((row) => {
           const pct = parsePct(row.porcentaje)
           const valor = showMoney && costoNum > 0 && pct > 0 ? Math.round((costoNum * pct) / 100) : 0
+          const rowKey = normalizeConceptoKey(row.concepto)
+          const orphan =
+            Boolean(row.concepto.trim()) &&
+            !conceptoNombres.some((nombre) => normalizeConceptoKey(nombre) === rowKey)
+          const usedByOthers = new Set(
+            rows
+              .filter((item) => item.key !== row.key)
+              .map((item) => normalizeConceptoKey(item.concepto))
+              .filter(Boolean),
+          )
           return (
             <div key={row.key} className="av-servicio-dist-row">
               <label className="login-field">
                 Concepto
-                <input
-                  type="text"
+                <select
                   value={row.concepto}
                   onChange={(event) => updateRow(row.key, { concepto: event.target.value })}
-                  placeholder="Ej. Producción, Comisión…"
-                  disabled={submitting}
+                  disabled={submitting || conceptoNombres.length === 0}
                   required
-                />
+                >
+                  <option value="">Selecciona un concepto…</option>
+                  {orphan ? (
+                    <option value={row.concepto}>
+                      {row.concepto} (no estandarizado — elige otro)
+                    </option>
+                  ) : null}
+                  {conceptoNombres.map((nombre) => {
+                    const optionKey = normalizeConceptoKey(nombre)
+                    const taken = usedByOthers.has(optionKey) && optionKey !== rowKey
+                    return (
+                      <option key={nombre} value={nombre} disabled={taken}>
+                        {taken ? `${nombre} (ya usado)` : nombre}
+                      </option>
+                    )
+                  })}
+                </select>
               </label>
               <label className="login-field">
                 %
@@ -185,7 +271,11 @@ function DistRowsEditor({
         type="button"
         className="btn-secondary"
         onClick={() => onChange([...rows, newDistRow()])}
-        disabled={submitting}
+        disabled={
+          submitting ||
+          conceptoNombres.length === 0 ||
+          rows.length >= conceptoNombres.length
+        }
       >
         <Plus size={14} strokeWidth={2} aria-hidden />
         Agregar ítem
@@ -228,11 +318,13 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { user } = useAuth()
   const [servicios, setServicios] = useState<AvServicioCredito[]>([])
   const [plantillas, setPlantillas] = useState<AvServicioDistribucionPlantilla[]>([])
+  const [conceptos, setConceptos] = useState<AvConceptoParticion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [deletingId, setDeletingId] = useState('')
   const [deletingPlantillaId, setDeletingPlantillaId] = useState('')
+  const [deletingConceptoId, setDeletingConceptoId] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<ModalMode>('crear')
@@ -254,6 +346,13 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [plantillaItems, setPlantillaItems] = useState<DistRow[]>([newDistRow()])
   const [distFormError, setDistFormError] = useState('')
   const [distSubmitting, setDistSubmitting] = useState(false)
+
+  const [conceptosModalOpen, setConceptosModalOpen] = useState(false)
+  const [conceptoNombre, setConceptoNombre] = useState('')
+  const [editingConcepto, setEditingConcepto] = useState<AvConceptoParticion | null>(null)
+  const [conceptoFormError, setConceptoFormError] = useState('')
+  const [conceptoSubmitting, setConceptoSubmitting] = useState(false)
+
   const [expandedServicioIds, setExpandedServicioIds] = useState<Set<string>>(() => new Set())
   const [expandedPlantillaIds, setExpandedPlantillaIds] = useState<Set<string>>(() => new Set())
 
@@ -280,8 +379,8 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     return Number.isFinite(n) && n > 0 ? n : 0
   }, [costo])
 
-  const distStats = useDistStats(distribucion, costoNum)
-  const plantillaStats = useDistStats(plantillaItems, 0)
+  const distStats = useDistStats(distribucion, costoNum, conceptos)
+  const plantillaStats = useDistStats(plantillaItems, 0, conceptos)
 
   useEffect(() => {
     let cancelled = false
@@ -292,19 +391,22 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       setError('')
       try {
         const token = await user.getIdToken()
-        const [serviciosData, plantillasData] = await Promise.all([
+        const [serviciosData, plantillasData, conceptosData] = await Promise.all([
           listAvServiciosCreditos(token),
           listAvServicioDistribuciones(token),
+          listAvConceptosParticion(token),
         ])
         if (!cancelled) {
           setServicios(serviciosData)
           setPlantillas(plantillasData)
+          setConceptos(conceptosData)
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'No se pudieron cargar los servicios')
           setServicios([])
           setPlantillas([])
+          setConceptos([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -343,7 +445,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
           )
         : [newEntregableRow()],
     )
-    setDistribucion(rowsFromItems(servicio.distribucion))
+    setDistribucion(rowsFromItems(servicio.distribucion, conceptos))
     setPlantillaId(servicio.distribucionPlantillaId || '')
     setFormError('')
     setModalOpen(true)
@@ -368,7 +470,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     setDistModalMode('editar')
     setEditingPlantilla(plantilla)
     setPlantillaNombre(plantilla.nombre || '')
-    setPlantillaItems(rowsFromItems(plantilla.items))
+    setPlantillaItems(rowsFromItems(plantilla.items, conceptos))
     setDistFormError('')
     setDistModalOpen(true)
   }
@@ -384,7 +486,102 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     if (!id) return
     const plantilla = plantillas.find((item) => item.id === id)
     if (!plantilla) return
-    setDistribucion(rowsFromItems(plantilla.items))
+    setDistribucion(rowsFromItems(plantilla.items, conceptos))
+  }
+
+  function openConceptosModal() {
+    setConceptoNombre('')
+    setEditingConcepto(null)
+    setConceptoFormError('')
+    setConceptosModalOpen(true)
+  }
+
+  function closeConceptosModal() {
+    if (conceptoSubmitting) return
+    setConceptosModalOpen(false)
+    setConceptoNombre('')
+    setEditingConcepto(null)
+    setConceptoFormError('')
+  }
+
+  function startEditConcepto(concepto: AvConceptoParticion) {
+    setEditingConcepto(concepto)
+    setConceptoNombre(concepto.nombre || '')
+    setConceptoFormError('')
+  }
+
+  function cancelEditConcepto() {
+    setEditingConcepto(null)
+    setConceptoNombre('')
+    setConceptoFormError('')
+  }
+
+  async function handleConceptoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!user || conceptoSubmitting) return
+
+    const nombreValue = conceptoNombre.trim()
+    if (!nombreValue) {
+      setConceptoFormError('El nombre del concepto es obligatorio.')
+      return
+    }
+
+    setConceptoSubmitting(true)
+    setConceptoFormError('')
+    try {
+      const token = await user.getIdToken()
+      if (editingConcepto) {
+        const updated = await updateAvConceptoParticion(token, editingConcepto.id, {
+          nombre: nombreValue,
+        })
+        setConceptos((current) =>
+          current
+            .map((item) => (item.id === updated.id ? updated : item))
+            .sort((a, b) =>
+              String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'),
+            ),
+        )
+      } else {
+        const created = await createAvConceptoParticion(token, { nombre: nombreValue })
+        setConceptos((current) =>
+          [...current, created].sort((a, b) =>
+            String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'),
+          ),
+        )
+      }
+      setEditingConcepto(null)
+      setConceptoNombre('')
+    } catch (err) {
+      setConceptoFormError(
+        err instanceof Error ? err.message : 'No se pudo guardar el concepto de partición',
+      )
+    } finally {
+      setConceptoSubmitting(false)
+    }
+  }
+
+  async function handleDeleteConcepto(concepto: AvConceptoParticion) {
+    if (!user || readOnly || deletingConceptoId) return
+    const ok = window.confirm(
+      `¿Eliminar el concepto «${concepto.nombre || 'sin nombre'}»? Los servicios que ya lo usan conservan el texto, pero no podrás volver a elegirlo hasta recrearlo.`,
+    )
+    if (!ok) return
+
+    setDeletingConceptoId(concepto.id)
+    setConceptoFormError('')
+    try {
+      const token = await user.getIdToken()
+      await deleteAvConceptoParticion(token, concepto.id)
+      setConceptos((current) => current.filter((item) => item.id !== concepto.id))
+      if (editingConcepto?.id === concepto.id) cancelEditConcepto()
+    } catch (err) {
+      setConceptoFormError(
+        err instanceof Error ? err.message : 'No se pudo eliminar el concepto de partición',
+      )
+    } finally {
+      setDeletingConceptoId('')
+    }
   }
 
   async function saveServicio() {
@@ -429,8 +626,16 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       }
       return
     }
+    if (!distStats.catalogReady) {
+      setFormError('Crea al menos un concepto de partición estandarizado antes de guardar.')
+      return
+    }
+    if (distStats.hasDupes) {
+      setFormError('No puedes repetir el mismo concepto en la distribución.')
+      return
+    }
     if (!distStats.rows.every((row) => row.conceptoOk && row.pct > 0)) {
-      setFormError('Cada ítem necesita concepto y un porcentaje mayor a 0.')
+      setFormError('Cada ítem debe usar un concepto de la lista estandarizada y un % mayor a 0.')
       return
     }
     if (modalMode === 'editar' && !editing) {
@@ -518,8 +723,16 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       }
       return
     }
+    if (!plantillaStats.catalogReady) {
+      setDistFormError('Crea al menos un concepto de partición estandarizado antes de guardar.')
+      return
+    }
+    if (plantillaStats.hasDupes) {
+      setDistFormError('No puedes repetir el mismo concepto en la distribución.')
+      return
+    }
     if (!plantillaStats.rows.every((row) => row.conceptoOk && row.pct > 0)) {
-      setDistFormError('Cada ítem necesita concepto y un porcentaje mayor a 0.')
+      setDistFormError('Cada ítem debe usar un concepto de la lista estandarizada y un % mayor a 0.')
       return
     }
 
@@ -603,9 +816,9 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
         <div>
           <h3>Servicios</h3>
           <p className="section-note">
-            Define servicios con costo en dinero. Crea distribuciones reutilizables en % y asígnalas
-            a varios servicios sin repetirlas. Al crear un servicio se genera una referencia de 4
-            dígitos única.
+            Define servicios con costo en dinero. Estandariza los conceptos de partición, crea
+            distribuciones reutilizables en % y asígnalas a varios servicios. Al crear un servicio se
+            genera una referencia de 4 dígitos única.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -621,6 +834,10 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
           </button>
           {!readOnly ? (
             <>
+              <button type="button" className="btn-secondary" onClick={openConceptosModal}>
+                <Tags size={16} strokeWidth={2} aria-hidden />
+                Conceptos de partición
+              </button>
               <button type="button" className="btn-secondary" onClick={openCreateDist}>
                 <Layers size={16} strokeWidth={2} aria-hidden />
                 Crear distribución
@@ -1054,6 +1271,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                     setDistribucion(next)
                     setPlantillaId('')
                   }}
+                  conceptos={conceptos}
                   costoNum={costoNum}
                   showMoney
                   submitting={submitting}
@@ -1168,6 +1386,7 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                 <DistRowsEditor
                   rows={plantillaItems}
                   onChange={setPlantillaItems}
+                  conceptos={conceptos}
                   showMoney={false}
                   submitting={distSubmitting}
                 />
@@ -1192,7 +1411,11 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={distSubmitting || !plantillaStats.exact100 || !plantillaNombre.trim()}
+                  disabled={
+                    distSubmitting ||
+                    !plantillaStats.canSave ||
+                    !plantillaNombre.trim()
+                  }
                 >
                   {distSubmitting ? (
                     <>
@@ -1207,6 +1430,155 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {conceptosModalOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !conceptoSubmitting) closeConceptosModal()
+          }}
+        >
+          <div
+            className="modal-panel av-servicio-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-conceptos-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-conceptos-modal-title">Conceptos de partición</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeConceptosModal}
+                disabled={conceptoSubmitting}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+
+            <div className="modal-form">
+              <p className="section-note">
+                Estos nombres son los únicos que puedes elegir al armar la partición de ganancias de
+                un servicio o de una distribución guardada.
+              </p>
+
+              <form
+                className="av-concepto-form"
+                onSubmit={(event) => {
+                  void handleConceptoSubmit(event)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+              >
+                <label className="login-field" htmlFor="av-concepto-nombre">
+                  {editingConcepto ? 'Editar concepto' : 'Nuevo concepto'}
+                  <input
+                    id="av-concepto-nombre"
+                    type="text"
+                    value={conceptoNombre}
+                    onChange={(event) => setConceptoNombre(event.target.value)}
+                    disabled={conceptoSubmitting}
+                    required
+                    autoFocus
+                    placeholder="Ej. Producción, Comisión, Postproducción…"
+                    maxLength={120}
+                  />
+                </label>
+                <div className="av-concepto-form-actions">
+                  {editingConcepto ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={cancelEditConcepto}
+                      disabled={conceptoSubmitting}
+                    >
+                      Cancelar edición
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={conceptoSubmitting || !conceptoNombre.trim()}
+                  >
+                    {conceptoSubmitting ? (
+                      <>
+                        <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                        Guardando...
+                      </>
+                    ) : editingConcepto ? (
+                      'Guardar cambios'
+                    ) : (
+                      'Agregar concepto'
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              {conceptoFormError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {conceptoFormError}
+                </p>
+              ) : null}
+
+              {conceptos.length === 0 ? (
+                <p className="section-note">Aún no hay conceptos. Agrega el primero arriba.</p>
+              ) : (
+                <ul className="av-concepto-list" aria-label="Conceptos estandarizados">
+                  {conceptos.map((concepto) => (
+                    <li key={concepto.id} className="av-concepto-list-item">
+                      <strong>{concepto.nombre || 'Sin nombre'}</strong>
+                      <div className="av-concepto-list-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => startEditConcepto(concepto)}
+                          disabled={conceptoSubmitting || deletingConceptoId === concepto.id}
+                          aria-label={`Editar ${concepto.nombre || 'concepto'}`}
+                        >
+                          <Pencil size={14} strokeWidth={2} aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => {
+                            void handleDeleteConcepto(concepto)
+                          }}
+                          disabled={conceptoSubmitting || deletingConceptoId === concepto.id}
+                          aria-label={`Eliminar ${concepto.nombre || 'concepto'}`}
+                        >
+                          {deletingConceptoId === concepto.id ? (
+                            <LoaderCircle className="spin" size={14} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={closeConceptosModal}
+                  disabled={conceptoSubmitting}
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

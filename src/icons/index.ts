@@ -65,6 +65,7 @@ export {
   Smartphone,
   Sparkles,
   StickyNote,
+  Tags,
   Trash2,
   Upload,
   User,

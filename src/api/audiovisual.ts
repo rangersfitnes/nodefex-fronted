@@ -1087,6 +1087,14 @@ export type AvServicioDistribucionItem = {
   valor?: number
 }
 
+export type AvConceptoParticion = {
+  id: string
+  nombre: string | null
+  creadoEn: string | null
+  actualizadoEn: string | null
+  createdBy: string | null
+}
+
 export type AvServicioDistribucionPlantilla = {
   id: string
   nombre: string | null
@@ -1228,6 +1236,51 @@ export async function listAvServicioDistribuciones(
     token,
   )
   return data.distribuciones
+}
+
+export async function listAvConceptosParticion(token: string): Promise<AvConceptoParticion[]> {
+  const data = await apiFetch<{ conceptos: AvConceptoParticion[] }>(
+    '/api/audiovisual/servicios-conceptos-particion',
+    token,
+  )
+  return data.conceptos
+}
+
+export async function createAvConceptoParticion(
+  token: string,
+  payload: { nombre: string },
+): Promise<AvConceptoParticion> {
+  const data = await apiFetch<{ concepto: AvConceptoParticion }>(
+    '/api/audiovisual/servicios-conceptos-particion',
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.concepto
+}
+
+export async function updateAvConceptoParticion(
+  token: string,
+  id: string,
+  payload: { nombre: string },
+): Promise<AvConceptoParticion> {
+  const data = await apiFetch<{ concepto: AvConceptoParticion }>(
+    `/api/audiovisual/servicios-conceptos-particion/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.concepto
+}
+
+export async function deleteAvConceptoParticion(token: string, id: string): Promise<void> {
+  await apiFetch(`/api/audiovisual/servicios-conceptos-particion/${encodeURIComponent(id)}`, token, {
+    method: 'DELETE',
+  })
 }
 
 export async function createAvServicioDistribucion(

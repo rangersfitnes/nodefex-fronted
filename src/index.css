@@ -4373,6 +4373,64 @@ a {
   color: #334155;
 }
 
+.av-concepto-empty-hint {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(180, 90, 20, 0.08);
+  border: 1px solid rgba(180, 90, 20, 0.18);
+}
+
+.av-concepto-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.av-concepto-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.av-concepto-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  max-height: min(40vh, 280px);
+  overflow: auto;
+}
+
+.av-concepto-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 40, 70, 0.1);
+  background: #fff;
+}
+
+.av-concepto-list-item strong {
+  font-size: 0.92rem;
+  color: #0b1f3a;
+}
+
+.av-concepto-list-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.av-concepto-list-actions .btn-secondary {
+  padding: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
 .av-servicio-dist-list {
   display: grid;
   gap: 0.65rem;
