@@ -470,9 +470,8 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
         setFormError('No se pudo determinar el servicio a guardar.')
         return
       }
-      // Solo cerrar tras guardar con éxito.
+      // Solo cerrar tras guardar con éxito (el listado ya se actualizó arriba).
       setModalOpen(false)
-      setRefreshTick((tick) => tick + 1)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo guardar el servicio')
     } finally {
@@ -486,14 +485,16 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
     await saveServicio()
   }
 
-  /** Enter en inputs no debe cerrar el modal a medias: guarda o muestra error. */
+  /**
+   * Enter en un input dispara submit del form y, si los datos ya son válidos,
+   * guardaba y cerraba el modal “solo”. Bloqueamos Enter; solo guarda el botón.
+   */
   function handleFormKeyDown(event: KeyboardEvent<HTMLFormElement>) {
     if (event.key !== 'Enter') return
     const target = event.target as HTMLElement | null
-    if (target?.tagName === 'TEXTAREA' || target?.tagName === 'BUTTON') return
+    if (target?.tagName === 'TEXTAREA') return
     event.preventDefault()
     event.stopPropagation()
-    void saveServicio()
   }
 
   async function handleDistSubmit(event: FormEvent<HTMLFormElement>) {
@@ -861,13 +862,20 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       ) : null}
 
       {modalOpen ? (
-        <div className="modal-overlay" role="presentation" onClick={closeModal}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            // Solo cerrar si el clic fue en el fondo, no al soltar desde dentro del panel.
+            if (event.target === event.currentTarget && !submitting) closeModal()
+          }}
+        >
           <div
             className="modal-panel av-servicio-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="av-servicio-modal-title"
-            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
               <h2 id="av-servicio-modal-title">
@@ -1091,13 +1099,19 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
       ) : null}
 
       {distModalOpen ? (
-        <div className="modal-overlay" role="presentation" onClick={closeDistModal}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !distSubmitting) closeDistModal()
+          }}
+        >
           <div
             className="modal-panel av-servicio-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="av-dist-modal-title"
-            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
               <h2 id="av-dist-modal-title">
@@ -1116,7 +1130,18 @@ export function AvCreditosPanel({ readOnly = false }: { readOnly?: boolean }) {
 
             <form
               className="modal-form"
-              onSubmit={(event) => void handleDistSubmit(event)}
+              onSubmit={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                void handleDistSubmit(event)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                const target = event.target as HTMLElement | null
+                if (target?.tagName === 'TEXTAREA') return
+                event.preventDefault()
+                event.stopPropagation()
+              }}
               noValidate
             >
               <p className="section-note">
