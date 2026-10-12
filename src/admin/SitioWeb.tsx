@@ -103,6 +103,7 @@ export function SitioWebPage() {
   const [brand, setBrand] = useState('NODEFEX TECHNOLOGY')
   const [navCta, setNavCta] = useState('Hablemos')
   const [heroTitle, setHeroTitle] = useState('WE BUILD.')
+  const [heroTitleLine2, setHeroTitleLine2] = useState('Tu web profesional.')
   const [heroCta, setHeroCta] = useState('Ver proyectos')
   const [servicesTitle, setServicesTitle] = useState('Nuestros servicios')
   const [services, setServices] = useState<SitioServiceItem[]>([])
@@ -148,6 +149,7 @@ export function SitioWebPage() {
     setBrand(data.brand)
     setNavCta(data.navCta)
     setHeroTitle(data.heroTitle || data.heroTitleLine1 || 'WE BUILD.')
+    setHeroTitleLine2(data.heroTitleLine2 || 'Tu web profesional.')
     setHeroCta(data.heroCta || 'Ver proyectos')
     setServicesTitle(data.servicesTitle)
     setServices(data.services)
@@ -192,6 +194,7 @@ export function SitioWebPage() {
         brand,
         navCta,
         heroTitle,
+        heroTitleLine2,
         heroCta,
         servicesTitle,
         services,
@@ -432,14 +435,14 @@ export function SitioWebPage() {
               <fieldset className="sitio-web-fieldset">
                 <legend>Hero</legend>
                 <label className="login-field">
-                  Texto del hero
+                  Título del hero
                   <input
                     type="text"
-                    value={heroTitle}
-                    onChange={(e) => setHeroTitle(e.target.value)}
+                    value={heroTitleLine2}
+                    onChange={(e) => setHeroTitleLine2(e.target.value)}
                     disabled={busy}
                     maxLength={80}
-                    placeholder="WE BUILD."
+                    placeholder="Tu web profesional."
                   />
                 </label>
                 <label className="login-field">

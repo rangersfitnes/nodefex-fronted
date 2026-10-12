@@ -133,7 +133,7 @@ const DEFAULT_CONTENT: SitioWebContent = {
   heroTitle: 'WE BUILD.',
   heroEyebrow: '',
   heroTitleLine1: 'WE BUILD.',
-  heroTitleLine2: '',
+  heroTitleLine2: 'Tu web profesional.',
   heroCta: 'Ver proyectos',
   servicesTitle: 'Nuestros servicios',
   services: [
@@ -430,8 +430,8 @@ export function Landing() {
           />
           <div className="nf-hero-scrim" aria-hidden />
           <div className="nf-hero-content">
-            <h1 id="nf-hero-title" className="nf-hero-kicker">
-              {content.heroTitle || content.heroTitleLine1 || 'WE BUILD.'}
+            <h1 id="nf-hero-title" className="nf-hero-lead">
+              {content.heroTitleLine2 || 'Tu web profesional.'}
             </h1>
             <div className="nf-hero-actions">
               <a className="nf-btn nf-btn-outline" href="#proyectos">
@@ -439,13 +439,13 @@ export function Landing() {
                 <ArrowRight size={16} strokeWidth={2} aria-hidden />
               </a>
               <a
-                className="nf-btn nf-btn-solid"
+                className="nf-hero-text-btn"
                 href="https://elgenio.co"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 Producción audiovisual
-                <ArrowRight size={16} strokeWidth={2} aria-hidden />
+                <ArrowRight size={14} strokeWidth={2} aria-hidden />
               </a>
             </div>
           </div>
@@ -554,6 +554,20 @@ export function Landing() {
               )
             })}
           </ul>
+
+          {showContactFab && contacto ? (
+            <div className="nf-whatsapp-cta">
+              <a
+                className="nf-whatsapp-btn"
+                href={contacto.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircle size={22} strokeWidth={2} aria-hidden />
+                Contactar por WhatsApp
+              </a>
+            </div>
+          ) : null}
         </section>
 
         <section
@@ -727,10 +741,10 @@ export function Landing() {
           href={contacto.href}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={contacto.etiqueta || 'Contactar'}
+          aria-label={contacto.etiqueta || 'Contactar por WhatsApp'}
         >
-          <MessageCircle size={22} strokeWidth={2} aria-hidden />
-          <span>{contacto.etiqueta || 'Contactar'}</span>
+          <MessageCircle size={24} strokeWidth={2.25} aria-hidden />
+          <span>{contacto.etiqueta || 'WhatsApp'}</span>
         </a>
       ) : null}
     </div>

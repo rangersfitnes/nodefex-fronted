@@ -12,6 +12,7 @@ import {
   getAvCrmWhatsappStatus,
   listAvCrmChats,
   listAvCrmCotizaciones,
+  createAvCrmMensajePredeterminado,
   listAvCrmMensajesPredeterminados,
   listAvCrmRecursos,
   listAvCrmVendedores,
@@ -20,7 +21,9 @@ import {
   saveAvCrmRecursoSolicitarDatos,
   saveAvCrmVendedorAccesos,
   sendAvCrmDocument,
+  sendAvCrmMensajePredeterminado,
   sendAvCrmMessage,
+  type AvCrmMensajeImagenPayload,
   setAvCrmFunnelEstado,
   listAvCrmClientes,
   getAvCrmClienteIntereses,
@@ -51,6 +54,7 @@ import {
   CheckCheck,
   ChevronDown,
   FileText,
+  ImagePlus,
   Link2,
   LoaderCircle,
   MessageCircle,
@@ -1097,6 +1101,14 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [cannedLoading, setCannedLoading] = useState(false)
   const [cannedError, setCannedError] = useState('')
   const [cannedRefreshTick, setCannedRefreshTick] = useState(0)
+  const [cannedCreateOpen, setCannedCreateOpen] = useState(false)
+  const [cannedCreateTitulo, setCannedCreateTitulo] = useState('')
+  const [cannedCreateTexto, setCannedCreateTexto] = useState('')
+  const [cannedCreateImagen, setCannedCreateImagen] = useState<File | null>(null)
+  const [cannedCreatePreview, setCannedCreatePreview] = useState('')
+  const [cannedCreateError, setCannedCreateError] = useState('')
+  const [cannedCreateSubmitting, setCannedCreateSubmitting] = useState(false)
+  const [cannedSendingId, setCannedSendingId] = useState('')
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
 
   const [vendedoresOpen, setVendedoresOpen] = useState(false)
@@ -1130,7 +1142,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
   // Owner + cualquier cuenta con CRM editable (vendedor o admin con av_crm).
   const canOpenMensajesRapidos = !readOnly
   const canManageAutoMensajes = isOwner && !readOnly
-  const canManageMensajesPersonales = !readOnly && !isOwner && (isVendedor || isAdmin)
+  const canManageMensajesPersonales =
+    !readOnly && (isOwner || isVendedor || isAdmin)
 
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -2031,8 +2044,121 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     }
   }
 
-  function handleSelectCanned(mensaje: AvCrmMensajePredeterminado) {
+  useEffect(() => {
+    if (!cannedCreateImagen) {
+      setCannedCreatePreview('')
+      return
+    }
+    const url = URL.createObjectURL(cannedCreateImagen)
+    setCannedCreatePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [cannedCreateImagen])
+
+  async function fileToImagenPayload(file: File): Promise<AvCrmMensajeImagenPayload> {
+    const buffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
+    return {
+      dataBase64: btoa(binary),
+      mimetype: file.type || 'image/jpeg',
+      fileName: file.name || 'imagen.jpg',
+    }
+  }
+
+  function openCannedCreate() {
+    if (readOnly || !canManageMensajesPersonales) return
+    setCannedCreateTitulo('')
+    setCannedCreateTexto('')
+    setCannedCreateImagen(null)
+    setCannedCreateError('')
+    setCannedCreateOpen(true)
+    setCannedOpen(false)
+  }
+
+  function closeCannedCreate() {
+    if (cannedCreateSubmitting) return
+    setCannedCreateOpen(false)
+    setCannedCreateError('')
+  }
+
+  async function handleCreatePersonalCanned(event: FormEvent) {
+    event.preventDefault()
+    if (!user || cannedCreateSubmitting || readOnly || !canManageMensajesPersonales) return
+    const titulo = cannedCreateTitulo.trim()
+    const texto = cannedCreateTexto.trim()
+    if (!titulo) {
+      setCannedCreateError('El título es obligatorio')
+      return
+    }
+    if (!texto && !cannedCreateImagen) {
+      setCannedCreateError('Agrega un texto y/o una imagen')
+      return
+    }
+    if (!selectedId || !connected) {
+      setCannedCreateError('Abre un chat con WhatsApp conectado para guardar y enviar')
+      return
+    }
+
+    setCannedCreateSubmitting(true)
+    setCannedCreateError('')
+    setError('')
+    try {
+      const token = await user.getIdToken()
+      const imagen = cannedCreateImagen
+        ? await fileToImagenPayload(cannedCreateImagen)
+        : null
+      const { mensaje, sent } = await createAvCrmMensajePredeterminado(token, {
+        titulo,
+        texto,
+        alcance: 'personal',
+        imagen,
+        sendToJid: selectedId,
+      })
+      setCannedMessages((current) => [...current, mensaje])
+      setCannedRefreshTick((n) => n + 1)
+      if (sent?.message) {
+        applySentMessageToChat(sent.message, sent.chat)
+      }
+      setCannedCreateOpen(false)
+    } catch (err) {
+      setCannedCreateError(
+        err instanceof Error ? err.message : 'No se pudo crear ni enviar el mensaje',
+      )
+    } finally {
+      setCannedCreateSubmitting(false)
+    }
+  }
+
+  async function handleSendCanned(mensaje: AvCrmMensajePredeterminado) {
+    if (readOnly || !user || !selectedId || !connected || sending || cannedSendingId) return
+    setCannedSendingId(mensaje.id)
+    setError('')
+    setCannedOpen(false)
+    try {
+      const token = await user.getIdToken()
+      const { message, chat: updatedChat } = await sendAvCrmMensajePredeterminado(
+        token,
+        mensaje.id,
+        selectedId,
+      )
+      applySentMessageToChat(message, updatedChat)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje rápido')
+    } finally {
+      setCannedSendingId('')
+    }
+  }
+
+  function handleInsertCanned(mensaje: AvCrmMensajePredeterminado) {
     if (readOnly) return
+    if (mensaje.tieneImagen) {
+      void handleSendCanned(mensaje)
+      return
+    }
     setDraft(mensaje.texto || '')
     setCannedOpen(false)
     requestAnimationFrame(() => {
@@ -2484,6 +2610,18 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                       <div className="av-wa-canned-panel" role="listbox" aria-label="Mensajes predeterminados">
                         <div className="av-wa-canned-panel-head">
                           <strong>Mensajes rápidos</strong>
+                          {canManageMensajesPersonales ? (
+                            <button
+                              type="button"
+                              className="btn-secondary av-wa-canned-create-btn"
+                              onClick={openCannedCreate}
+                              disabled={readOnly || sending || !connected || !selectedId}
+                              title="Crear mensaje personal con texto e imagen"
+                            >
+                              <Plus size={14} strokeWidth={2} aria-hidden />
+                              Crear mío
+                            </button>
+                          ) : null}
                         </div>
                         {cannedLoading ? (
                           <p className="section-note">Cargando…</p>
@@ -2495,7 +2633,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                         ) : null}
                         {!cannedLoading && cannedMessages.length === 0 ? (
                           <p className="section-note">
-                            Aún no hay mensajes. Usa «Mensajes rápidos» arriba para crearlos.
+                            Aún no hay mensajes. Crea uno personal con «Crear mío» o usa «Mensajes
+                            rápidos» arriba.
                           </p>
                         ) : null}
                         {!cannedLoading && cannedMessages.some((m) => m.alcance !== 'personal') ? (
@@ -2506,15 +2645,51 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                 .filter((mensaje) => mensaje.alcance !== 'personal')
                                 .map((mensaje) => (
                                   <li key={mensaje.id}>
-                                    <button
-                                      type="button"
-                                      className="av-wa-canned-item"
-                                      disabled={readOnly || sending}
-                                      onClick={() => handleSelectCanned(mensaje)}
-                                    >
-                                      <strong>{mensaje.titulo}</strong>
-                                      <span>{mensaje.texto}</span>
-                                    </button>
+                                    <div className="av-wa-canned-row">
+                                      <button
+                                        type="button"
+                                        className="av-wa-canned-item"
+                                        disabled={
+                                          readOnly || sending || cannedSendingId === mensaje.id
+                                        }
+                                        onClick={() => handleInsertCanned(mensaje)}
+                                      >
+                                        <strong>
+                                          {mensaje.titulo}
+                                          {mensaje.tieneImagen ? (
+                                            <span className="av-mensajes-rapidos-badge">Img</span>
+                                          ) : null}
+                                        </strong>
+                                        <span>
+                                          {mensaje.texto ||
+                                            (mensaje.tieneImagen ? 'Imagen' : '')}
+                                        </span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-secondary av-wa-canned-send"
+                                        disabled={
+                                          readOnly ||
+                                          sending ||
+                                          !connected ||
+                                          cannedSendingId === mensaje.id
+                                        }
+                                        onClick={() => void handleSendCanned(mensaje)}
+                                        title="Enviar al cliente"
+                                        aria-label={`Enviar ${mensaje.titulo}`}
+                                      >
+                                        {cannedSendingId === mensaje.id ? (
+                                          <LoaderCircle
+                                            className="spin"
+                                            size={14}
+                                            strokeWidth={2}
+                                            aria-hidden
+                                          />
+                                        ) : (
+                                          <Send size={14} strokeWidth={2} aria-hidden />
+                                        )}
+                                      </button>
+                                    </div>
                                   </li>
                                 ))}
                             </ul>
@@ -2528,15 +2703,51 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                                 .filter((mensaje) => mensaje.alcance === 'personal')
                                 .map((mensaje) => (
                                   <li key={mensaje.id}>
-                                    <button
-                                      type="button"
-                                      className="av-wa-canned-item"
-                                      disabled={readOnly || sending}
-                                      onClick={() => handleSelectCanned(mensaje)}
-                                    >
-                                      <strong>{mensaje.titulo}</strong>
-                                      <span>{mensaje.texto}</span>
-                                    </button>
+                                    <div className="av-wa-canned-row">
+                                      <button
+                                        type="button"
+                                        className="av-wa-canned-item"
+                                        disabled={
+                                          readOnly || sending || cannedSendingId === mensaje.id
+                                        }
+                                        onClick={() => handleInsertCanned(mensaje)}
+                                      >
+                                        <strong>
+                                          {mensaje.titulo}
+                                          {mensaje.tieneImagen ? (
+                                            <span className="av-mensajes-rapidos-badge">Img</span>
+                                          ) : null}
+                                        </strong>
+                                        <span>
+                                          {mensaje.texto ||
+                                            (mensaje.tieneImagen ? 'Imagen' : '')}
+                                        </span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-secondary av-wa-canned-send"
+                                        disabled={
+                                          readOnly ||
+                                          sending ||
+                                          !connected ||
+                                          cannedSendingId === mensaje.id
+                                        }
+                                        onClick={() => void handleSendCanned(mensaje)}
+                                        title="Enviar al cliente"
+                                        aria-label={`Enviar ${mensaje.titulo}`}
+                                      >
+                                        {cannedSendingId === mensaje.id ? (
+                                          <LoaderCircle
+                                            className="spin"
+                                            size={14}
+                                            strokeWidth={2}
+                                            aria-hidden
+                                          />
+                                        ) : (
+                                          <Send size={14} strokeWidth={2} aria-hidden />
+                                        )}
+                                      </button>
+                                    </div>
                                   </li>
                                 ))}
                             </ul>
@@ -3355,6 +3566,134 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       ) : null}
 
+      {cannedCreateOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !cannedCreateSubmitting) {
+              closeCannedCreate()
+            }
+          }}
+        >
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-crm-canned-create-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-crm-canned-create-title">Mensaje rápido personal</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeCannedCreate}
+                disabled={cannedCreateSubmitting}
+                aria-label="Cerrar"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <form
+              className="modal-form"
+              onSubmit={(event) => {
+                void handleCreatePersonalCanned(event)
+              }}
+            >
+              <p className="section-note">
+                Se guarda en «Mis mensajes» y se envía de inmediato al chat abierto (texto e imagen
+                juntos).
+              </p>
+              <label className="login-field" htmlFor="av-crm-canned-create-titulo">
+                Título
+                <input
+                  id="av-crm-canned-create-titulo"
+                  value={cannedCreateTitulo}
+                  onChange={(event) => setCannedCreateTitulo(event.target.value)}
+                  disabled={cannedCreateSubmitting}
+                  required
+                  maxLength={80}
+                  autoFocus
+                  placeholder="Ej. Promo con foto"
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-canned-create-texto">
+                Texto / pie de imagen
+                <textarea
+                  id="av-crm-canned-create-texto"
+                  value={cannedCreateTexto}
+                  onChange={(event) => setCannedCreateTexto(event.target.value)}
+                  disabled={cannedCreateSubmitting}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Mensaje que verá el cliente"
+                />
+              </label>
+              <label className="login-field" htmlFor="av-crm-canned-create-imagen">
+                Imagen (opcional)
+                <input
+                  id="av-crm-canned-create-imagen"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={cannedCreateSubmitting}
+                  onChange={(event) => {
+                    setCannedCreateImagen(event.target.files?.[0] || null)
+                  }}
+                />
+              </label>
+              {cannedCreatePreview ? (
+                <div className="av-mensajes-rapidos-preview">
+                  <img src={cannedCreatePreview} alt="Vista previa" />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setCannedCreateImagen(null)}
+                    disabled={cannedCreateSubmitting}
+                  >
+                    <ImagePlus size={14} strokeWidth={2} aria-hidden />
+                    Quitar imagen
+                  </button>
+                </div>
+              ) : null}
+              {cannedCreateError ? (
+                <p className="login-error" role="alert">
+                  <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                  {cannedCreateError}
+                </p>
+              ) : null}
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeCannedCreate}
+                  disabled={cannedCreateSubmitting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={cannedCreateSubmitting || !connected || !selectedId}
+                >
+                  {cannedCreateSubmitting ? (
+                    <>
+                      <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                      Guardando y enviando…
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} strokeWidth={2} aria-hidden />
+                      Guardar y enviar
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {mensajesRapidosOpen ? (
         <div className="modal-overlay" role="presentation" onClick={closeMensajesRapidos}>
           <div
@@ -3379,6 +3718,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               <AvCrmMensajesPanel
                 canManageGlobal={isOwner}
                 canManagePersonal={canManageMensajesPersonales}
+                onChanged={() => setCannedRefreshTick((n) => n + 1)}
               />
             </div>
           </div>

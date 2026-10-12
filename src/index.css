@@ -371,6 +371,40 @@ a {
   overflow-wrap: anywhere;
 }
 
+.nf-hero-lead {
+  margin: 0;
+  max-width: 22rem;
+  font-family: var(--nf-font-display);
+  font-size: clamp(1.55rem, 3.6vw, 2.15rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: rgba(244, 247, 251, 0.96);
+  text-shadow: 0 2px 28px rgba(5, 7, 13, 0.55);
+}
+
+.nf-hero-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.2rem 0.1rem;
+  border: 0;
+  background: none;
+  color: rgba(244, 247, 251, 0.72);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.nf-hero-text-btn:hover {
+  color: rgba(244, 247, 251, 0.96);
+}
+
 .nf-brand-mark {
   margin: 0;
   font-family: var(--nf-font-display);
@@ -951,6 +985,41 @@ a {
   transform: translateY(-1px);
 }
 
+.nf-whatsapp-cta {
+  display: grid;
+  place-items: center;
+  margin: 2.25rem 0 0.25rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.nf-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: min(100%, 22rem);
+  min-height: 3.35rem;
+  padding: 0.95rem 1.4rem;
+  border: 0;
+  border-radius: 12px;
+  background: #1fad5a;
+  color: #04140a;
+  text-decoration: none;
+  font-family: var(--nf-font-display);
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 14px 32px rgba(20, 120, 60, 0.35);
+  transition: transform 0.2s ease, filter 0.2s ease, background 0.2s ease;
+  animation: nf-rise 0.7s ease both;
+}
+
+.nf-whatsapp-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  background: #25c065;
+}
+
 .nf-contact-fab {
   position: fixed;
   z-index: 50;
@@ -958,23 +1027,23 @@ a {
   bottom: max(1rem, env(safe-area-inset-bottom));
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.85rem 1.1rem;
+  gap: 0.6rem;
+  padding: 0.95rem 1.25rem;
   border-radius: 999px;
-  background: var(--nf-blue);
-  color: #041018;
+  background: #1fad5a;
+  color: #04140a;
   text-decoration: none;
   font-family: var(--nf-font-display);
   font-weight: 700;
-  font-size: 0.92rem;
-  box-shadow: 0 16px 36px rgba(58, 160, 255, 0.35);
+  font-size: 0.98rem;
+  box-shadow: 0 16px 36px rgba(20, 120, 60, 0.4);
   transition: transform 0.2s ease, filter 0.2s ease;
   animation: nf-rise 0.55s ease 0.25s both;
 }
 
 .nf-contact-fab:hover {
   transform: translateY(-2px);
-  filter: brightness(1.05);
+  filter: brightness(1.06);
 }
 
 @keyframes nf-rise {
@@ -1183,6 +1252,18 @@ a {
     font-size: clamp(0.82rem, 3.8vw, 1rem);
     letter-spacing: 0.28em;
     padding-inline: 0.25rem;
+  }
+
+  .nf-hero-lead {
+    font-size: clamp(1.75rem, 8vw, 2.25rem);
+    max-width: 16.5rem;
+  }
+
+  .nf-hero-text-btn {
+    justify-content: center;
+    font-size: 0.9rem;
+    min-height: auto;
+    padding: 0.35rem 0.15rem;
   }
 
   .nf-brand-mark {
@@ -1401,22 +1482,20 @@ a {
     text-align: center;
   }
 
-  .nf-contact-fab span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
+  .nf-whatsapp-cta {
+    margin-top: 1.75rem;
+  }
+
+  .nf-whatsapp-btn {
+    width: 100%;
+    min-height: 3.5rem;
+    font-size: 1.05rem;
   }
 
   .nf-contact-fab {
-    width: 3.15rem;
-    height: 3.15rem;
-    padding: 0;
-    justify-content: center;
+    min-height: 3.35rem;
+    padding: 0.85rem 1.15rem;
+    font-size: 0.95rem;
   }
 }
 
@@ -6781,6 +6860,55 @@ a {
 .av-wa-canned-panel-head strong {
   font-size: 0.9rem;
   color: var(--wa-text);
+}
+
+.av-wa-canned-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  min-height: 0;
+  font-size: 0.75rem;
+}
+
+.av-wa-canned-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem;
+  align-items: stretch;
+}
+
+.av-wa-canned-send {
+  padding: 0.4rem 0.5rem;
+  min-width: 0;
+  align-self: center;
+}
+
+.av-mensajes-rapidos-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #0b3d22;
+  background: rgba(31, 173, 90, 0.16);
+  vertical-align: middle;
+}
+
+.av-mensajes-rapidos-preview {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: start;
+}
+
+.av-mensajes-rapidos-preview img {
+  max-width: min(100%, 220px);
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 40, 70, 0.12);
 }
 
 .av-wa-canned-group-label {

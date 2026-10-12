@@ -1592,6 +1592,29 @@ export async function sendAvCrmDocument(
   )
 }
 
+export async function sendAvCrmImage(
+  token: string,
+  jid: string,
+  payload: {
+    dataBase64: string
+    mimetype?: string
+    caption?: string
+  },
+): Promise<{ message: AvCrmMessage; chat: AvCrmChat | null }> {
+  return apiFetch<{ message: AvCrmMessage; chat: AvCrmChat | null }>(
+    `/api/audiovisual/crm/whatsapp/chats/${encodeURIComponent(jid)}/image`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        dataBase64: payload.dataBase64,
+        mimetype: payload.mimetype || 'image/jpeg',
+        caption: payload.caption || undefined,
+      }),
+    },
+  )
+}
+
 export async function listAvCrmCotizaciones(token: string): Promise<AvCotizacion[]> {
   const data = await apiFetch<{ cotizaciones: AvCotizacion[] }>(
     '/api/audiovisual/crm/cotizaciones',
@@ -1662,6 +1685,12 @@ export async function fetchAvCrmMessageDocument(
 
 export type AvCrmMensajeAlcance = 'global' | 'personal'
 
+export type AvCrmMensajeImagenPayload = {
+  dataBase64: string
+  mimetype: string
+  fileName: string
+}
+
 export type AvCrmMensajePredeterminado = {
   id: string
   titulo: string
@@ -1669,6 +1698,9 @@ export type AvCrmMensajePredeterminado = {
   orden: number
   alcance: AvCrmMensajeAlcance
   ownerUid: string | null
+  tieneImagen?: boolean
+  imagenMimeType?: string | null
+  imagenFileName?: string | null
   creadoEn: string | null
   actualizadoEn: string | null
 }
@@ -1685,23 +1717,38 @@ export async function listAvCrmMensajesPredeterminados(
 
 export async function createAvCrmMensajePredeterminado(
   token: string,
-  payload: { titulo: string; texto: string; orden?: number },
-): Promise<AvCrmMensajePredeterminado> {
-  const data = await apiFetch<{ mensaje: AvCrmMensajePredeterminado }>(
-    '/api/audiovisual/crm/mensajes-predeterminados',
-    token,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    },
-  )
-  return data.mensaje
+  payload: {
+    titulo: string
+    texto: string
+    orden?: number
+    alcance?: AvCrmMensajeAlcance
+    imagen?: AvCrmMensajeImagenPayload | null
+    sendToJid?: string | null
+  },
+): Promise<{
+  mensaje: AvCrmMensajePredeterminado
+  sent: { message: AvCrmMessage; chat: AvCrmChat | null } | null
+}> {
+  const data = await apiFetch<{
+    mensaje: AvCrmMensajePredeterminado
+    sent?: { message: AvCrmMessage; chat: AvCrmChat | null } | null
+  }>('/api/audiovisual/crm/mensajes-predeterminados', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return { mensaje: data.mensaje, sent: data.sent || null }
 }
 
 export async function updateAvCrmMensajePredeterminado(
   token: string,
   id: string,
-  payload: { titulo: string; texto: string; orden?: number },
+  payload: {
+    titulo: string
+    texto: string
+    orden?: number
+    imagen?: AvCrmMensajeImagenPayload | null
+    clearImagen?: boolean
+  },
 ): Promise<AvCrmMensajePredeterminado> {
   const data = await apiFetch<{ mensaje: AvCrmMensajePredeterminado }>(
     `/api/audiovisual/crm/mensajes-predeterminados/${encodeURIComponent(id)}`,
@@ -1712,6 +1759,21 @@ export async function updateAvCrmMensajePredeterminado(
     },
   )
   return data.mensaje
+}
+
+export async function sendAvCrmMensajePredeterminado(
+  token: string,
+  id: string,
+  jid: string,
+): Promise<{ message: AvCrmMessage; chat: AvCrmChat | null }> {
+  return apiFetch<{ message: AvCrmMessage; chat: AvCrmChat | null }>(
+    `/api/audiovisual/crm/mensajes-predeterminados/${encodeURIComponent(id)}/enviar`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ jid }),
+    },
+  )
 }
 
 export async function deleteAvCrmMensajePredeterminado(

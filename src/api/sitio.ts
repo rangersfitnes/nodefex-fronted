@@ -49,10 +49,11 @@ export type SitioSocialItem = {
 export type SitioWebContent = {
   brand: string
   navCta: string
-  /** Texto único del hero minimalista (ej. WE BUILD.). */
+  /** Kicker del hero (ej. WE BUILD.). */
   heroTitle: string
   heroEyebrow: string
   heroTitleLine1: string
+  /** Frase de apoyo bajo el kicker (ej. Tu web profesional.). */
   heroTitleLine2: string
   heroCta: string
   servicesTitle: string

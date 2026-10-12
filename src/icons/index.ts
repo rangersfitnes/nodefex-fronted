@@ -37,6 +37,7 @@ export {
   History,
   Home,
   IdCard,
+  ImagePlus,
   Key,
   Layers,
   LayoutDashboard,

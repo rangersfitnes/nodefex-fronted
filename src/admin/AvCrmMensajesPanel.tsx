@@ -5,6 +5,7 @@ import {
   listAvCrmMensajesPredeterminados,
   updateAvCrmMensajePredeterminado,
   type AvCrmMensajeAlcance,
+  type AvCrmMensajeImagenPayload,
   type AvCrmMensajePredeterminado,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
@@ -24,11 +25,28 @@ type ModalMode = 'crear' | 'editar'
 type AvCrmMensajesPanelProps = {
   canManageGlobal?: boolean
   canManagePersonal?: boolean
+  onChanged?: () => void
+}
+
+async function fileToImagenPayload(file: File): Promise<AvCrmMensajeImagenPayload> {
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return {
+    dataBase64: btoa(binary),
+    mimetype: file.type || 'image/jpeg',
+    fileName: file.name || 'imagen.jpg',
+  }
 }
 
 export function AvCrmMensajesPanel({
   canManageGlobal = false,
   canManagePersonal = false,
+  onChanged,
 }: AvCrmMensajesPanelProps) {
   const { user } = useAuth()
   const [mensajes, setMensajes] = useState<AvCrmMensajePredeterminado[]>([])
@@ -43,6 +61,9 @@ export function AvCrmMensajesPanel({
   const [createAlcance, setCreateAlcance] = useState<AvCrmMensajeAlcance>('global')
   const [titulo, setTitulo] = useState('')
   const [texto, setTexto] = useState('')
+  const [imagenFile, setImagenFile] = useState<File | null>(null)
+  const [imagenPreview, setImagenPreview] = useState('')
+  const [clearImagen, setClearImagen] = useState(false)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -86,9 +107,27 @@ export function AvCrmMensajesPanel({
     }
   }, [user, refreshTick])
 
+  useEffect(() => {
+    if (!imagenFile) {
+      setImagenPreview('')
+      return
+    }
+    const url = URL.createObjectURL(imagenFile)
+    setImagenPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imagenFile])
+
   function canEditMensaje(mensaje: AvCrmMensajePredeterminado): boolean {
     if (mensaje.alcance === 'personal') return canManagePersonal
     return canManageGlobal
+  }
+
+  function resetForm() {
+    setTitulo('')
+    setTexto('')
+    setImagenFile(null)
+    setClearImagen(false)
+    setFormError('')
   }
 
   function openCreate(alcance: AvCrmMensajeAlcance) {
@@ -97,9 +136,7 @@ export function AvCrmMensajesPanel({
     setModalMode('crear')
     setEditing(null)
     setCreateAlcance(alcance)
-    setTitulo('')
-    setTexto('')
-    setFormError('')
+    resetForm()
     setModalOpen(true)
   }
 
@@ -110,6 +147,8 @@ export function AvCrmMensajesPanel({
     setCreateAlcance(mensaje.alcance === 'personal' ? 'personal' : 'global')
     setTitulo(mensaje.titulo || '')
     setTexto(mensaje.texto || '')
+    setImagenFile(null)
+    setClearImagen(false)
     setFormError('')
     setModalOpen(true)
   }
@@ -127,8 +166,13 @@ export function AvCrmMensajesPanel({
 
     const cleanTitulo = titulo.trim()
     const cleanTexto = texto.trim()
-    if (!cleanTitulo || !cleanTexto) {
-      setFormError('El título y el mensaje son obligatorios')
+    const hasExistingImage = Boolean(editing?.tieneImagen) && !clearImagen
+    if (!cleanTitulo) {
+      setFormError('El título es obligatorio')
+      return
+    }
+    if (!cleanTexto && !imagenFile && !hasExistingImage) {
+      setFormError('Agrega un texto y/o una imagen')
       return
     }
 
@@ -136,21 +180,27 @@ export function AvCrmMensajesPanel({
     setFormError('')
     try {
       const token = await user.getIdToken()
+      const imagen = imagenFile ? await fileToImagenPayload(imagenFile) : null
       if (modalMode === 'editar' && editing) {
         const updated = await updateAvCrmMensajePredeterminado(token, editing.id, {
           titulo: cleanTitulo,
           texto: cleanTexto,
+          imagen,
+          clearImagen: clearImagen && !imagen,
         })
         setMensajes((current) =>
           current.map((item) => (item.id === updated.id ? updated : item)),
         )
       } else {
-        const created = await createAvCrmMensajePredeterminado(token, {
+        const { mensaje: created } = await createAvCrmMensajePredeterminado(token, {
           titulo: cleanTitulo,
           texto: cleanTexto,
+          alcance: createAlcance,
+          imagen,
         })
         setMensajes((current) => [...current, created])
       }
+      onChanged?.()
       setModalOpen(false)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'No se pudo guardar el mensaje')
@@ -169,6 +219,7 @@ export function AvCrmMensajesPanel({
       const token = await user.getIdToken()
       await deleteAvCrmMensajePredeterminado(token, mensaje.id)
       setMensajes((current) => current.filter((item) => item.id !== mensaje.id))
+      onChanged?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo eliminar el mensaje')
     } finally {
@@ -207,8 +258,13 @@ export function AvCrmMensajesPanel({
           return (
             <li key={mensaje.id}>
               <div className="av-mensajes-rapidos-body">
-                <strong>{mensaje.titulo}</strong>
-                <p>{mensaje.texto}</p>
+                <strong>
+                  {mensaje.titulo}
+                  {mensaje.tieneImagen ? (
+                    <span className="av-mensajes-rapidos-badge">Imagen</span>
+                  ) : null}
+                </strong>
+                <p>{mensaje.texto || (mensaje.tieneImagen ? 'Solo imagen' : '')}</p>
               </div>
               {editable ? (
                 <div className="av-mensajes-rapidos-actions">
@@ -249,6 +305,8 @@ export function AvCrmMensajesPanel({
       : createAlcance === 'personal'
         ? 'Nuevo mensaje personal'
         : 'Nuevo mensaje global'
+
+  const showExistingImage = Boolean(editing?.tieneImagen) && !clearImagen && !imagenFile
 
   return (
     <div className="av-ingresos" role="tabpanel" aria-label="Mensajes rápidos">
@@ -308,12 +366,7 @@ export function AvCrmMensajesPanel({
             <div className="av-mensajes-rapidos-section-head">
               <h4>Globales</h4>
             </div>
-            {renderList(
-              globales,
-              'No hay mensajes globales.',
-              canManageGlobal,
-              'global',
-            )}
+            {renderList(globales, 'No hay mensajes globales.', canManageGlobal, 'global')}
           </section>
 
           {canManagePersonal || personales.length > 0 ? (
@@ -367,18 +420,60 @@ export function AvCrmMensajesPanel({
                 />
               </label>
               <label className="login-field" htmlFor="av-mensaje-rapido-texto">
-                Mensaje
+                Mensaje / pie de imagen
                 <textarea
                   id="av-mensaje-rapido-texto"
                   value={texto}
                   onChange={(event) => setTexto(event.target.value)}
                   disabled={submitting}
-                  required
                   rows={5}
                   maxLength={2000}
-                  placeholder="Texto que se enviará por WhatsApp"
+                  placeholder="Texto que se enviará por WhatsApp (o pie de la imagen)"
                 />
               </label>
+              <label className="login-field" htmlFor="av-mensaje-rapido-imagen">
+                Imagen (opcional)
+                <input
+                  id="av-mensaje-rapido-imagen"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={submitting}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null
+                    setImagenFile(file)
+                    if (file) setClearImagen(false)
+                  }}
+                />
+              </label>
+              {imagenPreview ? (
+                <div className="av-mensajes-rapidos-preview">
+                  <img src={imagenPreview} alt="Vista previa" />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setImagenFile(null)}
+                    disabled={submitting}
+                  >
+                    Quitar imagen nueva
+                  </button>
+                </div>
+              ) : null}
+              {showExistingImage ? (
+                <div className="av-mensajes-rapidos-preview">
+                  <p className="section-note">
+                    Este mensaje ya tiene imagen
+                    {editing?.imagenFileName ? `: ${editing.imagenFileName}` : '.'}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setClearImagen(true)}
+                    disabled={submitting}
+                  >
+                    Quitar imagen
+                  </button>
+                </div>
+              ) : null}
               {formError ? (
                 <p className="login-error" role="alert">
                   <AlertCircle size={16} strokeWidth={2} aria-hidden />
