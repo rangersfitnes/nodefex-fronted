@@ -2191,6 +2191,22 @@ export async function createAvCotizacion(
   return data.cotizacion
 }
 
+export async function updateAvCotizacion(
+  token: string,
+  id: string,
+  payload: { mostrarDatosCliente?: boolean },
+): Promise<AvCotizacion> {
+  const data = await apiFetch<{ cotizacion: AvCotizacion }>(
+    `/api/audiovisual/cotizaciones/${encodeURIComponent(id)}`,
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+  return data.cotizacion
+}
+
 export async function deleteAvCotizacion(token: string, id: string): Promise<void> {
   await apiFetch(`/api/audiovisual/cotizaciones/${encodeURIComponent(id)}`, token, {
     method: 'DELETE',

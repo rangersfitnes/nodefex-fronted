@@ -4796,14 +4796,24 @@ a {
   overflow: auto;
 }
 
-.av-cotizacion-cliente-switch {
-  display: grid;
+.av-cotizacion-row-actions {
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.45rem;
-  padding-top: 0.15rem;
 }
 
-.av-cotizacion-cliente-switch .section-note {
-  margin: 0;
+.av-cotizacion-cliente-row-switch {
+  flex-shrink: 0;
+  min-height: 2.1rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(18, 50, 92, 0.12);
+  background: #fff;
+}
+
+.av-cotizacion-cliente-row-switch .access-switch-label {
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .av-cotizacion-items {

@@ -8,6 +8,7 @@ import {
   listAvClientes,
   listAvCotizaciones,
   listAvServiciosCreditos,
+  updateAvCotizacion,
   type AvCliente,
   type AvCotizacion,
   type AvCotizacionItem,
@@ -93,10 +94,10 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
   const [codigoFeedback, setCodigoFeedback] = useState('')
   const [servicioSeleccionado, setServicioSeleccionado] = useState<AvServicioCredito | null>(null)
   const [resumen, setResumen] = useState('')
-  const [mostrarDatosCliente, setMostrarDatosCliente] = useState(true)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [generatingResumen, setGeneratingResumen] = useState(false)
+  const [togglingClienteId, setTogglingClienteId] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -196,7 +197,6 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     setCodigoFeedback('')
     setServicioSeleccionado(null)
     setResumen('')
-    setMostrarDatosCliente(true)
     setFormError('')
     setModalOpen(true)
   }
@@ -239,9 +239,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     try {
       const token = await user.getIdToken()
       const generated = await generateAvCotizacionResumen(token, {
-        clienteNombre: mostrarDatosCliente
-          ? clienteNombre.trim() || undefined
-          : undefined,
+        clienteNombre: clienteNombre.trim() || undefined,
         items: items.map((item) => ({
           servicioId: item.servicioId,
           referencia: item.referencia,
@@ -391,7 +389,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
         clienteDocumento: clienteDocumento.trim() || undefined,
         clienteCorreo: clienteCorreo.trim() || undefined,
         clienteTelefono: clienteTelefono.trim() || undefined,
-        mostrarDatosCliente,
+        mostrarDatosCliente: true,
         items: payloadItems,
         resumen: resumenValue,
       })
@@ -402,6 +400,45 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
       setFormError(err instanceof Error ? err.message : 'No se pudo guardar la cotización')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleToggleMostrarCliente(
+    cotizacion: AvCotizacion,
+    mostrarDatosCliente: boolean,
+  ) {
+    if (!user || readOnly || togglingClienteId) return
+    const previous = cotizacion.mostrarDatosCliente !== false
+    setTogglingClienteId(cotizacion.id)
+    setError('')
+    setCotizaciones((current) =>
+      current.map((item) =>
+        item.id === cotizacion.id ? { ...item, mostrarDatosCliente } : item,
+      ),
+    )
+    try {
+      const token = await user.getIdToken()
+      const updated = await updateAvCotizacion(token, cotizacion.id, {
+        mostrarDatosCliente,
+      })
+      setCotizaciones((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      )
+    } catch (err) {
+      setCotizaciones((current) =>
+        current.map((item) =>
+          item.id === cotizacion.id
+            ? { ...item, mostrarDatosCliente: previous }
+            : item,
+        ),
+      )
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo actualizar la visibilidad de datos del cliente',
+      )
+    } finally {
+      setTogglingClienteId('')
     }
   }
 
@@ -503,7 +540,43 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
                   <td>{cotizacion.items.length}</td>
                   <td>{formatCop(cotizacion.subtotal)}</td>
                   <td>
-                    <div className="av-ingresos-row-actions">
+                    <div className="av-ingresos-row-actions av-cotizacion-row-actions">
+                      <label
+                        className={`access-switch av-cotizacion-cliente-row-switch ${
+                          cotizacion.mostrarDatosCliente !== false ? 'is-on' : 'is-off'
+                        }`}
+                        title={
+                          cotizacion.mostrarDatosCliente !== false
+                            ? 'El PDF mostrará los datos del cliente'
+                            : 'El PDF ocultará los datos del cliente'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={cotizacion.mostrarDatosCliente !== false}
+                          disabled={
+                            readOnly ||
+                            togglingClienteId === cotizacion.id ||
+                            deletingId === cotizacion.id
+                          }
+                          onChange={(event) =>
+                            void handleToggleMostrarCliente(
+                              cotizacion,
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span className="access-switch-track" aria-hidden>
+                          <span className="access-switch-thumb" />
+                        </span>
+                        <span className="access-switch-label">
+                          {togglingClienteId === cotizacion.id
+                            ? '…'
+                            : cotizacion.mostrarDatosCliente !== false
+                              ? 'Con cliente'
+                              : 'Sin cliente'}
+                        </span>
+                      </label>
                       <button
                         type="button"
                         className="btn-secondary"
@@ -636,31 +709,6 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
                       )}
                     </ul>
                   )}
-                </div>
-
-                <div className="av-ingresos-span-2 av-cotizacion-cliente-switch">
-                  <label
-                    className={`access-switch ${mostrarDatosCliente ? 'is-on' : 'is-off'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={mostrarDatosCliente}
-                      disabled={submitting || generatingResumen}
-                      onChange={(event) => setMostrarDatosCliente(event.target.checked)}
-                    />
-                    <span className="access-switch-track" aria-hidden>
-                      <span className="access-switch-thumb" />
-                    </span>
-                    <span className="access-switch-label">
-                      {mostrarDatosCliente
-                        ? 'Mostrar datos del cliente en la cotización'
-                        : 'Ocultar datos del cliente en la cotización'}
-                    </span>
-                  </label>
-                  <p className="section-note">
-                    Si está apagado, el PDF no incluirá nombre, documento, correo ni teléfono del
-                    cliente. El cliente sigue vinculado internamente.
-                  </p>
                 </div>
               </div>
 
