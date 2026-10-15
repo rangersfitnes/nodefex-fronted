@@ -4796,6 +4796,16 @@ a {
   overflow: auto;
 }
 
+.av-cotizacion-cliente-switch {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+}
+
+.av-cotizacion-cliente-switch .section-note {
+  margin: 0;
+}
+
 .av-cotizacion-items {
   display: grid;
   gap: 0.75rem;

@@ -147,31 +147,41 @@ async function buildAvCotizacionPdfDoc(
 
   y += 96
 
+  const mostrarCliente = cotizacion.mostrarDatosCliente !== false
+
   // Datos cliente / fecha
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(...GENIO.orange)
-  doc.text('CLIENTE', marginX, y)
-  doc.text('FECHA', pageW / 2 + 10, y)
+  if (mostrarCliente) {
+    doc.text('CLIENTE', marginX, y)
+  }
+  doc.text('FECHA', mostrarCliente ? pageW / 2 + 10 : marginX, y)
   y += 14
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...GENIO.ink)
-  doc.text(cotizacion.clienteNombre || '—', marginX, y)
-  doc.text(formatFecha(cotizacion.creadoEn), pageW / 2 + 10, y)
+  if (mostrarCliente) {
+    doc.text(cotizacion.clienteNombre || '—', marginX, y)
+  }
+  doc.text(formatFecha(cotizacion.creadoEn), mostrarCliente ? pageW / 2 + 10 : marginX, y)
   y += 14
 
-  doc.setFontSize(9)
-  doc.setTextColor(...GENIO.muted)
-  const clienteMeta = [
-    cotizacion.clienteDocumento ? `Doc. ${cotizacion.clienteDocumento}` : null,
-    cotizacion.clienteCorreo || null,
-    cotizacion.clienteTelefono || null,
-  ].filter(Boolean) as string[]
-  if (clienteMeta.length) {
-    doc.text(clienteMeta.join('  ·  '), marginX, y)
-    y += 16
+  if (mostrarCliente) {
+    doc.setFontSize(9)
+    doc.setTextColor(...GENIO.muted)
+    const clienteMeta = [
+      cotizacion.clienteDocumento ? `Doc. ${cotizacion.clienteDocumento}` : null,
+      cotizacion.clienteCorreo || null,
+      cotizacion.clienteTelefono || null,
+    ].filter(Boolean) as string[]
+    if (clienteMeta.length) {
+      doc.text(clienteMeta.join('  ·  '), marginX, y)
+      y += 16
+    } else {
+      y += 6
+    }
   } else {
     y += 6
   }
@@ -273,9 +283,10 @@ async function buildAvCotizacionPdfDoc(
   ].filter(Boolean)
   doc.text(footerBits.join('   ·   '), pageW / 2, pageH - 12, { align: 'center' })
 
-  const safeClient = (cotizacion.clienteNombre || 'cliente')
-    .replace(/[^\w\-]+/g, '_')
-    .slice(0, 40)
+  const safeClient =
+    cotizacion.mostrarDatosCliente === false
+      ? 'cotizacion'
+      : (cotizacion.clienteNombre || 'cliente').replace(/[^\w\-]+/g, '_').slice(0, 40)
   const fileName = `${cotizacion.numero || 'COT'}_${safeClient}.pdf`
   return { doc, fileName }
 }

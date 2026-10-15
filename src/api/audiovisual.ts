@@ -2135,6 +2135,8 @@ export type AvCotizacion = {
   clienteDocumento: string | null
   clienteCorreo: string | null
   clienteTelefono: string | null
+  /** Si es false, el PDF / envío no muestra datos del cliente. Default true. */
+  mostrarDatosCliente: boolean
   items: AvCotizacionItem[]
   subtotal: number
   resumen: string | null
@@ -2177,6 +2179,7 @@ export async function createAvCotizacion(
     clienteDocumento?: string
     clienteCorreo?: string
     clienteTelefono?: string
+    mostrarDatosCliente?: boolean
     items: AvCotizacionItem[]
     resumen: string
   },

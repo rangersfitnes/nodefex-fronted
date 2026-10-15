@@ -1729,7 +1729,9 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       const pdf = await buildAvCotizacionPdf(cotizacion)
       const caption = [
         `Cotización ${cotizacion.numero || ''}`.trim(),
-        cotizacion.clienteNombre ? `Cliente: ${cotizacion.clienteNombre}` : null,
+        cotizacion.mostrarDatosCliente !== false && cotizacion.clienteNombre
+          ? `Cliente: ${cotizacion.clienteNombre}`
+          : null,
         `Total: ${formatCop(cotizacion.subtotal || 0)}`,
       ]
         .filter(Boolean)

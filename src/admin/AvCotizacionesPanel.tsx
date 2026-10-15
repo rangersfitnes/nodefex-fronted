@@ -93,6 +93,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
   const [codigoFeedback, setCodigoFeedback] = useState('')
   const [servicioSeleccionado, setServicioSeleccionado] = useState<AvServicioCredito | null>(null)
   const [resumen, setResumen] = useState('')
+  const [mostrarDatosCliente, setMostrarDatosCliente] = useState(true)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [generatingResumen, setGeneratingResumen] = useState(false)
@@ -195,6 +196,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     setCodigoFeedback('')
     setServicioSeleccionado(null)
     setResumen('')
+    setMostrarDatosCliente(true)
     setFormError('')
     setModalOpen(true)
   }
@@ -237,7 +239,9 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
     try {
       const token = await user.getIdToken()
       const generated = await generateAvCotizacionResumen(token, {
-        clienteNombre: clienteNombre.trim() || undefined,
+        clienteNombre: mostrarDatosCliente
+          ? clienteNombre.trim() || undefined
+          : undefined,
         items: items.map((item) => ({
           servicioId: item.servicioId,
           referencia: item.referencia,
@@ -286,7 +290,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
       return
     }
     const referencia = normalizeRef(servicio.referencia)
-    const concepto = `${referencia} · ${servicio.nombre || 'Servicio'}`
+    const concepto = (servicio.nombre || 'Servicio').trim()
     setItems((current) => [
       ...current,
       {
@@ -387,6 +391,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
         clienteDocumento: clienteDocumento.trim() || undefined,
         clienteCorreo: clienteCorreo.trim() || undefined,
         clienteTelefono: clienteTelefono.trim() || undefined,
+        mostrarDatosCliente,
         items: payloadItems,
         resumen: resumenValue,
       })
@@ -632,6 +637,31 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
                     </ul>
                   )}
                 </div>
+
+                <div className="av-ingresos-span-2 av-cotizacion-cliente-switch">
+                  <label
+                    className={`access-switch ${mostrarDatosCliente ? 'is-on' : 'is-off'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={mostrarDatosCliente}
+                      disabled={submitting || generatingResumen}
+                      onChange={(event) => setMostrarDatosCliente(event.target.checked)}
+                    />
+                    <span className="access-switch-track" aria-hidden>
+                      <span className="access-switch-thumb" />
+                    </span>
+                    <span className="access-switch-label">
+                      {mostrarDatosCliente
+                        ? 'Mostrar datos del cliente en la cotización'
+                        : 'Ocultar datos del cliente en la cotización'}
+                    </span>
+                  </label>
+                  <p className="section-note">
+                    Si está apagado, el PDF no incluirá nombre, documento, correo ni teléfono del
+                    cliente. El cliente sigue vinculado internamente.
+                  </p>
+                </div>
               </div>
 
               <section className="av-cotizacion-items">
@@ -825,7 +855,7 @@ export function AvCotizacionesPanel({ readOnly = false }: { readOnly?: boolean }
                       <li key={item.id}>
                         <div className="av-cotizacion-item-main">
                           <span className="av-credito-ref">{item.referencia}</span>
-                          <strong>{item.concepto.replace(/^\d{4}\s·\s/, '')}</strong>
+                          <strong>{item.concepto}</strong>
                           <span className="av-cotizacion-item-meta">
                             {formatCop(item.costoUnitario)} ×{' '}
                             <input
