@@ -5,10 +5,10 @@ import {
   listAvCrmMensajesPredeterminados,
   updateAvCrmMensajePredeterminado,
   type AvCrmMensajeAlcance,
-  type AvCrmMensajeImagenPayload,
   type AvCrmMensajePredeterminado,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
+import { compressCrmMensajeImage } from '../utils/crmMensajeImage'
 import {
   AlertCircle,
   LoaderCircle,
@@ -26,21 +26,6 @@ type AvCrmMensajesPanelProps = {
   canManageGlobal?: boolean
   canManagePersonal?: boolean
   onChanged?: () => void
-}
-
-async function fileToImagenPayload(file: File): Promise<AvCrmMensajeImagenPayload> {
-  const buffer = await file.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  }
-  return {
-    dataBase64: btoa(binary),
-    mimetype: file.type || 'image/jpeg',
-    fileName: file.name || 'imagen.jpg',
-  }
 }
 
 export function AvCrmMensajesPanel({
@@ -180,7 +165,20 @@ export function AvCrmMensajesPanel({
     setFormError('')
     try {
       const token = await user.getIdToken()
-      const imagen = imagenFile ? await fileToImagenPayload(imagenFile) : null
+      let imagen = null as Awaited<ReturnType<typeof compressCrmMensajeImage>> | null
+      if (imagenFile) {
+        try {
+          imagen = await compressCrmMensajeImage(imagenFile)
+        } catch (compressErr) {
+          setFormError(
+            compressErr instanceof Error
+              ? compressErr.message
+              : 'No se pudo comprimir la imagen',
+          )
+          setSubmitting(false)
+          return
+        }
+      }
       if (modalMode === 'editar' && editing) {
         const updated = await updateAvCrmMensajePredeterminado(token, editing.id, {
           titulo: cleanTitulo,

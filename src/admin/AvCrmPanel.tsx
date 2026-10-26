@@ -23,7 +23,6 @@ import {
   sendAvCrmDocument,
   sendAvCrmMensajePredeterminado,
   sendAvCrmMessage,
-  type AvCrmMensajeImagenPayload,
   setAvCrmFunnelEstado,
   listAvCrmClientes,
   getAvCrmClienteIntereses,
@@ -72,6 +71,7 @@ import {
   Video,
   X,
 } from '../icons'
+import { compressCrmMensajeImage } from '../utils/crmMensajeImage'
 import { buildAvCotizacionPdf } from './avCotizacionPdf'
 import { AvCrmAutoMensajesPanel } from './AvCrmAutoMensajesPanel'
 import { AvCrmMensajesPanel } from './AvCrmMensajesPanel'
@@ -186,16 +186,27 @@ function chatDisplayName(chat: {
   return chat.phoneDisplay || chat.phoneNumber || 'Chat'
 }
 
-function chatActivityTs(chat: AvCrmChat): number {
-  return Number(chat.lastMessage?.timestamp || chat.conversationTimestamp || 0)
+/** Normaliza timestamp a ms (como WhatsApp: actividad más reciente arriba). */
+function toActivityMs(ts: number | null | undefined): number {
+  const n = Number(ts)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  if (n < 1e10) return Math.floor(n * 1000)
+  if (n > 1e14) return Math.floor(n / 1000)
+  return Math.floor(n)
 }
 
-/** Pendientes de responder (último msg del cliente) arriba; luego por llegada reciente. */
+function chatActivityTs(chat: AvCrmChat): number {
+  return Math.max(
+    toActivityMs(chat.lastMessage?.timestamp),
+    toActivityMs(chat.conversationTimestamp),
+  )
+}
+
+/** Como WhatsApp: el chat con el mensaje más reciente va primero. */
 function compareChatsForSidebar(a: AvCrmChat, b: AvCrmChat): number {
-  const aPending = a.lastMessage && a.lastMessage.fromMe === false ? 1 : 0
-  const bPending = b.lastMessage && b.lastMessage.fromMe === false ? 1 : 0
-  if (aPending !== bPending) return bPending - aPending
-  return chatActivityTs(b) - chatActivityTs(a)
+  const diff = chatActivityTs(b) - chatActivityTs(a)
+  if (diff !== 0) return diff
+  return String(a.id || '').localeCompare(String(b.id || ''))
 }
 
 const FUNNEL_FILTERS: Array<{ id: 'all' | AvCrmFunnelEstado; label: string }> = [
@@ -2056,21 +2067,6 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
     return () => URL.revokeObjectURL(url)
   }, [cannedCreateImagen])
 
-  async function fileToImagenPayload(file: File): Promise<AvCrmMensajeImagenPayload> {
-    const buffer = await file.arrayBuffer()
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    const chunk = 0x8000
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-    }
-    return {
-      dataBase64: btoa(binary),
-      mimetype: file.type || 'image/jpeg',
-      fileName: file.name || 'imagen.jpg',
-    }
-  }
-
   function openCannedCreate() {
     if (readOnly || !canManageMensajesPersonales) return
     setCannedCreateTitulo('')
@@ -2100,35 +2096,37 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
       setCannedCreateError('Agrega un texto y/o una imagen')
       return
     }
-    if (!selectedId || !connected) {
-      setCannedCreateError('Abre un chat con WhatsApp conectado para guardar y enviar')
-      return
-    }
 
     setCannedCreateSubmitting(true)
     setCannedCreateError('')
     setError('')
     try {
       const token = await user.getIdToken()
-      const imagen = cannedCreateImagen
-        ? await fileToImagenPayload(cannedCreateImagen)
-        : null
-      const { mensaje, sent } = await createAvCrmMensajePredeterminado(token, {
+      let imagen = null
+      if (cannedCreateImagen) {
+        try {
+          imagen = await compressCrmMensajeImage(cannedCreateImagen)
+        } catch (compressErr) {
+          setCannedCreateError(
+            compressErr instanceof Error
+              ? compressErr.message
+              : 'No se pudo comprimir la imagen',
+          )
+          return
+        }
+      }
+      const { mensaje } = await createAvCrmMensajePredeterminado(token, {
         titulo,
         texto,
         alcance: 'personal',
         imagen,
-        sendToJid: selectedId,
       })
       setCannedMessages((current) => [...current, mensaje])
       setCannedRefreshTick((n) => n + 1)
-      if (sent?.message) {
-        applySentMessageToChat(sent.message, sent.chat)
-      }
       setCannedCreateOpen(false)
     } catch (err) {
       setCannedCreateError(
-        err instanceof Error ? err.message : 'No se pudo crear ni enviar el mensaje',
+        err instanceof Error ? err.message : 'No se pudo guardar el mensaje',
       )
     } finally {
       setCannedCreateSubmitting(false)
@@ -2617,7 +2615,7 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                               type="button"
                               className="btn-secondary av-wa-canned-create-btn"
                               onClick={openCannedCreate}
-                              disabled={readOnly || sending || !connected || !selectedId}
+                              disabled={readOnly || sending}
                               title="Crear mensaje personal con texto e imagen"
                             >
                               <Plus size={14} strokeWidth={2} aria-hidden />
@@ -3604,8 +3602,8 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
               }}
             >
               <p className="section-note">
-                Se guarda en «Mis mensajes» y se envía de inmediato al chat abierto (texto e imagen
-                juntos).
+                Se guarda en «Mis mensajes». Luego puedes enviarlo al cliente con el botón de enviar
+                de cada mensaje rápido.
               </p>
               <label className="login-field" htmlFor="av-crm-canned-create-titulo">
                 Título
@@ -3676,18 +3674,15 @@ export function AvCrmPanel({ readOnly = false }: { readOnly?: boolean }) {
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={cannedCreateSubmitting || !connected || !selectedId}
+                  disabled={cannedCreateSubmitting}
                 >
                   {cannedCreateSubmitting ? (
                     <>
                       <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
-                      Guardando y enviando…
+                      Guardando…
                     </>
                   ) : (
-                    <>
-                      <Send size={16} strokeWidth={2} aria-hidden />
-                      Guardar y enviar
-                    </>
+                    'Guardar mensaje'
                   )}
                 </button>
               </div>

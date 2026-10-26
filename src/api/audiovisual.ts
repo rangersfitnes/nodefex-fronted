@@ -1728,15 +1728,21 @@ export async function createAvCrmMensajePredeterminado(
 ): Promise<{
   mensaje: AvCrmMensajePredeterminado
   sent: { message: AvCrmMessage; chat: AvCrmChat | null } | null
+  warning: string | null
 }> {
   const data = await apiFetch<{
     mensaje: AvCrmMensajePredeterminado
     sent?: { message: AvCrmMessage; chat: AvCrmChat | null } | null
+    warning?: string | null
   }>('/api/audiovisual/crm/mensajes-predeterminados', token, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
-  return { mensaje: data.mensaje, sent: data.sent || null }
+  return {
+    mensaje: data.mensaje,
+    sent: data.sent || null,
+    warning: data.warning || null,
+  }
 }
 
 export async function updateAvCrmMensajePredeterminado(

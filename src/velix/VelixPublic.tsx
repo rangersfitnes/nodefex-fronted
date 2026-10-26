@@ -467,6 +467,31 @@ function VelixMember({ initial }: { initial: StoredSession }) {
   const [confirmingPayment, setConfirmingPayment] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [payError, setPayError] = useState('')
+  const [refreshingLicense, setRefreshingLicense] = useState(true)
+
+  // Refrescar días desde el API (sincroniza Firestore) — no confiar solo en sessionStorage.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setRefreshingLicense(true)
+      try {
+        const token = (await getVelixIdToken(true)) || readSession()?.idToken || initial.idToken
+        if (!token) return
+        const usuario = await getVelixMe(token)
+        if (cancelled) return
+        const next = { idToken: token, usuario }
+        setSession(next)
+        writeSession(next)
+      } catch {
+        // Mantener sesión cacheada si falla la red.
+      } finally {
+        if (!cancelled) setRefreshingLicense(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [initial.idToken])
 
   useEffect(() => {
     const transactionId = searchParams.get('id')
@@ -601,7 +626,7 @@ function VelixMember({ initial }: { initial: StoredSession }) {
             <div
               className={`membership-badge ${session.usuario.activa ? 'is-active' : 'is-expired'}`}
             >
-              <strong>{session.usuario.diasRestantes}</strong>
+              <strong>{refreshingLicense ? '…' : session.usuario.diasRestantes}</strong>
               <span>días</span>
             </div>
             <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
