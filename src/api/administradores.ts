@@ -73,6 +73,8 @@ export type Administrador = {
   gananciaTotal: number
   /** Comisiones de ventas AV pendientes de liquidar (10% por venta). */
   comisionVentasPendiente?: number
+  /** Partición de ventas AV pendiente de liquidar. */
+  particionPendiente?: number
   mustChangePassword?: boolean
   createdAt: string | null
   updatedAt: string | null
@@ -259,13 +261,19 @@ export type GananciaLiquidacion = {
 export async function getAdministradorGanancias(
   token: string,
   uid: string,
-  options?: { origen?: 'venta' },
+  options?: { origen?: 'venta' | 'particion' },
 ): Promise<{
   pendiente: { total: number; movimientos: GananciaMovimiento[] }
   liquidaciones: GananciaLiquidacion[]
   comisionVentasPendiente?: number
+  particionPendiente?: number
 }> {
-  const qs = options?.origen === 'venta' ? '?origen=venta' : ''
+  const qs =
+    options?.origen === 'venta'
+      ? '?origen=venta'
+      : options?.origen === 'particion'
+        ? '?origen=particion'
+        : ''
   return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias${qs}`, token)
 }
 
@@ -280,7 +288,7 @@ export async function liquidarAdministradorGanancias(
       detalle?: string
     }>
     beneficiarioNombre?: string
-    origen?: 'venta'
+    origen?: 'venta' | 'particion'
   },
 ): Promise<{ liquidacion: GananciaLiquidacion; administrador: Administrador }> {
   return apiFetch(`/api/administradores/${encodeURIComponent(uid)}/ganancias/liquidar`, token, {

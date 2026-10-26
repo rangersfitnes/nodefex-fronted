@@ -2023,6 +2023,7 @@ export type AvAdministradorProyecto = {
   /** Rol específico en Nodefex Audio Visual. */
   proyectoRol: 'admin' | 'vendedor'
   comisionVentasPendiente?: number
+  particionPendiente?: number
   gananciaTotal?: number
   accesos?: Record<
     string,
@@ -2219,6 +2220,23 @@ export async function deleteAvCotizacion(token: string, id: string): Promise<voi
   })
 }
 
+export type AvParticionConcepto = {
+  concepto: string
+  conceptoKey: string
+  valor: number
+  porcentaje: number | null
+  esUtilidades: boolean
+}
+
+export type AvParticionAsignacion = {
+  adminUid: string
+  adminNombre: string | null
+  adminEmail: string | null
+  concepto: string
+  conceptoKey: string
+  valor: number
+}
+
 export type AvVenta = {
   id: string
   clienteId: string | null
@@ -2240,6 +2258,11 @@ export type AvVenta = {
   metodoPago: string | null
   ingresoId: string | null
   notas: string | null
+  particionEstado?: 'pendiente' | 'hecha' | null
+  particionConceptos?: AvParticionConcepto[]
+  particionAsignaciones?: AvParticionAsignacion[]
+  particionHechaEn?: string | null
+  particionHechaPor?: string | null
   creadoEn: string | null
   actualizadoEn: string | null
   createdBy: string | null
@@ -2281,5 +2304,24 @@ export async function createAvVenta(
 export async function deleteAvVenta(token: string, id: string): Promise<void> {
   await apiFetch(`/api/audiovisual/ventas/${encodeURIComponent(id)}`, token, {
     method: 'DELETE',
+  })
+}
+
+export async function listAvParticionPendientes(token: string): Promise<AvVenta[]> {
+  const data = await apiFetch<{ ventas: AvVenta[] }>(
+    '/api/audiovisual/ventas/particion-pendientes',
+    token,
+  )
+  return data.ventas
+}
+
+export async function assignAvVentaParticion(
+  token: string,
+  ventaId: string,
+  asignaciones: Array<{ adminUid: string; conceptoKey?: string | null }>,
+): Promise<{ venta: AvVenta; asignaciones: AvParticionAsignacion[]; credited: number }> {
+  return apiFetch(`/api/audiovisual/ventas/${encodeURIComponent(ventaId)}/particion`, token, {
+    method: 'POST',
+    body: JSON.stringify({ asignaciones }),
   })
 }

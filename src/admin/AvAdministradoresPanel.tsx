@@ -7,19 +7,23 @@ import {
   type GananciaMovimiento,
 } from '../api/administradores'
 import {
+  assignAvVentaParticion,
   getAvFinanzasResumen,
   listAvAdministradoresProyecto,
+  listAvParticionPendientes,
   saveAvCrmVendedorAccesos,
   updateAvAdministradorRol,
   type AvAdministradorProyecto,
   type AvFinanzasResumen,
   type AvMetodoPagoTipo,
+  type AvVenta,
 } from '../api/audiovisual'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   Banknote,
   ChevronDown,
+  Layers,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -88,6 +92,7 @@ export function AvAdministradoresPanel() {
   const [permisosSaving, setPermisosSaving] = useState(false)
 
   const [liquidarTarget, setLiquidarTarget] = useState<AvAdministradorProyecto | null>(null)
+  const [liquidarOrigen, setLiquidarOrigen] = useState<'venta' | 'particion'>('venta')
   const [movimientos, setMovimientos] = useState<GananciaMovimiento[]>([])
   const [pendienteTotal, setPendienteTotal] = useState(0)
   const [liquidarPartes, setLiquidarPartes] = useState<LiquidarParteForm[]>([
@@ -99,6 +104,13 @@ export function AvAdministradoresPanel() {
   const [liquidarError, setLiquidarError] = useState('')
   const [liquidarLoading, setLiquidarLoading] = useState(false)
 
+  const [particionPendientes, setParticionPendientes] = useState<AvVenta[]>([])
+  const [particionTarget, setParticionTarget] = useState<AvVenta | null>(null)
+  /** adminUid → conceptoKey ('' = sin asignar) */
+  const [particionDraft, setParticionDraft] = useState<Record<string, string>>({})
+  const [particionSaving, setParticionSaving] = useState(false)
+  const [particionError, setParticionError] = useState('')
+
   useEffect(() => {
     let cancelled = false
     async function load(silent = false) {
@@ -109,8 +121,14 @@ export function AvAdministradoresPanel() {
       }
       try {
         const token = await user.getIdToken()
-        const data = await listAvAdministradoresProyecto(token)
-        if (!cancelled) setItems(data)
+        const [data, pendientes] = await Promise.all([
+          listAvAdministradoresProyecto(token),
+          listAvParticionPendientes(token).catch(() => [] as AvVenta[]),
+        ])
+        if (!cancelled) {
+          setItems(data)
+          setParticionPendientes(pendientes)
+        }
       } catch (err) {
         if (!cancelled && !silent) {
           setError(
@@ -221,9 +239,13 @@ export function AvAdministradoresPanel() {
     }
   }
 
-  async function openLiquidar(item: AvAdministradorProyecto) {
+  async function openLiquidar(
+    item: AvAdministradorProyecto,
+    origen: 'venta' | 'particion' = 'venta',
+  ) {
     if (!user || liquidating) return
     setLiquidarTarget(item)
+    setLiquidarOrigen(origen)
     setLiquidarError('')
     setLiquidarLoading(true)
     setMovimientos([])
@@ -231,7 +253,7 @@ export function AvAdministradoresPanel() {
     try {
       const token = await user.getIdToken()
       const [ganancias, resumen] = await Promise.all([
-        getAdministradorGanancias(token, item.uid, { origen: 'venta' }),
+        getAdministradorGanancias(token, item.uid, { origen }),
         getAvFinanzasResumen(token).catch(() => EMPTY_RESUMEN),
       ])
       setMovimientos(ganancias.pendiente.movimientos)
@@ -244,7 +266,11 @@ export function AvAdministradoresPanel() {
       ])
     } catch (err) {
       setLiquidarError(
-        err instanceof Error ? err.message : 'No se pudieron cargar las comisiones',
+        err instanceof Error
+          ? err.message
+          : origen === 'particion'
+            ? 'No se pudo cargar la partición pendiente'
+            : 'No se pudieron cargar las comisiones',
       )
       setPresupuesto(EMPTY_RESUMEN)
     } finally {
@@ -260,6 +286,55 @@ export function AvAdministradoresPanel() {
     setMovimientos([])
   }
 
+  function openParticion(venta: AvVenta) {
+    const draft: Record<string, string> = {}
+    for (const admin of items.filter((row) => row.proyectoRol === 'admin')) {
+      draft[admin.uid] = ''
+    }
+    setParticionTarget(venta)
+    setParticionDraft(draft)
+    setParticionError('')
+  }
+
+  function closeParticion() {
+    if (particionSaving) return
+    setParticionTarget(null)
+    setParticionDraft({})
+    setParticionError('')
+  }
+
+  async function handleAssignParticion() {
+    if (!user || !particionTarget || particionSaving) return
+    const asignaciones = Object.entries(particionDraft)
+      .filter(([, conceptoKey]) => conceptoKey)
+      .map(([adminUid, conceptoKey]) => ({ adminUid, conceptoKey }))
+
+    if (!asignaciones.length) {
+      setParticionError('Asigna al menos un administrador a un concepto.')
+      return
+    }
+
+    setParticionSaving(true)
+    setParticionError('')
+    try {
+      const token = await user.getIdToken()
+      await assignAvVentaParticion(token, particionTarget.id, asignaciones)
+      setSuccess(
+        `Partición asignada en venta ${
+          particionTarget.cotizacionNumero || particionTarget.id
+        }.`,
+      )
+      closeParticion()
+      setRefreshTick((n) => n + 1)
+    } catch (err) {
+      setParticionError(
+        err instanceof Error ? err.message : 'No se pudo asignar la partición',
+      )
+    } finally {
+      setParticionSaving(false)
+    }
+  }
+
   function updateLiquidarParte(id: string, patch: Partial<LiquidarParteForm>) {
     setLiquidarPartes((current) =>
       current.map((parte) => (parte.id === id ? { ...parte, ...patch } : parte)),
@@ -269,7 +344,11 @@ export function AvAdministradoresPanel() {
   async function handleLiquidar() {
     if (!user || !liquidarTarget || liquidating) return
     if (pendienteTotal <= 0) {
-      setLiquidarError('No hay comisiones pendientes.')
+      setLiquidarError(
+        liquidarOrigen === 'particion'
+          ? 'No hay partición pendiente.'
+          : 'No hay comisiones pendientes.',
+      )
       return
     }
 
@@ -313,7 +392,7 @@ export function AvAdministradoresPanel() {
       const result = await liquidarAdministradorGanancias(token, liquidarTarget.uid, {
         partes: partesPayload,
         beneficiarioNombre: liquidarTarget.nombre || liquidarTarget.email || undefined,
-        origen: 'venta',
+        origen: liquidarOrigen,
       })
       setItems((current) =>
         current.map((row) =>
@@ -321,15 +400,20 @@ export function AvAdministradoresPanel() {
             ? {
                 ...row,
                 comisionVentasPendiente: result.administrador.comisionVentasPendiente || 0,
+                particionPendiente: result.administrador.particionPendiente || 0,
                 gananciaTotal: result.administrador.gananciaTotal,
               }
             : row,
         ),
       )
       setSuccess(
-        `Se liquidaron ${formatCop(pendienteTotal)} a ${
-          liquidarTarget.nombre || liquidarTarget.email
-        }. Pendiente reiniciado.`,
+        liquidarOrigen === 'particion'
+          ? `Se liquidó la partición de ${formatCop(pendienteTotal)} a ${
+              liquidarTarget.nombre || liquidarTarget.email
+            }. Pendiente reiniciado.`
+          : `Se liquidaron ${formatCop(pendienteTotal)} a ${
+              liquidarTarget.nombre || liquidarTarget.email
+            }. Pendiente reiniciado.`,
       )
       closeLiquidar()
       setRefreshTick((n) => n + 1)
@@ -346,8 +430,9 @@ export function AvAdministradoresPanel() {
         <div>
           <h3>Administradores y vendedores</h3>
           <p className="section-note">
-            Cada venta acredita 10% al vendedor. Personaliza qué pestañas puede solo ver o
-            gestionar, y liquida comisiones pendientes.
+            Cada venta acredita 10% al vendedor. Asigna un concepto de partición por admin en
+            cada venta (mismo concepto = reparto igual; Utilidades no se asigna). Liquida
+            comisiones y partición pendientes.
           </p>
         </div>
         <div className="av-ingresos-toolbar-actions">
@@ -389,6 +474,61 @@ export function AvAdministradoresPanel() {
         </div>
       ) : null}
 
+      {!loading && particionPendientes.length > 0 ? (
+        <section className="av-particion-pendientes" aria-label="Ventas pendientes de partición">
+          <div className="av-particion-pendientes-head">
+            <Layers size={18} strokeWidth={2} aria-hidden />
+            <div>
+              <strong>
+                {particionPendientes.length} venta
+                {particionPendientes.length === 1 ? '' : 's'} pendiente
+                {particionPendientes.length === 1 ? '' : 's'} de partición
+              </strong>
+              <p className="section-note">
+                Asigna un concepto a cada administrador. Si varios comparten el mismo concepto,
+                el valor se reparte por igual. Utilidades queda fuera.
+              </p>
+            </div>
+          </div>
+          <ul className="av-particion-pendientes-list">
+            {particionPendientes.map((venta) => {
+              const conceptos = (venta.particionConceptos || []).filter((c) => !c.esUtilidades)
+              const utilidades = (venta.particionConceptos || []).find((c) => c.esUtilidades)
+              return (
+                <li key={venta.id}>
+                  <div className="av-particion-pendiente-main">
+                    <strong>{venta.cotizacionNumero || venta.id}</strong>
+                    <span>{venta.clienteNombre || 'Cliente'}</span>
+                    <span className="av-particion-pendiente-valor">
+                      {formatCop(venta.cotizacionSubtotal)}
+                    </span>
+                  </div>
+                  <div className="av-particion-pendiente-meta">
+                    {conceptos.length
+                      ? conceptos
+                          .map((c) => `${c.concepto} ${formatCop(c.valor)}`)
+                          .join(' · ')
+                      : 'Sin conceptos asignables'}
+                    {utilidades
+                      ? ` · Utilidades ${formatCop(utilidades.valor)} (no asignable)`
+                      : ''}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={Boolean(savingUid) || permisosSaving || conceptos.length === 0}
+                    onClick={() => openParticion(venta)}
+                  >
+                    <Layers size={14} strokeWidth={2} aria-hidden />
+                    Asignar partición
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       {!loading && !error && items.length === 0 ? (
         <div className="proyectos-empty">
           <Users size={28} strokeWidth={1.75} aria-hidden />
@@ -408,12 +548,14 @@ export function AvAdministradoresPanel() {
                 <th>Cédula</th>
                 <th>Rol en El Genio</th>
                 <th>Comisión pendiente</th>
+                <th>Partición pendiente</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
                 const pendiente = Number(item.comisionVentasPendiente) || 0
+                const particionPend = Number(item.particionPendiente) || 0
                 const expanded = expandedUid === item.uid
                 return (
                   <Fragment key={item.uid}>
@@ -460,6 +602,10 @@ export function AvAdministradoresPanel() {
                         <div className="section-note">10% de ventas</div>
                       </td>
                       <td>
+                        <strong>{formatCop(particionPend)}</strong>
+                        <div className="section-note">Por liquidar</div>
+                      </td>
+                      <td>
                         <div className="av-admins-row-actions">
                           <button
                             type="button"
@@ -480,17 +626,26 @@ export function AvAdministradoresPanel() {
                             type="button"
                             className="btn-primary"
                             disabled={pendiente <= 0 || Boolean(savingUid) || permisosSaving}
-                            onClick={() => void openLiquidar(item)}
+                            onClick={() => void openLiquidar(item, 'venta')}
                           >
                             <Banknote size={14} strokeWidth={2} aria-hidden />
-                            Liquidar
+                            Liquidar comisión
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={particionPend <= 0 || Boolean(savingUid) || permisosSaving}
+                            onClick={() => void openLiquidar(item, 'particion')}
+                          >
+                            <Layers size={14} strokeWidth={2} aria-hidden />
+                            Liquidar partición
                           </button>
                         </div>
                       </td>
                     </tr>
                     {expanded ? (
                       <tr className="av-admins-permisos-row">
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <div className="av-admins-permisos-panel">
                             <p className="section-note">
                               Define por pestaña si puede gestionar, solo visualizar o no tiene
@@ -598,7 +753,11 @@ export function AvAdministradoresPanel() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="av-liquidar-comisiones-title">Liquidar comisiones de ventas</h2>
+              <h2 id="av-liquidar-comisiones-title">
+                {liquidarOrigen === 'particion'
+                  ? 'Liquidar partición'
+                  : 'Liquidar comisiones de ventas'}
+              </h2>
               <button
                 type="button"
                 className="modal-close"
@@ -610,8 +769,13 @@ export function AvAdministradoresPanel() {
               </button>
             </div>
             <p className="modal-confirm-text">
-              Se pagará a {liquidarTarget.nombre || liquidarTarget.email} las comisiones del 10%
-              pendientes. Al confirmar, el pendiente se reinicia a $0.
+              {liquidarOrigen === 'particion'
+                ? `Se pagará a ${
+                    liquidarTarget.nombre || liquidarTarget.email
+                  } la partición de ventas pendiente. Al confirmar, el acumulado se reinicia a $0.`
+                : `Se pagará a ${
+                    liquidarTarget.nombre || liquidarTarget.email
+                  } las comisiones del 10% pendientes. Al confirmar, el pendiente se reinicia a $0.`}
             </p>
 
             {liquidarLoading ? (
@@ -622,7 +786,11 @@ export function AvAdministradoresPanel() {
             ) : (
               <>
                 {movimientos.length === 0 ? (
-                  <p className="admin-ganancia-empty">No hay comisiones pendientes.</p>
+                  <p className="admin-ganancia-empty">
+                    {liquidarOrigen === 'particion'
+                      ? 'No hay partición pendiente.'
+                      : 'No hay comisiones pendientes.'}
+                  </p>
                 ) : (
                   <ul className="liquidar-conceptos">
                     {movimientos.map((item) => (
@@ -767,6 +935,128 @@ export function AvAdministradoresPanel() {
                   <>
                     <Banknote size={16} strokeWidth={2} aria-hidden />
                     Confirmar liquidación
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {particionTarget ? (
+        <div className="modal-overlay" role="presentation" onClick={closeParticion}>
+          <div
+            className="modal-panel modal-panel-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="av-particion-assign-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="av-particion-assign-title">Asignar partición por admin</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeParticion}
+                disabled={particionSaving}
+                aria-label="Cerrar"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+            <p className="modal-confirm-text">
+              Venta {particionTarget.cotizacionNumero || particionTarget.id} ·{' '}
+              {particionTarget.clienteNombre || 'Cliente'} ·{' '}
+              {formatCop(particionTarget.cotizacionSubtotal)}. Cada admin elige un concepto;
+              varios con el mismo concepto se reparten el valor por igual.
+            </p>
+
+            <ul className="av-particion-conceptos-resumen">
+              {(particionTarget.particionConceptos || []).map((concepto) => (
+                <li key={concepto.conceptoKey}>
+                  <span>
+                    {concepto.concepto}
+                    {concepto.esUtilidades ? ' (no asignable)' : ''}
+                  </span>
+                  <strong>{formatCop(concepto.valor)}</strong>
+                </li>
+              ))}
+            </ul>
+
+            {items.filter((row) => row.proyectoRol === 'admin').length === 0 ? (
+              <p className="admin-ganancia-empty">
+                No hay administradores en El Genio para asignar.
+              </p>
+            ) : (
+              <div className="av-particion-assign-list">
+                {items
+                  .filter((row) => row.proyectoRol === 'admin')
+                  .map((admin) => {
+                    const conceptos = (particionTarget.particionConceptos || []).filter(
+                      (c) => !c.esUtilidades,
+                    )
+                    return (
+                      <label
+                        key={admin.uid}
+                        className="login-field"
+                        htmlFor={`av-particion-admin-${admin.uid}`}
+                      >
+                        {admin.nombre || admin.email || admin.uid}
+                        <select
+                          id={`av-particion-admin-${admin.uid}`}
+                          value={particionDraft[admin.uid] || ''}
+                          disabled={particionSaving}
+                          onChange={(event) =>
+                            setParticionDraft((current) => ({
+                              ...current,
+                              [admin.uid]: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Sin asignar</option>
+                          {conceptos.map((concepto) => (
+                            <option key={concepto.conceptoKey} value={concepto.conceptoKey}>
+                              {concepto.concepto} · {formatCop(concepto.valor)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )
+                  })}
+              </div>
+            )}
+
+            {particionError ? (
+              <p className="login-error" role="alert">
+                <AlertCircle size={16} strokeWidth={2} aria-hidden />
+                {particionError}
+              </p>
+            ) : null}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeParticion}
+                disabled={particionSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleAssignParticion()}
+                disabled={particionSaving}
+              >
+                {particionSaving ? (
+                  <>
+                    <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden />
+                    Asignando...
+                  </>
+                ) : (
+                  <>
+                    <Layers size={16} strokeWidth={2} aria-hidden />
+                    Confirmar partición
                   </>
                 )}
               </button>

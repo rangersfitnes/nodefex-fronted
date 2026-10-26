@@ -3658,6 +3658,114 @@ a {
   min-width: 0;
 }
 
+.av-particion-pendientes {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 2px solid rgba(180, 83, 9, 0.55);
+  border-radius: 14px;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(251, 191, 36, 0.14),
+      rgba(251, 191, 36, 0.14) 10px,
+      rgba(254, 243, 199, 0.55) 10px,
+      rgba(254, 243, 199, 0.55) 20px
+    );
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+  animation: av-particion-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes av-particion-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.28);
+  }
+}
+
+.av-particion-pendientes-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.av-particion-pendientes-head strong {
+  display: block;
+  color: #92400e;
+  font-size: 0.98rem;
+}
+
+.av-particion-pendientes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.av-particion-pendientes-list > li {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(146, 64, 14, 0.22);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+@media (min-width: 720px) {
+  .av-particion-pendientes-list > li {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .av-particion-pendiente-meta {
+    grid-column: 1 / -1;
+  }
+}
+
+.av-particion-pendiente-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  align-items: baseline;
+}
+
+.av-particion-pendiente-valor {
+  font-weight: 700;
+  color: #92400e;
+}
+
+.av-particion-pendiente-meta {
+  font-size: 0.82rem;
+  color: #78716c;
+}
+
+.av-particion-conceptos-resumen {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.av-particion-conceptos-resumen li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(15, 40, 70, 0.08);
+  font-size: 0.9rem;
+}
+
+.av-particion-assign-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
 .av-admins-rol-switch {
   display: inline-flex;
   flex-wrap: wrap;
