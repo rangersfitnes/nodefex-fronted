@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Check,
   Hexagon,
-  LoaderCircle,
   LogOut,
   MessageCircle,
 } from '../icons'
