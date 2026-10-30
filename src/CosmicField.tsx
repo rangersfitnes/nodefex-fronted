@@ -40,12 +40,17 @@ export function CosmicField({ className = '' }: CosmicFieldProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const wrap = wrapRef.current
-    if (!canvas || !wrap) return
+    const canvasNode = canvasRef.current
+    const wrapNode = wrapRef.current
+    if (!canvasNode || !wrapNode) return
 
-    const ctx = canvas.getContext('2d', { alpha: false })
-    if (!ctx) return
+    const gfx = canvasNode.getContext('2d', { alpha: false })
+    if (!gfx) return
+
+    // Aliases tipados: TS no estrecha refs en closures anidadas.
+    const canvas: HTMLCanvasElement = canvasNode
+    const wrap: HTMLDivElement = wrapNode
+    const ctx: CanvasRenderingContext2D = gfx
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let width = 0
