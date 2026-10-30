@@ -16,6 +16,7 @@ import {
   LogOut,
   MessageCircle,
 } from '../icons'
+import { AdminFormShimmer } from './Shimmer'
 
 export function SitioContactoPage() {
   const { user, logout } = useAuth()
@@ -146,10 +147,7 @@ export function SitioContactoPage() {
 
         <section className="usuarios-section" aria-label="Configuración de contacto">
           {loading ? (
-            <div className="proyectos-status">
-              <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-              Cargando configuración...
-            </div>
+            <AdminFormShimmer fields={4} />
           ) : (
             <form className="plan-admin-form sitio-contacto-form" onSubmit={handleSubmit}>
               <label className="login-field sitio-contacto-switch">

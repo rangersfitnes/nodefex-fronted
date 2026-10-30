@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   deleteSitioWebMedia,
@@ -12,12 +12,14 @@ import {
   type SitioServiceItem,
   type SitioSocialItem,
   type SitioWebContent,
+  type SitioWebPayload,
 } from '../api/sitio'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertCircle,
   ArrowRight,
   Check,
+  ChevronDown,
   Globe,
   Hexagon,
   LoaderCircle,
@@ -26,11 +28,14 @@ import {
   Trash2,
   Upload,
 } from '../icons'
+import { SitioWebFormShimmer } from './Shimmer'
 import {
   compressSitioImage,
   compressSitioImageFromUrl,
   resolveSitioMediaSrc,
 } from '../utils/sitioMedia'
+
+type SitioSectionId = 'marca' | 'hero' | 'servicios' | 'proyectos' | 'legal' | 'footer'
 
 function MediaEditor({
   label,
@@ -90,6 +95,47 @@ function MediaEditor({
   )
 }
 
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  children,
+  summary,
+}: {
+  title: string
+  open: boolean
+  onToggle: () => void
+  children: ReactNode
+  summary?: string
+}) {
+  return (
+    <fieldset className={`sitio-web-fieldset${open ? '' : ' is-collapsed'}`}>
+      <legend className="sitio-web-fieldset-legend">
+        <button
+          type="button"
+          className="sitio-web-fieldset-toggle"
+          aria-expanded={open}
+          onClick={onToggle}
+        >
+          <span className="sitio-web-fieldset-toggle-text">
+            <span className="sitio-web-fieldset-title">{title}</span>
+            {!open && summary ? (
+              <span className="sitio-web-fieldset-summary">{summary}</span>
+            ) : null}
+          </span>
+          <ChevronDown
+            size={18}
+            strokeWidth={2}
+            className={`sitio-web-chevron${open ? ' is-open' : ''}`}
+            aria-hidden
+          />
+        </button>
+      </legend>
+      {open ? <div className="sitio-web-fieldset-body">{children}</div> : null}
+    </fieldset>
+  )
+}
+
 export function SitioWebPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -120,6 +166,15 @@ export function SitioWebPage() {
   const [termsText, setTermsText] = useState('')
   const [privacyText, setPrivacyText] = useState('')
   const [socials, setSocials] = useState<SitioSocialItem[]>([])
+  const [openSections, setOpenSections] = useState<Record<SitioSectionId, boolean>>({
+    marca: false,
+    hero: false,
+    servicios: false,
+    proyectos: true,
+    legal: false,
+    footer: false,
+  })
+  const [openProjects, setOpenProjects] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -177,48 +232,74 @@ export function SitioWebPage() {
     setMediaUrls(data.mediaUrls || {})
   }
 
+  const busy = saving || mediaBusy
+
+  function toggleSection(id: SitioSectionId) {
+    setOpenSections((current) => ({ ...current, [id]: !current[id] }))
+  }
+
+  function toggleProject(slot: string) {
+    setOpenProjects((current) => ({ ...current, [slot]: !current[slot] }))
+  }
+
+  function buildPayload(nextProjects: SitioProjectItem[] = projects): SitioWebPayload {
+    return {
+      brand,
+      navCta,
+      heroTitle,
+      heroTitleLine2,
+      heroCta,
+      servicesTitle,
+      services,
+      projectsTitle,
+      projectsCta,
+      projects: nextProjects,
+      footerContactLabel,
+      legalCompanyName,
+      legalNit,
+      legalAddress,
+      legalCity,
+      legalEmail,
+      legalPhone,
+      termsText,
+      privacyText,
+      socials,
+    }
+  }
+
   async function handleLogout() {
     await logout()
     navigate('/admin', { replace: true })
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!user) return
+  async function persistContent(
+    nextProjects: SitioProjectItem[],
+    successMessage: string,
+  ): Promise<boolean> {
+    if (!user) return false
     setSaving(true)
     setError('')
     setSuccess('')
     try {
       const token = await user.getIdToken()
-      const saved = await saveSitioWeb(token, {
-        brand,
-        navCta,
-        heroTitle,
-        heroTitleLine2,
-        heroCta,
-        servicesTitle,
-        services,
-        projectsTitle,
-        projectsCta,
-        projects,
-        footerContactLabel,
-        legalCompanyName,
-        legalNit,
-        legalAddress,
-        legalCity,
-        legalEmail,
-        legalPhone,
-        termsText,
-        privacyText,
-        socials,
-      })
+      const saved = await saveSitioWeb(token, buildPayload(nextProjects))
       applyContent(saved)
-      setSuccess('Textos del sitio web guardados. Ya se reflejan en la página principal.')
+      setSuccess(successMessage)
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar')
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await persistContent(
+      projects,
+      'Textos del sitio web guardados. Ya se reflejan en la página principal.',
+    )
   }
 
   async function handleUpload(slot: SitioMediaSlot, file: File) {
@@ -234,7 +315,8 @@ export function SitioWebPage() {
         mimeType: compressed.mimeType,
         contentBase64: compressed.contentBase64,
       })
-      applyContent(saved)
+      // Solo media: no pisar textos/proyectos locales aún no guardados.
+      setMediaUrls(saved.mediaUrls || {})
       const kb = Math.round(compressed.size / 1024)
       setSuccess(`Imagen optimizada (${kb} KB): ${slot}`)
     } catch (err) {
@@ -274,7 +356,7 @@ export function SitioWebPage() {
         })
         optimized += 1
       }
-      if (last) applyContent(last)
+      if (last) setMediaUrls(last.mediaUrls || {})
       setSuccess(`Imágenes optimizadas: ${optimized}. La página pública debería cargar más rápido.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron optimizar las imágenes')
@@ -293,7 +375,7 @@ export function SitioWebPage() {
     try {
       const token = await user.getIdToken()
       const saved = await deleteSitioWebMedia(token, slot)
-      applyContent(saved)
+      setMediaUrls(saved.mediaUrls || {})
       setSuccess('Imagen eliminada')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo eliminar la imagen')
@@ -302,23 +384,27 @@ export function SitioWebPage() {
     }
   }
 
-  function handleAddProject() {
-    if (projects.length >= MAX_SITIO_PROJECTS) return
+  async function handleAddProject() {
+    if (projects.length >= MAX_SITIO_PROJECTS || !user || busy) return
     const mediaSlot = nextProjectMediaSlot(projects)
-    setProjects((current) => [
-      ...current,
+    const nextProjects: SitioProjectItem[] = [
+      ...projects,
       {
-        name: `Proyecto ${current.length + 1}`,
+        name: `Proyecto ${projects.length + 1}`,
         category: 'PROYECTO',
         description: '',
         href: '#proyectos',
         mediaSlot,
       },
-    ])
+    ]
+    setProjects(nextProjects)
+    setOpenSections((current) => ({ ...current, proyectos: true }))
+    setOpenProjects((current) => ({ ...current, [mediaSlot]: true }))
+    await persistContent(nextProjects, 'Proyecto agregado y publicado en el sitio.')
   }
 
   async function handleRemoveProject(index: number) {
-    if (projects.length <= 1) return
+    if (projects.length <= 1 || !user || busy) return
     const target = projects[index]
     if (!target) return
     const ok = window.confirm(
@@ -326,20 +412,26 @@ export function SitioWebPage() {
     )
     if (!ok) return
 
-    setProjects((current) => current.filter((_, i) => i !== index))
+    const nextProjects = projects.filter((_, i) => i !== index)
+    setProjects(nextProjects)
+    setOpenProjects((current) => {
+      const next = { ...current }
+      delete next[target.mediaSlot]
+      return next
+    })
 
-    if (user && mediaUrls[target.mediaSlot]) {
+    if (mediaUrls[target.mediaSlot]) {
       try {
         const token = await user.getIdToken()
         const saved = await deleteSitioWebMedia(token, target.mediaSlot)
         setMediaUrls(saved.mediaUrls || {})
       } catch {
-        /* La card ya se quitó; la imagen se puede limpiar luego. */
+        /* El proyecto se guarda igual; la imagen se puede limpiar luego. */
       }
     }
-  }
 
-  const busy = saving || mediaBusy
+    await persistContent(nextProjects, 'Proyecto eliminado del sitio.')
+  }
 
   return (
     <div className="dashboard-page">
@@ -374,8 +466,8 @@ export function SitioWebPage() {
             <div>
               <h1>Sitio web</h1>
               <p className="dashboard-copy">
-                Personaliza textos e imágenes de la página principal. Los cambios se publican al
-                guardar.
+                Personaliza textos e imágenes de la página principal. Agregar o quitar proyectos se
+                publica al instante; el resto de textos al guardar.
               </p>
             </div>
             <div className="hero-actions">
@@ -402,14 +494,15 @@ export function SitioWebPage() {
 
         <section className="usuarios-section" aria-label="Personalización del sitio web">
           {loading ? (
-            <div className="proyectos-status">
-              <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-              Cargando contenido...
-            </div>
+            <SitioWebFormShimmer />
           ) : (
             <form className="plan-admin-form sitio-web-form" onSubmit={handleSubmit}>
-              <fieldset className="sitio-web-fieldset">
-                <legend>Marca y navegación</legend>
+              <CollapsibleSection
+                title="Marca y navegación"
+                open={openSections.marca}
+                onToggle={() => toggleSection('marca')}
+                summary={brand}
+              >
                 <label className="login-field">
                   Nombre de marca
                   <input
@@ -430,10 +523,14 @@ export function SitioWebPage() {
                     maxLength={40}
                   />
                 </label>
-              </fieldset>
+              </CollapsibleSection>
 
-              <fieldset className="sitio-web-fieldset">
-                <legend>Hero</legend>
+              <CollapsibleSection
+                title="Hero"
+                open={openSections.hero}
+                onToggle={() => toggleSection('hero')}
+                summary={heroTitleLine2}
+              >
                 <label className="login-field">
                   Título del hero
                   <input
@@ -464,10 +561,14 @@ export function SitioWebPage() {
                   onUpload={handleUpload}
                   onDelete={handleDeleteMedia}
                 />
-              </fieldset>
+              </CollapsibleSection>
 
-              <fieldset className="sitio-web-fieldset">
-                <legend>Servicios</legend>
+              <CollapsibleSection
+                title="Servicios"
+                open={openSections.servicios}
+                onToggle={() => toggleSection('servicios')}
+                summary={`${services.length} servicios`}
+              >
                 <label className="login-field">
                   Título de sección
                   <input
@@ -499,10 +600,14 @@ export function SitioWebPage() {
                     </label>
                   ))}
                 </div>
-              </fieldset>
+              </CollapsibleSection>
 
-              <fieldset className="sitio-web-fieldset">
-                <legend>Proyectos destacados</legend>
+              <CollapsibleSection
+                title="Proyectos destacados"
+                open={openSections.proyectos}
+                onToggle={() => toggleSection('proyectos')}
+                summary={`${projects.length} proyecto${projects.length === 1 ? '' : 's'}`}
+              >
                 <div className="sitio-web-grid-2">
                   <label className="login-field">
                     Título de sección
@@ -525,109 +630,139 @@ export function SitioWebPage() {
                     />
                   </label>
                 </div>
-                {projects.map((project, index) => (
-                  <div key={project.mediaSlot} className="sitio-web-project-block">
-                    <div className="sitio-web-project-head">
-                      <p className="dashboard-eyebrow">Proyecto {index + 1}</p>
-                      {projects.length > 1 ? (
+                {projects.map((project, index) => {
+                  const projectOpen = Boolean(openProjects[project.mediaSlot])
+                  return (
+                    <div
+                      key={project.mediaSlot}
+                      className={`sitio-web-project-block${projectOpen ? '' : ' is-collapsed'}`}
+                    >
+                      <div className="sitio-web-project-head">
                         <button
                           type="button"
-                          className="btn-secondary sitio-web-project-remove"
-                          disabled={busy}
-                          onClick={() => void handleRemoveProject(index)}
+                          className="sitio-web-project-toggle"
+                          aria-expanded={projectOpen}
+                          onClick={() => toggleProject(project.mediaSlot)}
                         >
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                          Quitar
+                          <ChevronDown
+                            size={16}
+                            strokeWidth={2}
+                            className={`sitio-web-chevron${projectOpen ? ' is-open' : ''}`}
+                            aria-hidden
+                          />
+                          <span className="sitio-web-project-toggle-label">
+                            <span className="sitio-web-project-name">
+                              {project.name || `Proyecto ${index + 1}`}
+                            </span>
+                            {project.category ? (
+                              <span className="sitio-web-project-meta">{project.category}</span>
+                            ) : null}
+                          </span>
                         </button>
+                        {projects.length > 1 ? (
+                          <button
+                            type="button"
+                            className="btn-secondary sitio-web-project-remove"
+                            disabled={busy}
+                            onClick={() => void handleRemoveProject(index)}
+                          >
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            Quitar
+                          </button>
+                        ) : null}
+                      </div>
+                      {projectOpen ? (
+                        <div className="sitio-web-project-body">
+                          <div className="sitio-web-grid-2">
+                            <label className="login-field">
+                              Nombre
+                              <input
+                                type="text"
+                                value={project.name}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setProjects((current) =>
+                                    current.map((item, i) =>
+                                      i === index ? { ...item, name: value } : item,
+                                    ),
+                                  )
+                                }}
+                                disabled={busy}
+                                maxLength={60}
+                              />
+                            </label>
+                            <label className="login-field">
+                              Categoría
+                              <input
+                                type="text"
+                                value={project.category}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setProjects((current) =>
+                                    current.map((item, i) =>
+                                      i === index ? { ...item, category: value } : item,
+                                    ),
+                                  )
+                                }}
+                                disabled={busy}
+                                maxLength={40}
+                              />
+                            </label>
+                          </div>
+                          <label className="login-field">
+                            Descripción
+                            <textarea
+                              value={project.description}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setProjects((current) =>
+                                  current.map((item, i) =>
+                                    i === index ? { ...item, description: value } : item,
+                                  ),
+                                )
+                              }}
+                              disabled={busy}
+                              maxLength={220}
+                              rows={3}
+                              placeholder="Breve descripción del proyecto"
+                            />
+                          </label>
+                          <label className="login-field">
+                            Enlace
+                            <input
+                              type="text"
+                              value={project.href}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setProjects((current) =>
+                                  current.map((item, i) =>
+                                    i === index ? { ...item, href: value } : item,
+                                  ),
+                                )
+                              }}
+                              disabled={busy}
+                              maxLength={300}
+                              placeholder="/fexmenu o https://..."
+                            />
+                          </label>
+                          <MediaEditor
+                            label={`Imagen ${project.name || `proyecto ${index + 1}`}`}
+                            slot={project.mediaSlot}
+                            url={mediaUrls[project.mediaSlot]}
+                            busy={busy}
+                            onUpload={handleUpload}
+                            onDelete={handleDeleteMedia}
+                          />
+                        </div>
                       ) : null}
                     </div>
-                    <div className="sitio-web-grid-2">
-                      <label className="login-field">
-                        Nombre
-                        <input
-                          type="text"
-                          value={project.name}
-                          onChange={(e) => {
-                            const value = e.target.value
-                            setProjects((current) =>
-                              current.map((item, i) =>
-                                i === index ? { ...item, name: value } : item,
-                              ),
-                            )
-                          }}
-                          disabled={busy}
-                          maxLength={60}
-                        />
-                      </label>
-                      <label className="login-field">
-                        Categoría
-                        <input
-                          type="text"
-                          value={project.category}
-                          onChange={(e) => {
-                            const value = e.target.value
-                            setProjects((current) =>
-                              current.map((item, i) =>
-                                i === index ? { ...item, category: value } : item,
-                              ),
-                            )
-                          }}
-                          disabled={busy}
-                          maxLength={40}
-                        />
-                      </label>
-                    </div>
-                    <label className="login-field">
-                      Descripción
-                      <textarea
-                        value={project.description}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          setProjects((current) =>
-                            current.map((item, i) =>
-                              i === index ? { ...item, description: value } : item,
-                            ),
-                          )
-                        }}
-                        disabled={busy}
-                        maxLength={220}
-                        rows={3}
-                        placeholder="Breve descripción del proyecto"
-                      />
-                    </label>
-                    <label className="login-field">
-                      Enlace
-                      <input
-                        type="text"
-                        value={project.href}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          setProjects((current) =>
-                            current.map((item, i) =>
-                              i === index ? { ...item, href: value } : item,
-                            ),
-                          )
-                        }}
-                        disabled={busy}
-                        maxLength={300}
-                        placeholder="/fexmenu o https://..."
-                      />
-                    </label>
-                    <MediaEditor
-                      label={`Imagen ${project.name || `proyecto ${index + 1}`}`}
-                      slot={project.mediaSlot}
-                      url={mediaUrls[project.mediaSlot]}
-                      busy={busy}
-                      onUpload={handleUpload}
-                      onDelete={handleDeleteMedia}
-                    />
-                  </div>
-                ))}
+                  )
+                })}
                 <button
                   type="button"
                   className="btn-secondary"
                   disabled={busy || projects.length >= MAX_SITIO_PROJECTS}
-                  onClick={handleAddProject}
+                  onClick={() => void handleAddProject()}
                 >
                   <Plus size={16} strokeWidth={2} aria-hidden />
                   Agregar proyecto
@@ -635,10 +770,14 @@ export function SitioWebPage() {
                     ? ` (máx. ${MAX_SITIO_PROJECTS})`
                     : ''}
                 </button>
-              </fieldset>
+              </CollapsibleSection>
 
-              <fieldset className="sitio-web-fieldset">
-                <legend>Información legal</legend>
+              <CollapsibleSection
+                title="Información legal"
+                open={openSections.legal}
+                onToggle={() => toggleSection('legal')}
+                summary={legalCompanyName}
+              >
                 <div className="sitio-web-grid-2">
                   <label className="login-field">
                     Razón social / nombre comercial
@@ -724,10 +863,14 @@ export function SitioWebPage() {
                     rows={6}
                   />
                 </label>
-              </fieldset>
+              </CollapsibleSection>
 
-              <fieldset className="sitio-web-fieldset">
-                <legend>Footer y redes</legend>
+              <CollapsibleSection
+                title="Footer y redes"
+                open={openSections.footer}
+                onToggle={() => toggleSection('footer')}
+                summary={footerContactLabel}
+              >
                 <label className="login-field">
                   Texto de contacto
                   <input
@@ -776,7 +919,7 @@ export function SitioWebPage() {
                     </label>
                   </div>
                 ))}
-              </fieldset>
+              </CollapsibleSection>
 
               {error ? (
                 <p className="proyectos-status proyectos-status-error" role="alert">

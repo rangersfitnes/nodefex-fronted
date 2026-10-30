@@ -2421,22 +2421,185 @@ a {
   gap: 1.25rem;
 }
 
+@keyframes nf-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.nf-shimmer {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(
+    105deg,
+    rgba(18, 50, 92, 0.055) 0%,
+    rgba(18, 50, 92, 0.055) 38%,
+    rgba(18, 50, 92, 0.13) 50%,
+    rgba(18, 50, 92, 0.055) 62%,
+    rgba(18, 50, 92, 0.055) 100%
+  );
+  background-size: 220% 100%;
+  animation: nf-shimmer 1.45s ease-in-out infinite;
+}
+
+.nf-shimmer-line {
+  max-width: 100%;
+}
+
+.nf-shimmer-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.nf-shimmer-icon-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.nf-shimmer-input {
+  width: 100%;
+  height: 2.55rem;
+  border-radius: 10px;
+}
+
+.nf-shimmer-button {
+  width: 11rem;
+  height: 2.55rem;
+  border-radius: 999px;
+}
+
+.nf-shimmer-button-primary {
+  width: 9.5rem;
+  height: 2.7rem;
+}
+
+.nf-shimmer-chip {
+  width: 4.2rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.nf-shimmer-chip-wide {
+  width: 5.5rem;
+}
+
+.sitio-web-shimmer-section {
+  padding: 0.55rem 0.85rem;
+}
+
+.sitio-web-shimmer-section.is-open-preview {
+  padding-bottom: 0.85rem;
+}
+
+.sitio-web-shimmer-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.1rem;
+}
+
+.sitio-web-shimmer-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.nf-shimmer-card {
+  pointer-events: none;
+  min-height: 7.5rem;
+}
+
+.nf-shimmer-card-foot {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-shimmer {
+    animation: none;
+    background: rgba(18, 50, 92, 0.08);
+  }
+}
+
 .sitio-web-fieldset {
   margin: 0;
-  padding: 1.1rem 1rem 1.15rem;
+  padding: 0.35rem 0.85rem 0.85rem;
   border: 1px solid rgba(18, 50, 92, 0.12);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.55);
-  display: grid;
-  gap: 0.85rem;
 }
 
-.sitio-web-fieldset legend {
-  padding: 0 0.35rem;
+.sitio-web-fieldset.is-collapsed {
+  padding-bottom: 0.35rem;
+}
+
+.sitio-web-fieldset-legend {
+  display: block;
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.sitio-web-fieldset-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.55rem 0.2rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--blue-950);
+  font: inherit;
+}
+
+.sitio-web-fieldset-toggle-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.sitio-web-fieldset-title {
   font-family: Outfit, 'DM Sans', sans-serif;
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--blue-950);
+}
+
+.sitio-web-fieldset-summary {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(18, 50, 92, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sitio-web-chevron {
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+  color: rgba(18, 50, 92, 0.55);
+}
+
+.sitio-web-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.sitio-web-fieldset-body {
+  display: grid;
+  gap: 0.85rem;
+  clear: both;
+  padding: 0.15rem 0.15rem 0.35rem;
 }
 
 .sitio-web-grid-2 {
@@ -2448,8 +2611,14 @@ a {
 .sitio-web-project-block {
   display: grid;
   gap: 0.75rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid rgba(18, 50, 92, 0.08);
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(18, 50, 92, 0.1);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.sitio-web-project-block.is-collapsed {
+  gap: 0;
 }
 
 .sitio-web-project-head {
@@ -2459,10 +2628,56 @@ a {
   gap: 0.75rem;
 }
 
+.sitio-web-project-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.sitio-web-project-toggle-label {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.sitio-web-project-name {
+  font-family: Outfit, 'DM Sans', sans-serif;
+  font-weight: 650;
+  font-size: 0.9rem;
+  color: var(--blue-950);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sitio-web-project-meta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(18, 50, 92, 0.55);
+}
+
+.sitio-web-project-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .sitio-web-project-remove {
   min-height: 2.1rem;
   padding: 0.35rem 0.75rem;
   font-size: 0.82rem;
+  flex-shrink: 0;
 }
 
 .sitio-web-project-block textarea {
@@ -2476,6 +2691,12 @@ a {
   border: 1px solid rgba(18, 50, 92, 0.14);
   background: #fff;
   color: inherit;
+}
+
+@media (max-width: 640px) {
+  .sitio-web-grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sitio-web-media-card {

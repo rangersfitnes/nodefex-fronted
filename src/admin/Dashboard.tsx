@@ -24,6 +24,7 @@ import {
   Users,
   X,
 } from '../icons'
+import { CardGridShimmer } from './Shimmer'
 
 function ProyectoCardBrand({ proyecto }: { proyecto: Proyecto }) {
   const isGenio = esProyectoAudiovisual(proyecto.id) || esProyectoAudiovisual(proyecto.nombre)
@@ -235,12 +236,7 @@ export function Dashboard() {
               </div>
             ) : null}
             <p className="dashboard-eyebrow">Proyectos</p>
-            {loading ? (
-              <div className="proyectos-status">
-                <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-                Cargando proyectos...
-              </div>
-            ) : null}
+            {loading ? <CardGridShimmer count={3} /> : null}
             {!loading && error ? (
               <div className="proyectos-status proyectos-status-error" role="alert">
                 <AlertCircle size={18} strokeWidth={2} aria-hidden />
@@ -411,12 +407,7 @@ export function Dashboard() {
 
             <section className="proyectos-section" aria-label="Lista de proyectos">
               <p className="dashboard-eyebrow">Proyectos</p>
-          {loading ? (
-            <div className="proyectos-status">
-              <LoaderCircle className="spin" size={22} strokeWidth={2} aria-hidden />
-              Cargando proyectos...
-            </div>
-          ) : null}
+          {loading ? <CardGridShimmer count={4} /> : null}
 
           {!loading && error ? (
             <div className="proyectos-status proyectos-status-error" role="alert">
