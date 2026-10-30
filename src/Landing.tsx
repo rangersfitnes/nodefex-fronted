@@ -7,6 +7,7 @@ import {
   type SitioMediaSlot,
   type SitioWebContent,
 } from './api/sitio'
+import { CosmicField } from './CosmicField'
 import { resolveSitioMediaSrc } from './utils/sitioMedia'
 import {
   ArrowRight,
@@ -125,6 +126,13 @@ const NAV_LINKS = [
 ] as const
 
 const SERVICE_ICONS = [Code2, Box, Video, Layers] as const
+const SERVICE_BLURBS = [
+  'Productos y plataformas a medida.',
+  'Prototipos y piezas que se fabrican.',
+  'Contenido y producción con pulso de marca.',
+  'Estrategia tech para decidir y crecer.',
+] as const
+const PROJECT_TONES = ['teal', 'ember', 'field', 'slate'] as const
 const SOCIAL_ICONS = [InstagramIcon, YoutubeIcon, LinkedinIcon] as const
 
 const DEFAULT_CONTENT: SitioWebContent = {
@@ -133,7 +141,7 @@ const DEFAULT_CONTENT: SitioWebContent = {
   heroTitle: 'WE BUILD.',
   heroEyebrow: '',
   heroTitleLine1: 'WE BUILD.',
-  heroTitleLine2: 'Tu web profesional.',
+  heroTitleLine2: 'Software, impresión 3D y audiovisual con identidad propia.',
   heroCta: 'Ver proyectos',
   servicesTitle: 'Nuestros servicios',
   services: [
@@ -156,7 +164,7 @@ const DEFAULT_CONTENT: SitioWebContent = {
       name: 'El Genio',
       category: 'AUDIOVISUAL',
       description: '',
-      href: '#proyectos',
+      href: 'https://elgenio.co',
       mediaSlot: 'project-1',
     },
     {
@@ -304,6 +312,7 @@ export function Landing() {
         (service, index) => ({
           ...service,
           icon: SERVICE_ICONS[index % SERVICE_ICONS.length],
+          blurb: SERVICE_BLURBS[index % SERVICE_BLURBS.length],
         }),
       ),
     [content.services],
@@ -322,6 +331,7 @@ export function Landing() {
             mediaSlot: slot,
             slot,
             imageUrl: content.mediaUrls?.[slot],
+            tone: PROJECT_TONES[index % PROJECT_TONES.length],
           }
         },
       ),
@@ -420,21 +430,20 @@ export function Landing() {
       </header>
 
       <main>
-        <section id="inicio" className="nf-hero" aria-labelledby="nf-hero-title">
-          <MediaSlot
-            slot="hero-bg"
-            label="Imagen hero"
-            className="nf-hero-media"
-            imageUrl={content.mediaUrls?.['hero-bg']}
-            priority
-          />
+        <section id="inicio" className="nf-hero nf-hero-cosmic" aria-labelledby="nf-hero-title">
+          <CosmicField className="nf-hero-media" />
           <div className="nf-hero-scrim" aria-hidden />
           <div className="nf-hero-content">
-            <h1 id="nf-hero-title" className="nf-hero-lead">
-              {content.heroTitleLine2 || 'Tu web profesional.'}
+            <p className="nf-hero-brand">{brandShort}</p>
+            <h1 id="nf-hero-title" className="nf-hero-title">
+              <span>{content.heroTitleLine1 || content.heroTitle || 'WE BUILD.'}</span>
             </h1>
+            <p className="nf-hero-lead">
+              {content.heroTitleLine2 ||
+                'Software, impresión 3D y audiovisual con identidad propia.'}
+            </p>
             <div className="nf-hero-actions">
-              <a className="nf-btn nf-btn-outline" href="#proyectos">
+              <a className="nf-btn nf-btn-solid" href="#proyectos">
                 {content.heroCta || 'Ver proyectos'}
                 <ArrowRight size={16} strokeWidth={2} aria-hidden />
               </a>
@@ -453,26 +462,34 @@ export function Landing() {
 
         <section
           id="proyectos"
-          className="nf-section nf-projects"
+          className="nf-section nf-projects nf-section-light"
           aria-labelledby="proyectos-title"
         >
           <div className="nf-section-row">
-            <h2 id="proyectos-title" className="nf-section-label">
-              {content.projectsTitle}
-            </h2>
+            <div>
+              <h2 id="proyectos-title" className="nf-section-label">
+                {content.projectsTitle}
+              </h2>
+              <p className="nf-section-support">
+                Productos vivos, cada uno con su propio pulso.
+              </p>
+            </div>
             <a className="nf-link-all" href="#proyectos">
               {content.projectsCta}
               <span className="nf-icon-circle" aria-hidden>
                 <ArrowRight size={14} strokeWidth={2} />
               </span>
             </a>
+            <p className="nf-projects-hint" aria-hidden>
+              Desliza para ver más
+            </p>
           </div>
 
           <ul
             className="nf-project-grid"
             data-count={projects.length <= 4 ? String(projects.length) : 'many'}
           >
-            {projects.map((project) => {
+            {projects.map((project, index) => {
               const href = resolveProjectHref(project.href)
               const cardKey = project.mediaSlot || `${project.name}-${project.slot}`
               const description = project.description?.trim() || ''
@@ -518,6 +535,8 @@ export function Landing() {
                 <li
                   key={cardKey}
                   className={`nf-project-item${isExpanded ? ' is-expanded' : ''}`}
+                  data-tone={project.tone}
+                  style={{ animationDelay: `${0.06 + index * 0.07}s` }}
                 >
                   {isInternalPath(href) ? (
                     <Link to={href} className="nf-project-card">
@@ -570,24 +589,49 @@ export function Landing() {
           ) : null}
         </section>
 
+        <section className="nf-band" aria-labelledby="nf-band-title">
+          <MediaSlot
+            slot="band-bg"
+            label="Imagen banda"
+            className="nf-band-media"
+            imageUrl={content.mediaUrls?.['band-bg']}
+          />
+          <div className="nf-band-scrim" aria-hidden />
+          <div className="nf-band-content">
+            <p className="nf-band-brand">{content.bandBrand || content.brand}</p>
+            <h2 id="nf-band-title" className="nf-band-title">
+              <span>{content.bandTitleLine1 || 'IDEAS'}</span>
+              <span>{content.bandTitleLine2 || 'EN MOVIMIENTO'}</span>
+            </h2>
+            <a className="nf-btn nf-btn-outline nf-band-cta" href={contactHref}>
+              <ArrowRight size={20} strokeWidth={2} aria-hidden />
+              <span className="nf-sr-only">{content.navCta || 'Hablemos'}</span>
+            </a>
+          </div>
+        </section>
+
         <section
           id="servicios"
-          className="nf-section nf-services"
+          className="nf-section nf-services nf-section-light"
           aria-labelledby="servicios-title"
         >
           <h2 id="servicios-title" className="nf-section-label">
             {content.servicesTitle}
           </h2>
+          <p className="nf-section-support">
+            Cuatro líneas. Un mismo taller.
+          </p>
           <ul className="nf-service-grid">
-            {services.map((service) => {
+            {services.map((service, index) => {
               const Icon = service.icon
               return (
-                <li key={service.title}>
-                  <a href="#servicios" className="nf-service-item">
+                <li key={service.title} style={{ animationDelay: `${0.05 + index * 0.06}s` }}>
+                  <a href="#contacto" className="nf-service-item">
                     <span className="nf-service-icon" aria-hidden>
                       <Icon size={22} strokeWidth={1.6} />
                     </span>
                     <span className="nf-service-title">{service.title}</span>
+                    <span className="nf-service-blurb">{service.blurb}</span>
                     <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
                   </a>
                 </li>
